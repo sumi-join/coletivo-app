@@ -269,14 +269,15 @@ function abrirSacola(){
     <label>Observações</label>
     <textarea id="obs" rows="2" placeholder="Sem repolho? Meio quilo de conserva? Conta aqui."></textarea>
 
-    <label>Pagamento na ${entrega==="entrega"?"entrega":"retirada"}</label>
+    <label>Pagamento</label>
     <div class="toggle">
-      <button class="${pgto==="pix"?"on":""}" onclick="setPgto('pix')">Pix</button>
-      <button class="${pgto==="cartao"?"on":""}" onclick="setPgto('cartao')">💳 Cartão (maquininha)</button>
+      <button class="${pgto==="online"?"on":""}" onclick="setPgto('online')">⚡ Pagar agora</button>
+      <button class="${pgto==="pix"?"on":""}" onclick="setPgto('pix')">Pix na ${entrega==="entrega"?"entrega":"retirada"}</button>
+      <button class="${pgto==="cartao"?"on":""}" onclick="setPgto('cartao')">💳 na ${entrega==="entrega"?"entrega":"retirada"}</button>
     </div>
 
-    <button class="pagar" onclick="pagar(this)">Enviar pedido · ${fmt(t)}</button>
-    <div class="mp-note">Você paga na hora, com Pix ou cartão · pagamento online em breve</div>
+    <button class="pagar" onclick="pagar(this)">${pgto==="online"?"Pagar":"Enviar pedido"} · ${fmt(t)}</button>
+    <div class="mp-note">${pgto==="online"?"Pix ou cartão, seguro via Mercado Pago":"Você paga na hora de receber"}</div>
     <div class="mp-note" id="erro-envio" style="color:var(--vermelho)"></div>`}`;
   sheet.classList.add("on");
   document.getElementById("overlay").classList.add("on");
@@ -293,6 +294,23 @@ async function pagar(btn){
   const itens = Object.keys(cart).map(id=>({item:BYID[id].nome, qtd:cart[id], preco:BYID[id].preco}));
   btn.disabled=true; btn.textContent="Enviando...";
   const codigo = Array.from({length:4},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
+  if(pgto==="online"){
+    try{
+      const r = await fetch(`${SUPA_URL}/functions/v1/mp-create-preference`,{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({codigo, itens, total:t, nome, whatsapp:zap, modo:entrega,
+          endereco:entrega==="entrega"?endereco:null, obs:obs||null})
+      });
+      const d = await r.json();
+      if(!r.ok || !d.init_point) throw new Error(d.erro||"sem link");
+      cart={}; localStorage.removeItem("rs_cart");
+      window.location.href = d.init_point;
+    }catch(e){
+      btn.disabled=false; btn.textContent="Pagar";
+      erro.textContent="Pagamento online indisponível agora — escolha pagar na entrega. 🙏";
+    }
+    return;
+  }
   try{
     const r = await fetch(`${SUPA_URL}/rest/v1/pedidos`,{
       method:"POST",
@@ -325,6 +343,32 @@ function fecharSheet(){
 }
 function fecharTudo(){ cart={}; localStorage.removeItem("rs_cart"); render(); fecharSheet(); }
 render();
+
+// retorno do Checkout Pro (?pago=1|0|pendente&codigo=XXXX)
+(function(){
+  const q = new URLSearchParams(location.search);
+  if(!q.has("pago")) return;
+  const codigo = q.get("codigo")||"", ok = q.get("pago");
+  history.replaceState(null,"",location.pathname);
+  const sheet=document.getElementById("sheet");
+  sheet.innerHTML = ok==="1" ? `
+    <div class="sheet-head"><h2>Pagamento confirmado</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div class="ok-box"><span class="osym"></span>
+      <h3>Arigatô! 🙏</h3>
+      <p>Pedido <strong>#${codigo}</strong> pago e já na fila da cozinha.<br>Qualquer coisa, chama a gente no WhatsApp.</p></div>`
+  : ok==="pendente" ? `
+    <div class="sheet-head"><h2>Quase lá</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div class="ok-box"><span class="osym"></span>
+      <h3>Pagamento em processamento</h3>
+      <p>Assim que o Mercado Pago confirmar, o pedido <strong>#${codigo}</strong> entra na fila da cozinha.</p></div>`
+  : `
+    <div class="sheet-head"><h2>Não rolou 😕</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div class="ok-box"><span class="osym"></span>
+      <h3>Pagamento não aprovado</h3>
+      <p>Nenhum valor foi cobrado. Tenta de novo, ou escolhe pagar na entrega.</p></div>`;
+  sheet.classList.add("on");
+  document.getElementById("overlay").classList.add("on");
+})();
 </script>
 </body>
 </html>
