@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Rio Sandô — cozinha</title>
+<style>
+  :root{--preto:#1A1A1A;--creme:#F5F0EB;--vermelho:#C0392B;--verde:#2D5A27;--card:#FDFBF8;--linha:rgba(26,26,26,.12)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Futura,'Century Gothic',sans-serif;background:var(--preto);color:var(--creme);min-height:100vh}
+  .wrap{max-width:1100px;margin:0 auto;padding:20px}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+  h1{font-size:20px;letter-spacing:.15em}
+  h1 span{color:var(--vermelho)}
+  .sub{font-size:12px;opacity:.6;letter-spacing:.1em}
+  button{font-family:inherit;cursor:pointer}
+  .sair{background:none;border:1px solid var(--creme);color:var(--creme);border-radius:99px;padding:7px 16px;font-size:12px}
+
+  /* login */
+  .login{max-width:360px;margin:14vh auto 0;background:var(--card);color:var(--preto);border-radius:16px;padding:28px}
+  .login h2{font-size:16px;letter-spacing:.2em;text-transform:uppercase;color:var(--vermelho);margin-bottom:18px}
+  .login label{display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;margin:14px 0 6px;opacity:.7}
+  .login input{width:100%;font-family:inherit;font-size:15px;padding:12px;border:1px solid var(--preto);border-radius:10px;background:#fff}
+  .login button{width:100%;margin-top:20px;background:var(--vermelho);color:#fff;border:none;border-radius:12px;padding:14px;font-size:14px;letter-spacing:.08em}
+  .login .erro{color:var(--vermelho);font-size:12px;margin-top:10px;min-height:16px}
+
+  /* board */
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+  .col h2{font-size:12px;letter-spacing:.25em;text-transform:uppercase;margin-bottom:10px;opacity:.8}
+  .pedido{background:var(--card);color:var(--preto);border-radius:14px;padding:16px;margin-bottom:12px;position:relative}
+  .pedido.novo-flash{outline:3px solid var(--vermelho)}
+  .ped-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .codigo{font-size:18px;font-weight:500}
+  .hora{font-size:12px;opacity:.55}
+  .cliente{font-size:13px;margin-bottom:8px}
+  .cliente a{color:var(--verde);text-decoration:none}
+  .itens{border-top:1px dashed var(--linha);padding-top:8px;font-size:14px;line-height:1.7}
+  .itens b{color:var(--vermelho)}
+  .meta{font-size:12px;opacity:.7;margin-top:8px;line-height:1.5}
+  .total{font-size:15px;font-weight:500;margin-top:8px}
+  .acoes{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .avancar{flex:1;background:var(--preto);color:var(--creme);border:none;border-radius:10px;padding:11px;font-size:13px;letter-spacing:.05em}
+  .imprimir,.cancelar{background:none;border:1px solid var(--preto);border-radius:10px;padding:11px 13px;font-size:13px}
+  .cancelar{border-color:var(--vermelho);color:var(--vermelho)}
+  .vazio{opacity:.4;font-size:13px;padding:14px 4px}
+  .badge{position:absolute;top:-8px;right:12px;background:var(--vermelho);color:#fff;font-size:10px;letter-spacing:.1em;padding:3px 10px;border-radius:99px}
+  @media print{
+    body *{display:none}
+    #comanda,#comanda *{display:block}
+    #comanda{position:absolute;top:0;left:0;width:80mm;color:#000;background:#fff;
+      font-family:monospace;font-size:12px;padding:4mm;line-height:1.5;white-space:pre-wrap}
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="comanda"></div>
+<script>
+const SUPA_URL = "https://xngsucsxqbmvdnyuabll.supabase.co";
+const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZ3N1Y3N4cWJtdmRueXVhYmxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDg1MTYsImV4cCI6MjEwMjcyNDUxNn0.P5vuyAyooZ_BArc_lC7HiQ2N-p0Fi7ejpxzyehPSi1Q";
+const NEXT = {novo:["em_preparo","▶ Iniciar preparo"], em_preparo:["pronto","✔ Pronto"], pronto:["entregue","🛵 Saiu / entregue"]};
+const COLS = [["novo","🔴 Novos"],["em_preparo","🔪 Em preparo"],["pronto","📦 Prontos"]];
+let sess = JSON.parse(localStorage.getItem("rs_sess")||"null");
+let pedidos = [], vistos = new Set(JSON.parse(localStorage.getItem("rs_vistos")||"[]")), timer=null;
+const fmt = v => "R$ " + Number(v).toFixed(2).replace(".",",").replace(",00","");
+const $ = id => document.getElementById(id);
+
+function render(){
+  const app=$("app");
+  if(!sess){
+    app.innerHTML=`<div class="login">
+      <h2>Rio Sandô · Cozinha</h2>
+      <label>E-mail</label><input id="email" type="email" value="riosandolito@gmail.com">
+      <label>Senha</label><input id="senha" type="password">
+      <button onclick="entrar()">Entrar</button><div class="erro" id="lerro"></div></div>`;
+    return;
+  }
+  app.innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
+      <button class="sair" onclick="sair()">Sair</button>
+    </header>
+    <div class="cols">${COLS.map(([st,titulo])=>{
+      const list=pedidos.filter(p=>p.status===st);
+      return `<div class="col"><h2>${titulo} (${list.length})</h2>
+        ${!list.length?`<div class="vazio">nada por aqui</div>`:list.map(card).join("")}</div>`;
+    }).join("")}</div>`;
+}
+function card(p){
+  const [nx,rot] = NEXT[p.status]||[];
+  const flash = !vistos.has(p.id) && p.status==="novo";
+  return `<div class="pedido ${flash?"novo-flash":""}">
+    ${flash?`<span class="badge">NOVO</span>`:""}
+    <div class="ped-head"><span class="codigo">#${p.codigo}</span>
+      <span class="hora">${new Date(p.created_at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</span></div>
+    <div class="cliente">${p.nome} · <a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank">${p.whatsapp}</a><br>
+      ${p.modo==="entrega"?"🛵 "+(p.endereco||""):"🏠 Retirada"} · pgto: ${p.pagamento}</div>
+    <div class="itens">${p.itens.map(i=>`<b>${i.qtd}×</b> ${i.item}`).join("<br>")}</div>
+    ${p.obs?`<div class="meta">📝 ${p.obs}</div>`:""}
+    <div class="total">${fmt(p.total)}</div>
+    <div class="acoes">
+      ${nx?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${rot}</button>`:""}
+      <button class="imprimir" onclick="imprimir(${p.id})">🖨️</button>
+      ${p.status==="novo"?`<button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕</button>`:""}
+    </div></div>`;
+}
+async function entrar(){
+  const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`,{
+    method:"POST",headers:{apikey:SUPA_ANON,"Content-Type":"application/json"},
+    body:JSON.stringify({email:$("email").value.trim(),password:$("senha").value})});
+  const d = await r.json();
+  if(!r.ok){ $("lerro").textContent="Login falhou — confere a senha?"; return; }
+  sess={token:d.access_token, refresh:d.refresh_token, exp:Date.now()+ (d.expires_in-60)*1000};
+  localStorage.setItem("rs_sess",JSON.stringify(sess));
+  iniciar();
+}
+async function renovar(){
+  const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`,{
+    method:"POST",headers:{apikey:SUPA_ANON,"Content-Type":"application/json"},
+    body:JSON.stringify({refresh_token:sess.refresh})});
+  const d = await r.json();
+  if(!r.ok){ sair(); return false; }
+  sess={token:d.access_token, refresh:d.refresh_token, exp:Date.now()+(d.expires_in-60)*1000};
+  localStorage.setItem("rs_sess",JSON.stringify(sess));
+  return true;
+}
+async function api(path, opts={}){
+  if(Date.now()>sess.exp && !(await renovar())) return null;
+  return fetch(`${SUPA_URL}/rest/v1/${path}`,{...opts,
+    headers:{apikey:SUPA_ANON, Authorization:`Bearer ${sess.token}`,
+      "Content-Type":"application/json", ...(opts.headers||{})}});
+}
+async function carregar(){
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const r = await api(`pedidos?created_at=gte.${hoje.toISOString()}&status=not.in.(entregue,cancelado)&order=created_at.asc`);
+  if(!r || !r.ok) return;
+  const dados = await r.json();
+  const novos = dados.filter(p=>p.status==="novo" && !vistos.has(p.id));
+  if(novos.length && pedidos.length !== undefined && document.hasFocus()!==null){
+    if(carregar.ja) bip();
+  }
+  carregar.ja = true;
+  pedidos = dados;
+  render();
+  setTimeout(()=>{ dados.forEach(p=>vistos.add(p.id));
+    localStorage.setItem("rs_vistos",JSON.stringify([...vistos].slice(-200))); }, 8000);
+}
+async function mudarStatus(id, st){
+  await api(`pedidos?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({status:st})});
+  carregar();
+}
+function imprimir(id){
+  const p = pedidos.find(x=>x.id===id); if(!p) return;
+  $("comanda").textContent =
+`RIO SANDO  ·  #${p.codigo}
+${new Date(p.created_at).toLocaleString("pt-BR")}
+--------------------------------
+${p.itens.map(i=>`${i.qtd}x ${i.item}`).join("\n")}
+--------------------------------
+${p.obs?`OBS: ${p.obs}\n`:""}${p.modo==="entrega"?`ENTREGA: ${p.endereco}`:"RETIRADA"}
+${p.nome} · ${p.whatsapp}
+TOTAL ${fmt(p.total)} · ${p.pagamento.toUpperCase()} na ${p.modo==="entrega"?"entrega":"retirada"}
+--------------------------------
+todo sando tem alma`;
+  window.print();
+}
+function bip(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [0,.3,.6].forEach(t=>{
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value=880; g.gain.setValueAtTime(.4,ctx.currentTime+t);
+      g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+t+.25);
+      o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+.3);
+    });
+  }catch(e){}
+}
+function iniciar(){ render(); carregar(); clearInterval(timer); timer=setInterval(carregar,10000); }
+function sair(){ sess=null; localStorage.removeItem("rs_sess"); clearInterval(timer); render(); }
+sess ? iniciar() : render();
+</script>
+</body>
+</html>
