@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1A1A1A">
+<title>Rio Sandô — peça seu sando</title>
+<style>
+  :root{
+    --preto:#1A1A1A; --creme:#F5F0EB; --vermelho:#C0392B; --verde:#2D5A27;
+    --creme-card:#FDFBF8; --linha:rgba(26,26,26,.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:Futura,'Futura PT','Century Gothic','Jost',sans-serif;
+    background:var(--creme); color:var(--preto);
+    padding-bottom:110px;
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:0 20px}
+
+  /* header */
+  header{background:var(--creme);padding:28px 0 0}
+  .kana{color:var(--vermelho);font-size:12px;letter-spacing:.5em;margin-bottom:6px}
+  .wordmark{font-weight:500;font-size:34px;letter-spacing:.06em;line-height:1;display:flex;align-items:center;gap:2px}
+  .wordmark .oq{display:inline-block;width:.72em;height:.72em;border:3px solid var(--preto);border-radius:2px;margin:0 .06em}
+  .wordmark .osym{display:inline-block;position:relative;width:.72em;height:.72em;border:3px solid var(--preto);border-radius:2px;margin-left:.06em}
+  .wordmark .osym::before{content:"";position:absolute;left:2px;right:2px;top:38%;height:26%;background:var(--vermelho)}
+  .wordmark .osym::after{content:"";position:absolute;left:20%;right:20%;top:-9px;height:3px;background:var(--preto)}
+  .tagline{font-size:13px;opacity:.65;margin-top:10px}
+  .status{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;
+    background:var(--preto);color:var(--creme);padding:6px 12px;border-radius:99px}
+  .dot{width:7px;height:7px;border-radius:50%;background:#7CBF6B}
+  .alma{font-style:italic;font-size:12px;opacity:.5;margin-top:14px;border-top:1px solid var(--linha);padding-top:12px}
+
+  /* category nav */
+  nav{position:sticky;top:0;background:var(--creme);z-index:20;padding:12px 0;border-bottom:1px solid var(--linha)}
+  .chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 20px;max-width:520px;margin:0 auto}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;font-family:inherit;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    padding:8px 14px;border-radius:99px;border:1px solid var(--preto);background:transparent;color:var(--preto);cursor:pointer}
+  .chip.on{background:var(--preto);color:var(--creme)}
+
+  /* sections & cards */
+  section{padding-top:26px}
+  h2{font-size:13px;letter-spacing:.28em;text-transform:uppercase;color:var(--vermelho);
+    display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  h2::after{content:"";flex:1;height:1px;background:var(--linha)}
+  h2 small{font-size:10px;letter-spacing:.1em;color:var(--preto);opacity:.5}
+  .card{background:var(--creme-card);border:1px solid var(--linha);border-radius:14px;overflow:hidden;margin-bottom:12px}
+  .card img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block}
+  .card .info{padding:14px 16px 16px;display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+  .card h3{font-size:16px;font-weight:500;line-height:1.3}
+  .card p{font-size:12.5px;opacity:.6;margin-top:4px;line-height:1.45}
+  .preco{font-size:15px;color:var(--vermelho);white-space:nowrap;font-weight:500}
+  .add{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .btn-add,.btn-qty{font-family:inherit;border:1px solid var(--preto);background:var(--preto);color:var(--creme);
+    border-radius:99px;padding:8px 18px;font-size:13px;letter-spacing:.08em;cursor:pointer}
+  .btn-qty{padding:6px 13px;font-size:15px;line-height:1}
+  .qtd{min-width:20px;text-align:center;font-size:15px}
+  .linha-item{display:flex;justify-content:space-between;align-items:center;padding:13px 2px;border-bottom:1px solid var(--linha);gap:10px}
+  .linha-item:last-child{border-bottom:none}
+  .linha-item h3{font-size:14.5px;font-weight:500}
+  .linha-item p{font-size:11.5px;opacity:.55;margin-top:2px}
+  .mini-add{display:flex;align-items:center;gap:8px}
+  .nota{font-size:11.5px;opacity:.55;margin:6px 2px 0}
+  .vinhos{background:var(--preto);color:var(--creme);border-radius:14px;padding:18px;margin-top:14px}
+  .vinhos h3{font-size:15px;margin-bottom:6px}
+  .vinhos p{font-size:12.5px;opacity:.75;line-height:1.5}
+
+  /* cart bar */
+  .cartbar{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:14px 20px calc(14px + env(safe-area-inset-bottom));
+    background:linear-gradient(transparent, var(--creme) 30%)}
+  .cartbar button{width:100%;max-width:480px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;
+    font-family:inherit;background:var(--vermelho);color:#fff;border:none;border-radius:14px;
+    padding:16px 20px;font-size:15px;letter-spacing:.06em;cursor:pointer;box-shadow:0 8px 24px rgba(26,26,26,.25)}
+  .cartbar .hidden-bar{display:none}
+
+  /* sheet (sacola / checkout) */
+  .overlay{position:fixed;inset:0;background:rgba(26,26,26,.5);z-index:40;opacity:0;pointer-events:none;transition:.2s}
+  .overlay.on{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--creme);border-radius:20px 20px 0 0;
+    max-height:88vh;overflow-y:auto;transform:translateY(105%);transition:.25s;padding:22px 20px calc(28px + env(safe-area-inset-bottom))}
+  .sheet.on{transform:translateY(0)}
+  .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .sheet-head h2{margin:0}.sheet-head h2::after{display:none}
+  .fechar{background:none;border:none;font-size:22px;cursor:pointer;color:var(--preto);font-family:inherit}
+  .total-row{display:flex;justify-content:space-between;font-size:16px;font-weight:500;padding:16px 2px;border-top:2px solid var(--preto);margin-top:8px}
+  label{display:block;font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin:16px 0 6px;opacity:.7}
+  input[type=text],input[type=tel],textarea{width:100%;font-family:inherit;font-size:15px;padding:12px 14px;
+    border:1px solid var(--preto);border-radius:10px;background:var(--creme-card);color:var(--preto)}
+  .toggle{display:flex;gap:8px;margin-top:6px}
+  .toggle button{flex:1;font-family:inherit;font-size:13px;letter-spacing:.08em;padding:12px;border-radius:10px;
+    border:1px solid var(--preto);background:transparent;color:var(--preto);cursor:pointer}
+  .toggle button.on{background:var(--preto);color:var(--creme)}
+  .pagar{width:100%;margin-top:22px;font-family:inherit;background:var(--vermelho);color:#fff;border:none;
+    border-radius:14px;padding:17px;font-size:15px;letter-spacing:.08em;cursor:pointer}
+  .mp-note{font-size:11.5px;opacity:.55;text-align:center;margin-top:10px}
+  .vazio{text-align:center;opacity:.5;padding:30px 0;font-size:14px}
+
+  /* confirmação */
+  .ok-box{text-align:center;padding:26px 0 10px}
+  .ok-box .osym{width:54px;height:54px;border-width:4px;margin:0 auto 18px;display:block;position:relative;border:4px solid var(--preto);border-radius:4px}
+  .ok-box .osym::before{content:"";position:absolute;left:4px;right:4px;top:38%;height:26%;background:var(--vermelho)}
+  .ok-box h3{font-size:20px;margin-bottom:8px}
+  .ok-box p{font-size:13.5px;opacity:.65;line-height:1.5}
+  footer{margin-top:40px;padding:20px 0 30px;border-top:1px solid var(--linha);font-size:11px;letter-spacing:.14em;opacity:.5;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="kana">サンド</div>
+    <div class="wordmark">RI<span class="oq"></span>&nbsp;SAND<span class="osym"></span></div>
+    <div class="tagline">Katsu sando japonês · feito à mão · Botafogo, Rio</div>
+    <div class="status"><span class="dot"></span> ter–sáb · 18h–22h30</div>
+    <div class="alma">Todo sandô tem alma.</div>
+  </div>
+</header>
+
+<nav><div class="chips" id="chips"></div></nav>
+
+<main class="wrap" id="menu"></main>
+
+<div class="cartbar"><button id="cartbar" class="hidden-bar" onclick="abrirSacola()">
+  <span id="cart-count">Ver sacola</span><span id="cart-total"></span>
+</button></div>
+
+<div class="overlay" id="overlay" onclick="fecharSheet()"></div>
+<div class="sheet" id="sheet"></div>
+
+<script>
+const SUPA_URL = "https://xngsucsxqbmvdnyuabll.supabase.co";
+const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZ3N1Y3N4cWJtdmRueXVhYmxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDg1MTYsImV4cCI6MjEwMjcyNDUxNn0.P5vuyAyooZ_BArc_lC7HiQ2N-p0Fi7ejpxzyehPSi1Q";
+const IMG = p => `img/${p}.jpg`;
+const MENU = [
+  {cat:"Sandô Quente", itens:[
+    {id:"frango", nome:"Frango Crocante com Molho Teriyaki", preco:49, img:"1_frango", desc:"Empanado na hora, teriyaki da casa e repolho fresquinho no shokupan."},
+    {id:"file", nome:"Filé Mignon Empanado, Queijo & Molho Jack Nicholson", preco:67, img:"2_file_mignon", desc:"O mais pedido de quem gosta de clássico com atitude."},
+    {id:"lombo", nome:"Katsu Sandô — Lombo Suíno, Tonkatsu & Kewpie da Casa", preco:52, img:"3_lombo", desc:"O katsu raiz: lombo crocante, tonkatsu e kewpie."},
+    {id:"tofu", nome:"Tofu Crocante com Spicy Mayo", preco:45, img:"4_tofu", desc:"Vegetariano de verdade — crocância e picância na medida."},
+    {id:"atum", nome:"Atum Empanado com Aioli de Wasabi", preco:65, img:"5_atum_empanado", desc:"Atum selado por fora, rosado por dentro, aioli de wasabi."}
+  ]},
+  {cat:"Sandô Frio", itens:[
+    {id:"tamago", nome:"Tamago Sandô", preco:39, img:"6_tamago", desc:"O clássico de ovo japonês, cremoso e delicado."},
+    {id:"tuna", nome:"Tuna Sandô — Japa Style", preco:49, img:"7_tuna_japa", desc:"Atum temperado no estilo japa, direto da geladeira."}
+  ]},
+  {cat:"Sobremesa", itens:[
+    {id:"matchado", nome:"Pão Perdido e Matchado", preco:39, img:"8_matchado", desc:"Nosso shokupan dourado na manteiga com creme de matchá."}
+  ]},
+  {cat:"Conservas", nota:"preço por quilo · quer meio quilo? escreva na observação do pedido", itens:[
+    {id:"slaw", nome:"Asian Slaw da Batian", preco:45, desc:"por quilo"},
+    {id:"rabanete", nome:"Conservinha de Rabanete", preco:65, desc:"por quilo"},
+    {id:"picles", nome:"Picles de Pepino Japonês", preco:59, desc:"por quilo"}
+  ]},
+  {cat:"Molhos", nota:"potinho de 30g", itens:[
+    {id:"m1", nome:"Teriyaki da Casa", preco:6.9, desc:"30g"},
+    {id:"m2", nome:"Jack Nicholson", preco:6.9, desc:"30g"},
+    {id:"m3", nome:"Tonkatsu", preco:6.9, desc:"30g"},
+    {id:"m4", nome:"Kewpie da Casa", preco:6.9, desc:"30g"},
+    {id:"m5", nome:"Spicy Mayo", preco:6.9, desc:"30g"},
+    {id:"m6", nome:"Aioli de Wasabi", preco:6.9, desc:"30g"}
+  ]},
+  {cat:"Bebidas", itens:[
+    {id:"coca", nome:"Coca-Cola / Zero", preco:9, desc:"lata"},
+    {id:"guarana", nome:"Guaraná / Zero", preco:9, desc:"lata"},
+    {id:"matte", nome:"Matte Leão (natural / limão)", preco:9, desc:""},
+    {id:"agua", nome:"Água mineral (c/ ou s/ gás)", preco:7, desc:""},
+    {id:"corona", nome:"Cerveja Corona long neck", preco:12, desc:""}
+  ]},
+  {cat:"Da Padaria", itens:[
+    {id:"shokupan", nome:"Nosso Shokupan", preco:48, desc:"pão de leite da casa · aprox. 500g"}
+  ]}
+];
+const BYID = {}; MENU.forEach(c=>c.itens.forEach(i=>BYID[i.id]=i));
+let cart = JSON.parse(localStorage.getItem("rs_cart")||"{}");
+let entrega = "entrega";
+let pgto = "pix";
+
+const fmt = v => "R$ " + v.toFixed(2).replace(".",",").replace(",00","");
+const slug = s => s.toLowerCase().normalize("NFD").replace(/[^a-z ]/g,"").replace(/ /g,"-");
+
+function render(){
+  const menu = document.getElementById("menu");
+  menu.innerHTML = MENU.map(c=>`
+    <section id="${slug(c.cat)}">
+      <h2>${c.cat} ${c.nota?`<small>${c.nota}</small>`:""}</h2>
+      ${c.itens.map(i => i.img ? `
+        <div class="card">
+          <img src="${IMG(i.img)}" alt="${i.nome}" loading="lazy">
+          <div class="info">
+            <div><h3>${i.nome}</h3><p>${i.desc}</p>
+              <div class="add" id="add-${i.id}">${addCtrl(i.id)}</div>
+            </div>
+            <span class="preco">${fmt(i.preco)}</span>
+          </div>
+        </div>` : `
+        <div class="linha-item">
+          <div><h3>${i.nome}</h3>${i.desc?`<p>${i.desc}</p>`:""}</div>
+          <span class="preco">${fmt(i.preco)}</span>
+          <div class="mini-add" id="add-${i.id}">${addCtrl(i.id,true)}</div>
+        </div>`).join("")}
+    </section>`).join("") + `
+    <div class="vinhos"><h3>🍷 Carta de vinhos</h3>
+      <p>Espumante, brancos, rosé e tintos — Chile, Argentina, Portugal, Itália e França. Peça a carta completa no WhatsApp.</p>
+    </div>
+    <footer>@riosando_rj · coletivo.app</footer>`;
+  document.getElementById("chips").innerHTML = MENU.map((c,ix)=>
+    `<button class="chip ${ix===0?"on":""}" onclick="irPara('${slug(c.cat)}',this)">${c.cat}</button>`).join("");
+  syncBar();
+}
+function addCtrl(id, mini){
+  const q = cart[id]||0;
+  if(!q) return `<button class="btn-add" onclick="mudar('${id}',1)">${mini?"+":"Adicionar"}</button>`;
+  return `<button class="btn-qty" onclick="mudar('${id}',-1)">−</button><span class="qtd">${q}</span><button class="btn-qty" onclick="mudar('${id}',1)">+</button>`;
+}
+function mudar(id,d){
+  cart[id]=(cart[id]||0)+d; if(cart[id]<=0) delete cart[id];
+  localStorage.setItem("rs_cart",JSON.stringify(cart));
+  document.querySelectorAll(`#add-${id}`).forEach(el=>{
+    el.innerHTML = addCtrl(id, el.classList.contains("mini-add"));
+  });
+  syncBar();
+  if(document.getElementById("sheet").classList.contains("on")) abrirSacola();
+}
+function totais(){
+  let n=0,t=0;
+  for(const id in cart){ n+=cart[id]; t+=cart[id]*BYID[id].preco; }
+  return {n,t};
+}
+function syncBar(){
+  const {n,t}=totais(), bar=document.getElementById("cartbar");
+  bar.classList.toggle("hidden-bar",!n);
+  document.getElementById("cart-count").textContent=`Ver sacola · ${n} ${n>1?"itens":"item"}`;
+  document.getElementById("cart-total").textContent=fmt(t);
+}
+function irPara(id,btn){
+  document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
+  btn.classList.add("on");
+  document.getElementById(id).scrollIntoView({behavior:"smooth",block:"start"});
+}
+function abrirSacola(){
+  const {n,t}=totais(), sheet=document.getElementById("sheet");
+  sheet.innerHTML = `
+    <div class="sheet-head"><h2>Sua sacola</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    ${!n?`<div class="vazio">Sua sacola está vazia — todo sandô tem alma, escolhe um. 🥪</div>`:`
+    ${Object.keys(cart).map(id=>`
+      <div class="linha-item">
+        <div><h3>${BYID[id].nome}</h3><p>${fmt(BYID[id].preco)} cada</p></div>
+        <div class="mini-add" id="add-${id}">${addCtrl(id,true)}</div>
+        <span class="preco">${fmt(cart[id]*BYID[id].preco)}</span>
+      </div>`).join("")}
+    <div class="total-row"><span>Total</span><span>${fmt(t)}</span></div>
+
+    <label>Receber como</label>
+    <div class="toggle">
+      <button class="${entrega==="entrega"?"on":""}" onclick="setEntrega('entrega')">🛵 Entrega</button>
+      <button class="${entrega==="retirada"?"on":""}" onclick="setEntrega('retirada')">🏠 Retirada em Botafogo</button>
+    </div>
+    <div id="campo-endereco" style="display:${entrega==="entrega"?"block":"none"}">
+      <label>Endereço de entrega</label>
+      <input type="text" id="endereco" placeholder="Rua, número, complemento, bairro">
+    </div>
+    <label>Seu nome</label>
+    <input type="text" id="nome" placeholder="Como te chamamos?">
+    <label>WhatsApp</label>
+    <input type="tel" id="zap" placeholder="(21) 9 9999-9999">
+    <label>Observações</label>
+    <textarea id="obs" rows="2" placeholder="Sem repolho? Meio quilo de conserva? Conta aqui."></textarea>
+
+    <label>Pagamento</label>
+    <div class="toggle">
+      <button class="${pgto==="online"?"on":""}" onclick="setPgto('online')">⚡ Pagar agora</button>
+      <button class="${pgto==="pix"?"on":""}" onclick="setPgto('pix')">Pix na ${entrega==="entrega"?"entrega":"retirada"}</button>
+      <button class="${pgto==="cartao"?"on":""}" onclick="setPgto('cartao')">💳 na ${entrega==="entrega"?"entrega":"retirada"}</button>
+    </div>
+
+    <button class="pagar" onclick="pagar(this)">${pgto==="online"?"Pagar":"Enviar pedido"} · ${fmt(t)}</button>
+    <div class="mp-note">${pgto==="online"?"Pix ou cartão, seguro via Mercado Pago":"Você paga na hora de receber"}</div>
+    <div class="mp-note" id="erro-envio" style="color:var(--vermelho)"></div>`}`;
+  sheet.classList.add("on");
+  document.getElementById("overlay").classList.add("on");
+}
+function setEntrega(v){ entrega=v; abrirSacola(); }
+function setPgto(v){ pgto=v; abrirSacola(); }
+async function pagar(btn){
+  const val = id => (document.getElementById(id)?.value||"").trim();
+  const erro = document.getElementById("erro-envio");
+  const nome=val("nome"), zap=val("zap"), endereco=val("endereco"), obs=val("obs");
+  if(!nome || !zap){ erro.textContent="Precisamos do seu nome e WhatsApp. 🙏"; return; }
+  if(entrega==="entrega" && !endereco){ erro.textContent="Cadê o endereço de entrega? 🙏"; return; }
+  const {t}=totais();
+  const itens = Object.keys(cart).map(id=>({item:BYID[id].nome, qtd:cart[id], preco:BYID[id].preco}));
+  btn.disabled=true; btn.textContent="Enviando...";
+  const codigo = Array.from({length:4},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
+  if(pgto==="online"){
+    try{
+      const r = await fetch(`${SUPA_URL}/functions/v1/mp-create-preference`,{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({codigo, itens, total:t, nome, whatsapp:zap, modo:entrega,
+          endereco:entrega==="entrega"?endereco:null, obs:obs||null})
+      });
+      const d = await r.json();
+      if(!r.ok || !d.init_point) throw new Error(d.erro||"sem link");
+      cart={}; localStorage.removeItem("rs_cart");
+      window.location.href = d.init_point;
+    }catch(e){
+      btn.disabled=false; btn.textContent="Pagar";
+      erro.textContent="Pagamento online indisponível agora — escolha pagar na entrega. 🙏";
+    }
+    return;
+  }
+  try{
+    const r = await fetch(`${SUPA_URL}/rest/v1/pedidos`,{
+      method:"POST",
+      headers:{apikey:SUPA_ANON, Authorization:`Bearer ${SUPA_ANON}`,
+        "Content-Type":"application/json", Prefer:"return=minimal"},
+      body:JSON.stringify({codigo, itens, total:t, nome, whatsapp:zap, modo:entrega,
+        endereco:entrega==="entrega"?endereco:null, obs:obs||null, pagamento:pgto})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    const ped = {codigo};
+    const sheet=document.getElementById("sheet");
+    sheet.innerHTML = `
+      <div class="sheet-head"><h2>Pedido enviado</h2><button class="fechar" onclick="fecharTudo()">✕</button></div>
+      <div class="ok-box">
+        <span class="osym"></span>
+        <h3>Arigatô, ${nome.split(" ")[0]}! 🙏</h3>
+        <p>Seu pedido <strong>#${ped.codigo}</strong> chegou na cozinha.<br>
+        ${entrega==="entrega"?"Já já sai pra entrega — pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na porta.":"Pode vir buscar em Botafogo — pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na retirada."}<br><br>
+        Qualquer coisa, chama a gente no WhatsApp.</p>
+      </div>`;
+    cart={}; localStorage.removeItem("rs_cart"); render();
+  }catch(e){
+    btn.disabled=false; btn.textContent="Enviar pedido";
+    erro.textContent="Ops, não conseguimos enviar. Tenta de novo?";
+  }
+}
+function fecharSheet(){
+  document.getElementById("sheet").classList.remove("on");
+  document.getElementById("overlay").classList.remove("on");
+}
+function fecharTudo(){ cart={}; localStorage.removeItem("rs_cart"); render(); fecharSheet(); }
+render();
+
+// retorno do Checkout Pro (?pago=1|0|pendente&codigo=XXXX)
+(function(){
+  const q = new URLSearchParams(location.search);
+  if(!q.has("pago")) return;
+  const codigo = q.get("codigo")||"", ok = q.get("pago");
+  history.replaceState(null,"",location.pathname);
+  const sheet=document.getElementById("sheet");
+  sheet.innerHTML = ok==="1" ? `
+    <div class="sheet-head"><h2>Pagamento confirmado</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div class="ok-box"><span class="osym"></span>
+      <h3>Arigatô! 🙏</h3>
+      <p>Pedido <strong>#${codigo}</strong> pago e já na fila da cozinha.<br>Qualquer coisa, chama a gente no WhatsApp.</p></div>`
+  : ok==="pendente" ? `
+    <div class="sheet-head"><h2>Quase lá</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div class="ok-box"><span class="osym"></span>
+      <h3>Pagamento em processamento</h3>
+      <p>Assim que o Mercado Pago confirmar, o pedido <strong>#${codigo}</strong> entra na fila da cozinha.</p></div>`
+  : `
+    <div class="sheet-head"><h2>Não rolou 😕</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div class="ok-box"><span class="osym"></span>
+      <h3>Pagamento não aprovado</h3>
+      <p>Nenhum valor foi cobrado. Tenta de novo, ou escolhe pagar na entrega.</p></div>`;
+  sheet.classList.add("on");
+  document.getElementById("overlay").classList.add("on");
+})();
+</script>
+</body>
+</html>
