@@ -230,7 +230,7 @@ function mudar(id,d){
     el.innerHTML = addCtrl(id, el.classList.contains("mini-add"));
   });
   syncBar();
-  if(document.getElementById("sheet").classList.contains("on")) abrirSacola();
+  if(document.getElementById("sheet").classList.contains("on")) reabrirSacola();
 }
 function totais(){
   let n=0,t=0;
@@ -296,9 +296,22 @@ function abrirSacola(){
   sheet.classList.add("on");
   document.getElementById("overlay").classList.add("on");
 }
-function setEntrega(v){ entrega=v; abrirSacola(); }
-function setPgto(v){ pgto=v; abrirSacola(); }
-function setBairro(v){ bairro=v; const e=document.getElementById("endereco")?.value; abrirSacola(); if(document.getElementById("endereco")) document.getElementById("endereco").value=e||""; }
+// re-render da sacola preservando o que o cliente já digitou
+function lerForm(){
+  const v = id => document.getElementById(id)?.value ?? null;
+  return {nome:v("nome"), zap:v("zap"), endereco:v("endereco"), obs:v("obs")};
+}
+function restaurarForm(f){
+  if(!f) return;
+  for(const [id,val] of Object.entries(f)){
+    const el = document.getElementById(id);
+    if(el && val!==null) el.value = val;
+  }
+}
+function reabrirSacola(){ const f=lerForm(); abrirSacola(); restaurarForm(f); }
+function setEntrega(v){ entrega=v; reabrirSacola(); }
+function setPgto(v){ pgto=v; reabrirSacola(); }
+function setBairro(v){ bairro=v; reabrirSacola(); }
 async function pagar(btn){
   const val = id => (document.getElementById(id)?.value||"").trim();
   const erro = document.getElementById("erro-envio");
