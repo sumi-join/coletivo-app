@@ -102,7 +102,14 @@ function card(p){
       ${nx?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${rot}</button>`:""}
       <button class="imprimir" onclick="imprimir(${p.id})">🖨️</button>
       ${p.status==="novo"?`<button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕</button>`:""}
-    </div></div>`;
+    </div>
+    ${p.status==="pronto" && p.modo==="entrega" ? `
+    <div class="acoes">
+      <button class="imprimir" onclick="copiarEndereco(${p.id}, this)">📋 Copiar endereço</button>
+      <button class="imprimir" onclick="cotarEntrega(${p.id})">🛵 Cotar entrega</button>
+    </div>
+    <div class="meta" id="cotacao-${p.id}"></div>`:""}
+    </div>`;
 }
 async function entrar(){
   const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`,{
@@ -163,6 +170,28 @@ TOTAL ${fmt(p.total)} · ${p.pagamento.toUpperCase()} na ${p.modo==="entrega"?"e
 --------------------------------
 todo sando tem alma`;
   window.print();
+}
+function copiarEndereco(id, btn){
+  const p = pedidos.find(x=>x.id===id); if(!p) return;
+  navigator.clipboard.writeText(`${p.endereco} — ${p.nome} ${p.whatsapp}`).then(()=>{
+    btn.textContent = "✓ Copiado"; setTimeout(()=>btn.textContent="📋 Copiar endereço", 2000);
+  });
+}
+async function cotarEntrega(id){
+  const p = pedidos.find(x=>x.id===id); if(!p) return;
+  const el = document.getElementById(`cotacao-${id}`);
+  el.textContent = "cotando...";
+  try{
+    const r = await fetch(`${SUPA_URL}/functions/v1/entrega-cotar`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({endereco:p.endereco})});
+    const d = await r.json();
+    if(d.vencedor){
+      el.innerHTML = `🏆 ${d.vencedor.provedor}: R$ ${d.vencedor.preco} · coleta ~${d.vencedor.coleta_min} min`;
+    } else {
+      el.innerHTML = `Cotação automática ainda indisponível (${d.cotacoes.map(c=>c.motivo).filter((v,i,a)=>a.indexOf(v)===i).join("; ")}).<br>👉 ${d.fallback}`;
+    }
+  }catch(e){ el.textContent = "erro ao cotar — usa o Entrega Fácil no Gestor iFood"; }
 }
 function bip(){
   try{
