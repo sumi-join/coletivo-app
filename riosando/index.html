@@ -177,6 +177,14 @@ const BYID = {}; MENU.forEach(c=>c.itens.forEach(i=>BYID[i.id]=i));
 let cart = JSON.parse(localStorage.getItem("rs_cart")||"{}");
 let entrega = "entrega";
 let pgto = "pix";
+let bairro = "";
+const FRETES = {
+  "Botafogo":9, "Humaitá":9, "Urca":9,
+  "Flamengo":11, "Catete":11, "Glória":11, "Laranjeiras":11, "Cosme Velho":11,
+  "Copacabana":13, "Leme":13, "Lagoa":13, "Jardim Botânico":13,
+  "Ipanema":15, "Leblon":15, "Gávea":15
+};
+const freteAtual = () => entrega==="entrega" && FRETES[bairro]!==undefined ? FRETES[bairro] : 0;
 
 const fmt = v => "R$ " + v.toFixed(2).replace(".",",").replace(",00","");
 const slug = s => s.toLowerCase().normalize("NFD").replace(/[^a-z ]/g,"").replace(/ /g,"-");
@@ -251,7 +259,8 @@ function abrirSacola(){
         <div class="mini-add" id="add-${id}">${addCtrl(id,true)}</div>
         <span class="preco">${fmt(cart[id]*BYID[id].preco)}</span>
       </div>`).join("")}
-    <div class="total-row"><span>Total</span><span>${fmt(t)}</span></div>
+    ${entrega==="entrega"?`<div class="linha-item"><div><h3 style="font-weight:400">Entrega${bairro?` · ${bairro}`:""}</h3></div><span class="preco">${bairro?fmt(freteAtual()):"—"}</span></div>`:""}
+    <div class="total-row"><span>Total</span><span>${fmt(t+freteAtual())}</span></div>
 
     <label>Receber como</label>
     <div class="toggle">
@@ -259,8 +268,13 @@ function abrirSacola(){
       <button class="${entrega==="retirada"?"on":""}" onclick="setEntrega('retirada')">🏠 Retirada em Botafogo</button>
     </div>
     <div id="campo-endereco" style="display:${entrega==="entrega"?"block":"none"}">
+      <label>Bairro</label>
+      <select id="sel-bairro" onchange="setBairro(this.value)" style="width:100%;font-family:inherit;font-size:15px;padding:12px 14px;border:1px solid var(--preto);border-radius:10px;background:var(--creme-card);color:var(--preto)">
+        <option value="">Escolhe o bairro...</option>
+        ${Object.keys(FRETES).map(b=>`<option ${b===bairro?"selected":""} value="${b}">${b} · entrega ${fmt(FRETES[b])}</option>`).join("")}
+      </select>
       <label>Endereço de entrega</label>
-      <input type="text" id="endereco" placeholder="Rua, número, complemento, bairro">
+      <input type="text" id="endereco" placeholder="Rua, número, complemento">
     </div>
     <label>Seu nome</label>
     <input type="text" id="nome" placeholder="Como te chamamos?">
@@ -276,7 +290,7 @@ function abrirSacola(){
       <button class="${pgto==="cartao"?"on":""}" onclick="setPgto('cartao')">💳 na ${entrega==="entrega"?"entrega":"retirada"}</button>
     </div>
 
-    <button class="pagar" onclick="pagar(this)">${pgto==="online"?"Pagar":"Enviar pedido"} · ${fmt(t)}</button>
+    <button class="pagar" onclick="pagar(this)">${pgto==="online"?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual())}</button>
     <div class="mp-note">${pgto==="online"?"Pix ou cartão, seguro via Mercado Pago":"Você paga na hora de receber"}</div>
     <div class="mp-note" id="erro-envio" style="color:var(--vermelho)"></div>`}`;
   sheet.classList.add("on");
@@ -284,13 +298,16 @@ function abrirSacola(){
 }
 function setEntrega(v){ entrega=v; abrirSacola(); }
 function setPgto(v){ pgto=v; abrirSacola(); }
+function setBairro(v){ bairro=v; const e=document.getElementById("endereco")?.value; abrirSacola(); if(document.getElementById("endereco")) document.getElementById("endereco").value=e||""; }
 async function pagar(btn){
   const val = id => (document.getElementById(id)?.value||"").trim();
   const erro = document.getElementById("erro-envio");
   const nome=val("nome"), zap=val("zap"), endereco=val("endereco"), obs=val("obs");
   if(!nome || !zap){ erro.textContent="Precisamos do seu nome e WhatsApp. 🙏"; return; }
+  if(entrega==="entrega" && !bairro){ erro.textContent="Escolhe o bairro da entrega. 🙏"; return; }
   if(entrega==="entrega" && !endereco){ erro.textContent="Cadê o endereço de entrega? 🙏"; return; }
   const {t}=totais();
+  const frete = freteAtual();
   const itens = Object.keys(cart).map(id=>({item:BYID[id].nome, qtd:cart[id], preco:BYID[id].preco}));
   btn.disabled=true; btn.textContent="Enviando...";
   const codigo = Array.from({length:4},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
@@ -298,8 +315,8 @@ async function pagar(btn){
     try{
       const r = await fetch(`${SUPA_URL}/functions/v1/mp-create-preference`,{
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({codigo, itens, total:t, nome, whatsapp:zap, modo:entrega,
-          endereco:entrega==="entrega"?endereco:null, obs:obs||null})
+        body:JSON.stringify({codigo, itens, total:t+frete, frete, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
+          endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null})
       });
       const d = await r.json();
       if(!r.ok || !d.init_point) throw new Error(d.erro||"sem link");
@@ -316,8 +333,8 @@ async function pagar(btn){
       method:"POST",
       headers:{apikey:SUPA_ANON, Authorization:`Bearer ${SUPA_ANON}`,
         "Content-Type":"application/json", Prefer:"return=minimal"},
-      body:JSON.stringify({codigo, itens, total:t, nome, whatsapp:zap, modo:entrega,
-        endereco:entrega==="entrega"?endereco:null, obs:obs||null, pagamento:pgto})
+      body:JSON.stringify({codigo, itens, total:t+frete, frete, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
+        endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null, pagamento:pgto})
     });
     if(!r.ok) throw new Error(await r.text());
     const ped = {codigo};

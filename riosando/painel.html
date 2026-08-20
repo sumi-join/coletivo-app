@@ -103,7 +103,9 @@ function card(p){
       <button class="imprimir" onclick="imprimir(${p.id})">🖨️</button>
       ${p.status==="novo"?`<button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕</button>`:""}
     </div>
-    ${p.status==="pronto" && p.modo==="entrega" ? `
+    ${p.entrega_id ? `
+    <div class="meta">🛵 Entregador ${p.entrega_provedor} já acionado${p.entrega_tracking_url?` · <a href="${p.entrega_tracking_url}" target="_blank" style="color:var(--verde)">rastrear 🗺️</a>`:""}</div>`
+    : p.status==="pronto" && p.modo==="entrega" ? `
     <div class="acoes">
       <button class="imprimir" onclick="copiarEndereco(${p.id}, this)">📋 Copiar endereço</button>
       <button class="imprimir" onclick="cotarEntrega(${p.id})">🛵 Cotar entrega</button>
