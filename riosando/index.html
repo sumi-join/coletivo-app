@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1A1A1A">
 <title>Rio Sandô — peça seu sando</title>
+<meta name="description" content="Katsu sando japonês feito à mão em Botafogo. Peça pelo app: Pix ou cartão, entrega na Zona Sul do Rio.">
+<meta property="og:title" content="Rio Sandô — katsu sando japonês 🥪⛩️">
+<meta property="og:description" content="Todo sandô tem alma. Peça pelo app: entrega na Zona Sul do Rio, ter–sáb 18h–22h30.">
+<meta property="og:image" content="https://coletivo.app/riosando/img/1_frango.jpg">
+<meta property="og:url" content="https://coletivo.app/riosando/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
 <style>
   :root{
     --preto:#1A1A1A; --creme:#F5F0EB; --vermelho:#C0392B; --verde:#2D5A27;
@@ -20,18 +29,26 @@
   .wrap{max-width:520px;margin:0 auto;padding:0 20px}
 
   /* header */
-  header{background:var(--creme);padding:28px 0 0}
-  .kana{color:var(--vermelho);font-size:12px;letter-spacing:.5em;margin-bottom:6px}
-  .wordmark{font-weight:500;font-size:34px;letter-spacing:.06em;line-height:1;display:flex;align-items:center;gap:2px}
+  header{background:var(--creme);padding:14px 0 0}
+  .kana{color:var(--vermelho);font-size:10px;letter-spacing:.5em;margin-bottom:4px}
+  .wordmark{font-weight:500;font-size:26px;letter-spacing:.06em;line-height:1;display:flex;align-items:center;gap:2px}
   .wordmark .oq{display:inline-block;width:.72em;height:.72em;border:3px solid var(--preto);border-radius:2px;margin:0 .06em}
   .wordmark .osym{display:inline-block;position:relative;width:.72em;height:.72em;border:3px solid var(--preto);border-radius:2px;margin-left:.06em}
   .wordmark .osym::before{content:"";position:absolute;left:2px;right:2px;top:38%;height:26%;background:var(--vermelho)}
   .wordmark .osym::after{content:"";position:absolute;left:20%;right:20%;top:-9px;height:3px;background:var(--preto)}
-  .tagline{font-size:13px;opacity:.65;margin-top:10px}
-  .status{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;
-    background:var(--preto);color:var(--creme);padding:6px 12px;border-radius:99px}
+  .tagline{font-size:12px;opacity:.65;margin-top:6px}
+  .status{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;
+    background:var(--preto);color:var(--creme);padding:4px 10px;border-radius:99px}
   .dot{width:7px;height:7px;border-radius:50%;background:#7CBF6B}
-  .alma{font-style:italic;font-size:12px;opacity:.5;margin-top:14px;border-top:1px solid var(--linha);padding-top:12px}
+  .dot.off{background:#C0392B}
+  .alma{font-style:italic;font-size:11px;opacity:.5;margin-top:8px;padding-bottom:2px}
+  .fechado-banner{background:var(--preto);color:var(--creme);font-size:12.5px;line-height:1.5;
+    padding:10px 14px;border-radius:12px;margin-top:10px}
+  .ultimo-pedido{display:inline-block;margin-top:8px;font-size:12px;color:var(--verde);
+    text-decoration:underline;cursor:pointer}
+  .destaque-badge{position:absolute;top:10px;left:10px;background:var(--creme);color:var(--preto);
+    font-size:11px;letter-spacing:.08em;padding:5px 10px;border-radius:99px;box-shadow:0 2px 8px rgba(26,26,26,.25)}
+  .card{position:relative}
 
   /* category nav */
   nav{position:sticky;top:0;background:var(--creme);z-index:20;padding:12px 0;border-bottom:1px solid var(--linha)}
@@ -87,7 +104,7 @@
   .fechar{background:none;border:none;font-size:22px;cursor:pointer;color:var(--preto);font-family:inherit}
   .total-row{display:flex;justify-content:space-between;font-size:16px;font-weight:500;padding:16px 2px;border-top:2px solid var(--preto);margin-top:8px}
   label{display:block;font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin:16px 0 6px;opacity:.7}
-  input[type=text],input[type=tel],textarea{width:100%;font-family:inherit;font-size:15px;padding:12px 14px;
+  input[type=text],input[type=tel],textarea,select{width:100%;font-family:inherit;font-size:16px;padding:12px 14px;
     border:1px solid var(--preto);border-radius:10px;background:var(--creme-card);color:var(--preto)}
   .toggle{display:flex;gap:8px;margin-top:6px}
   .toggle button{flex:1;font-family:inherit;font-size:13px;letter-spacing:.08em;padding:12px;border-radius:10px;
@@ -105,6 +122,20 @@
   .ok-box h3{font-size:20px;margin-bottom:8px}
   .ok-box p{font-size:13.5px;opacity:.65;line-height:1.5}
   footer{margin-top:40px;padding:20px 0 30px;border-top:1px solid var(--linha);font-size:11px;letter-spacing:.14em;opacity:.5;text-transform:uppercase}
+
+  /* desktop */
+  @media(min-width:900px){
+    .wrap{max-width:980px}
+    .chips{max-width:980px}
+    header .wrap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 24px}
+    header .wrap > div:first-child{flex-basis:100%;display:none}
+    section{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+    section h2{grid-column:1/-1}
+    section .linha-item{grid-column:1/-1}
+    .card img{aspect-ratio:16/9}
+    .sheet{max-width:560px;left:50%;transform:translate(-50%,105%);border-radius:20px 20px 0 0}
+    .sheet.on{transform:translate(-50%,0)}
+  }
 </style>
 </head>
 <body>
@@ -113,9 +144,10 @@
   <div class="wrap">
     <div class="kana">サンド</div>
     <div class="wordmark">RI<span class="oq"></span>&nbsp;SAND<span class="osym"></span></div>
-    <div class="tagline">Katsu sando japonês · feito à mão · Botafogo, Rio</div>
-    <div class="status"><span class="dot"></span> ter–sáb · 18h–22h30</div>
-    <div class="alma">Todo sandô tem alma.</div>
+    <div class="tagline">Katsu sando japonês · feito à mão · Botafogo, Rio <span class="alma">· todo sandô tem alma</span></div>
+    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 18h–22h30</div>
+    <span class="ultimo-pedido" id="ultimo-pedido" style="display:none"></span>
+    <div class="fechado-banner" id="fechado-banner" style="display:none"></div>
   </div>
 </header>
 
@@ -134,10 +166,13 @@
 const SUPA_URL = "https://xngsucsxqbmvdnyuabll.supabase.co";
 const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZ3N1Y3N4cWJtdmRueXVhYmxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDg1MTYsImV4cCI6MjEwMjcyNDUxNn0.P5vuyAyooZ_BArc_lC7HiQ2N-p0Fi7ejpxzyehPSi1Q";
 const IMG = p => `img/${p}.jpg`;
+const ZAP_LOJA = "5521978857339";
+const ENDERECO_LOJA = "Travessa Pepe, 60 — sobreloja, Botafogo";
+const MAPS_LOJA = "https://maps.google.com/?q=Travessa+Pepe+60+Botafogo+Rio+de+Janeiro";
 const MENU = [
   {cat:"Sandô Quente", itens:[
-    {id:"frango", nome:"Frango Crocante com Molho Teriyaki", preco:49, img:"1_frango", desc:"Empanado na hora, teriyaki da casa e repolho fresquinho no shokupan."},
-    {id:"file", nome:"Filé Mignon Empanado, Queijo & Molho Jack Nicholson", preco:67, img:"2_file_mignon", desc:"O mais pedido de quem gosta de clássico com atitude."},
+    {id:"frango", nome:"Frango Crocante com Molho Teriyaki", preco:49, img:"1_frango", destaque:true, desc:"Empanado na hora, teriyaki da casa e repolho fresquinho no shokupan."},
+    {id:"file", nome:"Filé Mignon Empanado, Queijo & Molho Jack Nicholson", preco:67, img:"2_file_mignon", destaque:true, desc:"O mais pedido de quem gosta de clássico com atitude."},
     {id:"lombo", nome:"Katsu Sandô — Lombo Suíno, Tonkatsu & Kewpie da Casa", preco:52, img:"3_lombo", desc:"O katsu raiz: lombo crocante, tonkatsu e kewpie."},
     {id:"tofu", nome:"Tofu Crocante com Spicy Mayo", preco:45, img:"4_tofu", desc:"Vegetariano de verdade — crocância e picância na medida."},
     {id:"atum", nome:"Atum Empanado com Aioli de Wasabi", preco:65, img:"5_atum_empanado", desc:"Atum selado por fora, rosado por dentro, aioli de wasabi."}
@@ -178,6 +213,29 @@ let cart = JSON.parse(localStorage.getItem("rs_cart")||"{}");
 let entrega = "entrega";
 let pgto = "pix";
 let bairro = "";
+let cliente = JSON.parse(localStorage.getItem("rs_cliente")||"{}");
+
+// horário: ter(2)–sáb(6), 18h–22h30 — fora disso o pedido entra agendado
+function lojaAberta(d=new Date()){
+  const dia=d.getDay(), m=d.getHours()*60+d.getMinutes();
+  return dia>=2 && dia<=6 && m>=18*60 && m<=22*60+30;
+}
+function proximaAbertura(){
+  const d=new Date();
+  for(let i=0;i<8;i++){
+    const c=new Date(d.getFullYear(),d.getMonth(),d.getDate()+i,18,0,0);
+    if(c.getDay()>=2 && c.getDay()<=6 && c.getTime()>d.getTime()) return c;
+  }
+  return d;
+}
+const DIAS=["domingo","terça","terça","quarta","quinta","sexta","sábado"];
+function rotuloAbertura(){
+  const p=proximaAbertura(), hoje=new Date();
+  const nome = p.toDateString()===hoje.toDateString() ? "hoje" :
+    p.toDateString()===new Date(hoje.getTime()+86400000).toDateString() ? "amanhã" : DIAS[p.getDay()];
+  return `${nome} às 18h`;
+}
+function FRETES_EXISTE(b){ return Object.prototype.hasOwnProperty.call(FRETES,b); }
 const FRETES = {
   "Botafogo":9, "Humaitá":9, "Urca":9,
   "Flamengo":11, "Catete":11, "Glória":11, "Laranjeiras":11, "Cosme Velho":11,
@@ -185,6 +243,7 @@ const FRETES = {
   "Ipanema":15, "Leblon":15, "Gávea":15
 };
 const freteAtual = () => entrega==="entrega" && FRETES[bairro]!==undefined ? FRETES[bairro] : 0;
+if(cliente.bairro && FRETES_EXISTE(cliente.bairro)) bairro = cliente.bairro;
 
 const fmt = v => "R$ " + v.toFixed(2).replace(".",",").replace(",00","");
 const slug = s => s.toLowerCase().normalize("NFD").replace(/[^a-z ]/g,"").replace(/ /g,"-");
@@ -197,6 +256,7 @@ function render(){
       ${c.itens.map(i => i.img ? `
         <div class="card">
           <img src="${IMG(i.img)}" alt="${i.nome}" loading="lazy">
+          ${i.destaque?`<span class="destaque-badge">⭐ mais pedido</span>`:""}
           <div class="info">
             <div><h3>${i.nome}</h3><p>${i.desc}</p>
               <div class="add" id="add-${i.id}">${addCtrl(i.id)}</div>
@@ -267,19 +327,21 @@ function abrirSacola(){
       <button class="${entrega==="entrega"?"on":""}" onclick="setEntrega('entrega')">🛵 Entrega</button>
       <button class="${entrega==="retirada"?"on":""}" onclick="setEntrega('retirada')">🏠 Retirada em Botafogo</button>
     </div>
+    ${entrega==="retirada"?`<div class="mp-note" style="text-align:left;opacity:.8">🏠 Retirada: <a href="${MAPS_LOJA}" target="_blank" style="color:var(--verde)">${ENDERECO_LOJA}</a></div>`:""}
+    ${!lojaAberta()?`<div class="fechado-banner">🕐 Estamos fechados agora — seu pedido entra <b>agendado pra ${rotuloAbertura()}</b>. A cozinha prepara assim que abrir.</div>`:""}
     <div id="campo-endereco" style="display:${entrega==="entrega"?"block":"none"}">
       <label>Bairro</label>
-      <select id="sel-bairro" onchange="setBairro(this.value)" style="width:100%;font-family:inherit;font-size:15px;padding:12px 14px;border:1px solid var(--preto);border-radius:10px;background:var(--creme-card);color:var(--preto)">
+      <select id="sel-bairro" onchange="setBairro(this.value)">
         <option value="">Escolhe o bairro...</option>
         ${Object.keys(FRETES).map(b=>`<option ${b===bairro?"selected":""} value="${b}">${b} · entrega ${fmt(FRETES[b])}</option>`).join("")}
       </select>
       <label>Endereço de entrega</label>
-      <input type="text" id="endereco" placeholder="Rua, número, complemento">
+      <input type="text" id="endereco" placeholder="Rua, número, complemento" value="${(cliente.endereco||"").replace(/"/g,"&quot;")}">
     </div>
     <label>Seu nome</label>
-    <input type="text" id="nome" placeholder="Como te chamamos?">
+    <input type="text" id="nome" placeholder="Como te chamamos?" value="${(cliente.nome||"").replace(/"/g,"&quot;")}">
     <label>WhatsApp</label>
-    <input type="tel" id="zap" placeholder="(21) 9 9999-9999">
+    <input type="tel" id="zap" placeholder="(21) 9 9999-9999" value="${(cliente.zap||"").replace(/"/g,"&quot;")}">
     <label>Observações</label>
     <textarea id="obs" rows="2" placeholder="Sem repolho? Meio quilo de conserva? Conta aqui."></textarea>
 
@@ -324,16 +386,20 @@ async function pagar(btn){
   const itens = Object.keys(cart).map(id=>({item:BYID[id].nome, qtd:cart[id], preco:BYID[id].preco}));
   btn.disabled=true; btn.textContent="Enviando...";
   const codigo = Array.from({length:4},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
+  const agendadoPara = lojaAberta() ? null : proximaAbertura().toISOString();
+  cliente = {nome, zap, endereco, bairro};
+  localStorage.setItem("rs_cliente", JSON.stringify(cliente));
   if(pgto==="online"){
     try{
       const r = await fetch(`${SUPA_URL}/functions/v1/mp-create-preference`,{
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({codigo, itens, total:t+frete, frete, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
-          endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null})
+          endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null, agendado_para:agendadoPara})
       });
       const d = await r.json();
       if(!r.ok || !d.init_point) throw new Error(d.erro||"sem link");
       cart={}; localStorage.removeItem("rs_cart");
+      localStorage.setItem("rs_ultimo", JSON.stringify({codigo, quando:Date.now()}));
       window.location.href = d.init_point;
     }catch(e){
       btn.disabled=false; btn.textContent="Pagar";
@@ -347,9 +413,10 @@ async function pagar(btn){
       headers:{apikey:SUPA_ANON, Authorization:`Bearer ${SUPA_ANON}`,
         "Content-Type":"application/json", Prefer:"return=minimal"},
       body:JSON.stringify({codigo, itens, total:t+frete, frete, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
-        endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null, pagamento:pgto})
+        endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null, pagamento:pgto, agendado_para:agendadoPara})
     });
     if(!r.ok) throw new Error(await r.text());
+    localStorage.setItem("rs_ultimo", JSON.stringify({codigo, quando:Date.now()}));
     const ped = {codigo};
     const sheet=document.getElementById("sheet");
     sheet.innerHTML = `
@@ -357,8 +424,9 @@ async function pagar(btn){
       <div class="ok-box">
         <span class="osym"></span>
         <h3>Arigatô, ${nome.split(" ")[0]}! 🙏</h3>
-        <p>Seu pedido <strong>#${ped.codigo}</strong> chegou na cozinha.<br>
-        ${entrega==="entrega"?"Já já sai pra entrega — pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na porta.":"Pode vir buscar em Botafogo — pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na retirada."}</p>
+        <p>Seu pedido <strong>#${ped.codigo}</strong> ${agendadoPara?`ficou <b>agendado pra ${rotuloAbertura()}</b> — a cozinha prepara assim que abrir.`:"chegou na cozinha."}<br>
+        ${entrega==="entrega"?"Pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na porta.":`Retirada: <a href="${MAPS_LOJA}" target="_blank" style="color:var(--verde)">${ENDERECO_LOJA}</a> — pagamento com ${pgto==="pix"?"Pix":"cartão"} na hora.`}<br><br>
+        Qualquer coisa, <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">chama a gente no WhatsApp</a>.</p>
         <button class="pagar" style="margin-top:18px" onclick="location.href='?pedido=${ped.codigo}'">Acompanhar meu pedido 🛵</button>
       </div>`;
     cart={}; localStorage.removeItem("rs_cart"); render();
@@ -373,6 +441,23 @@ function fecharSheet(){
 }
 function fecharTudo(){ cart={}; localStorage.removeItem("rs_cart"); render(); fecharSheet(); }
 render();
+
+// header: status aberto/fechado + atalho pro último pedido
+(function(){
+  if(!lojaAberta()){
+    document.getElementById("status-dot").classList.add("off");
+    const b=document.getElementById("fechado-banner");
+    b.style.display="block";
+    b.innerHTML=`🕐 Fechados agora — mas pode pedir: entra <b>agendado pra ${rotuloAbertura()}</b>.`;
+  }
+  const u=JSON.parse(localStorage.getItem("rs_ultimo")||"null");
+  if(u && Date.now()-u.quando < 24*3600*1000 && !new URLSearchParams(location.search).has("pedido")){
+    const el=document.getElementById("ultimo-pedido");
+    el.style.display="inline-block";
+    el.textContent=`🛵 acompanhar meu pedido #${u.codigo}`;
+    el.onclick=()=>location.href=`?pedido=${u.codigo}`;
+  }
+})();
 
 // página de status do pedido (?pedido=CODIGO) — atualiza sozinha a cada 15s
 (function(){
@@ -398,7 +483,7 @@ render();
       const cancelado = p.status==="cancelado";
       sheet.innerHTML = `
         <div class="sheet-head"><h2>Pedido #${p.codigo}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div>
-        ${cancelado?`<div class="vazio">Esse pedido foi cancelado. Chama a gente no WhatsApp se precisar. 🙏</div>`:`
+        ${cancelado?`<div class="vazio">Esse pedido foi cancelado. <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">Chama a gente no WhatsApp</a> se precisar. 🙏</div>`:`
         ${p.pagamento_status==="pendente"?`<div class="mp-note" style="color:var(--vermelho)">aguardando confirmação do pagamento...</div>`:""}
         <div style="padding:8px 2px">
         ${etapas.map((e,i)=>`
