@@ -187,11 +187,29 @@ async function cotarEntrega(id){
       body:JSON.stringify({endereco:p.endereco})});
     const d = await r.json();
     if(d.vencedor){
-      el.innerHTML = `🏆 ${d.vencedor.provedor}: R$ ${d.vencedor.preco} · coleta ~${d.vencedor.coleta_min} min`;
+      const opcoes = d.cotacoes.filter(c=>c.disponivel).map(c=>
+        `<button class="imprimir" onclick='chamarEntrega(${id},"${c.provedor}","${c.quote_id}",this)'>🛵 ${c.provedor} · R$ ${(c.preco??0).toFixed(2)}${c.coleta_min?` · ~${c.coleta_min}min`:""}</button>`).join(" ");
+      el.innerHTML = `Escolhe quem leva: ${opcoes}`;
     } else {
       el.innerHTML = `Cotação automática ainda indisponível (${d.cotacoes.map(c=>c.motivo).filter((v,i,a)=>a.indexOf(v)===i).join("; ")}).<br>👉 ${d.fallback}`;
     }
   }catch(e){ el.textContent = "erro ao cotar — usa o Entrega Fácil no Gestor iFood"; }
+}
+async function chamarEntrega(id, provedor, quoteId, btn){
+  btn.disabled = true; btn.textContent = "Chamando...";
+  const el = document.getElementById(`cotacao-${id}`);
+  try{
+    const r = await fetch(`${SUPA_URL}/functions/v1/entrega-criar`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({pedido_id:id, provedor, quote_id:quoteId})});
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.erro);
+    el.innerHTML = `✅ Entregador chamado (${provedor})${d.tracking_url?` · <a href="${d.tracking_url}" target="_blank" style="color:var(--verde)">rastrear 🗺️</a>`:""}`;
+    carregar();
+  }catch(e){
+    btn.disabled=false; btn.textContent="tentar de novo";
+    el.innerHTML += `<br>⚠️ falhou: ${e.message} — cota de novo ou usa o Entrega Fácil`;
+  }
 }
 function bip(){
   try{
