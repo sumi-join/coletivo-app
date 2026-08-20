@@ -345,8 +345,8 @@ async function pagar(btn){
         <span class="osym"></span>
         <h3>Arigatô, ${nome.split(" ")[0]}! 🙏</h3>
         <p>Seu pedido <strong>#${ped.codigo}</strong> chegou na cozinha.<br>
-        ${entrega==="entrega"?"Já já sai pra entrega — pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na porta.":"Pode vir buscar em Botafogo — pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na retirada."}<br><br>
-        Qualquer coisa, chama a gente no WhatsApp.</p>
+        ${entrega==="entrega"?"Já já sai pra entrega — pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na porta.":"Pode vir buscar em Botafogo — pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na retirada."}</p>
+        <button class="pagar" style="margin-top:18px" onclick="location.href='?pedido=${ped.codigo}'">Acompanhar meu pedido 🛵</button>
       </div>`;
     cart={}; localStorage.removeItem("rs_cart"); render();
   }catch(e){
@@ -361,6 +361,49 @@ function fecharSheet(){
 function fecharTudo(){ cart={}; localStorage.removeItem("rs_cart"); render(); fecharSheet(); }
 render();
 
+// página de status do pedido (?pedido=CODIGO) — atualiza sozinha a cada 15s
+(function(){
+  const q = new URLSearchParams(location.search);
+  const codigo = q.get("pedido");
+  if(!codigo) return;
+  const ETAPAS = [
+    ["novo","Pedido recebido","A cozinha já sabe de você"],
+    ["em_preparo","No fogo 🔪","Seu sando está sendo montado"],
+    ["pronto","Prontinho 📦","Embalado, esperando o entregador"],
+    ["saiu","Saiu pra entrega 🛵","O sando está a caminho"],
+    ["entregue","Entregue ✅","Bom apetite! Arigatô 🙏"],
+  ];
+  async function atualizar(){
+    try{
+      const r = await fetch(`${SUPA_URL}/functions/v1/pedido-status`,{
+        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codigo})});
+      const p = await r.json();
+      const sheet=document.getElementById("sheet");
+      if(!r.ok){ sheet.innerHTML=`<div class="sheet-head"><h2>Pedido #${codigo}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div><div class="vazio">Não achamos esse pedido. 🤔</div>`; return; }
+      const etapas = p.modo==="retirada" ? ETAPAS.filter(e=>e[0]!=="saiu").map(e=>e[0]==="pronto"?["pronto","Prontinho 📦","Pode vir buscar em Botafogo!"]:e) : ETAPAS;
+      const idx = Math.max(0, etapas.findIndex(e=>e[0]===p.status));
+      const cancelado = p.status==="cancelado";
+      sheet.innerHTML = `
+        <div class="sheet-head"><h2>Pedido #${p.codigo}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div>
+        ${cancelado?`<div class="vazio">Esse pedido foi cancelado. Chama a gente no WhatsApp se precisar. 🙏</div>`:`
+        ${p.pagamento_status==="pendente"?`<div class="mp-note" style="color:var(--vermelho)">aguardando confirmação do pagamento...</div>`:""}
+        <div style="padding:8px 2px">
+        ${etapas.map((e,i)=>`
+          <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;opacity:${i<=idx?1:.35}">
+            <span style="font-size:18px">${i<idx?"✅":i===idx?"🔴":"⚪️"}</span>
+            <div><b style="font-size:15px">${e[1]}</b><br><small style="opacity:.6">${e[2]}</small></div>
+          </div>`).join("")}
+        </div>
+        ${p.entrega_tracking_url?`<button class="pagar" onclick="window.open('${p.entrega_tracking_url}','_blank')">Ver o entregador no mapa 🗺️</button>`:""}
+        <div class="mp-note">atualiza sozinho · ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</div>`}`;
+      sheet.classList.add("on");
+      document.getElementById("overlay").classList.add("on");
+      if(!cancelado && p.status!=="entregue") setTimeout(atualizar, 15000);
+    }catch(e){ setTimeout(atualizar, 20000); }
+  }
+  atualizar();
+})();
+
 // retorno do Checkout Pro (?pago=1|0|pendente&codigo=XXXX)
 (function(){
   const q = new URLSearchParams(location.search);
@@ -372,7 +415,8 @@ render();
     <div class="sheet-head"><h2>Pagamento confirmado</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
     <div class="ok-box"><span class="osym"></span>
       <h3>Arigatô! 🙏</h3>
-      <p>Pedido <strong>#${codigo}</strong> pago e já na fila da cozinha.<br>Qualquer coisa, chama a gente no WhatsApp.</p></div>`
+      <p>Pedido <strong>#${codigo}</strong> pago e já na fila da cozinha.</p>
+      <button class="pagar" style="margin-top:18px" onclick="location.href='?pedido=${codigo}'">Acompanhar meu pedido 🛵</button></div>`
   : ok==="pendente" ? `
     <div class="sheet-head"><h2>Quase lá</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
     <div class="ok-box"><span class="osym"></span>
