@@ -72,8 +72,8 @@
 <script>
 const SUPA_URL = "https://xngsucsxqbmvdnyuabll.supabase.co";
 const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZ3N1Y3N4cWJtdmRueXVhYmxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDg1MTYsImV4cCI6MjEwMjcyNDUxNn0.P5vuyAyooZ_BArc_lC7HiQ2N-p0Fi7ejpxzyehPSi1Q";
-const NEXT = {novo:["em_preparo","▶ Iniciar preparo"], em_preparo:["pronto","✔ Pronto"], pronto:["entregue","🛵 Saiu / entregue"]};
-const COLS = [["novo","🔴 Novos"],["em_preparo","🔪 Em preparo"],["pronto","📦 Prontos"]];
+const NEXT = {novo:["em_preparo","▶ Iniciar preparo"], em_preparo:["pronto","✔ Pronto"], pronto:["entregue","✅ Entregue / retirado"], saiu:["entregue","✅ Entregue"]};
+const COLS = [["novo","🔴 Novos"],["em_preparo","🔪 Em preparo"],["pronto","📦 Prontos"],["saiu","🛵 Saiu"]];
 let sess = JSON.parse(localStorage.getItem("rs_sess")||"null");
 let view = "board";
 let pedidos = [], vistos = new Set(JSON.parse(localStorage.getItem("rs_vistos")||"[]")), timer=null;
@@ -255,8 +255,8 @@ function card(p){
       ${p.status==="novo"?`<button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕</button>`:""}
     </div>
     ${p.entrega_id ? `
-    <div class="meta">🛵 Entregador ${esc(p.entrega_provedor)} já acionado${urlSegura(p.entrega_tracking_url)?` · <a href="${urlSegura(p.entrega_tracking_url)}" target="_blank" style="color:var(--verde)">rastrear 🗺️</a>`:""}</div>
-    <div class="acoes"><button class="cancelar" onclick="cancelarEntrega(${p.id}, this)">✕ cancelar entrega</button></div>
+    <div class="meta">🛵 ${esc(p.entrega_provedor)} ${p.status==="saiu"?"a caminho do cliente":"acionado (indo buscar)"}${urlSegura(p.entrega_tracking_url)?` · <a href="${urlSegura(p.entrega_tracking_url)}" target="_blank" style="color:var(--verde)">rastrear 🗺️</a>`:""}</div>
+    ${p.status!=="saiu"?`<div class="acoes"><button class="cancelar" onclick="cancelarEntrega(${p.id}, this)">✕ cancelar entrega</button></div>`:""}
     <div class="meta" id="cotacao-${p.id}"></div>`
     : p.status==="pronto" && p.modo==="entrega" ? `
     <div class="acoes">
