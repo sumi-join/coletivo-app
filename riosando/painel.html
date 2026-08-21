@@ -206,7 +206,7 @@ async function chamarEntrega(id, provedor, quoteId, btn){
       method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({pedido_id:id, provedor, quote_id:quoteId})});
     const d = await r.json();
-    if(!r.ok) throw new Error(d.erro);
+    if(!r.ok) throw new Error(d.detalhe ? `${d.erro}: ${String(d.detalhe).slice(0,120)}` : d.erro);
     el.innerHTML = `✅ Entregador chamado (${provedor})${d.tracking_url?` · <a href="${d.tracking_url}" target="_blank" style="color:var(--verde)">rastrear 🗺️</a>`:""}`;
     carregar();
   }catch(e){
