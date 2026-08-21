@@ -265,7 +265,7 @@ let cliente = JSON.parse(localStorage.getItem("rs_cliente")||"{}");
 
 // ── conta do cliente (Supabase Auth) + fidelidade ──
 const sb = supabase.createClient(SUPA_URL, SUPA_ANON);
-const GOOGLE_ON = false; // vira true quando o app for registrado no Google Cloud
+const GOOGLE_ON = true; // projeto rio-sando (sumi@coletivo.app), OAuth client ativo
 let sessao = null, perfil = null, extrato = [], saldoPts = 0, usarPontos = false, modoConta = "entrar";
 let meuCodigo = null, meusIndicados = 0; // programa de indicação
 let cupom = "", cupomInfo = null; // cupom de afiliado no checkout
