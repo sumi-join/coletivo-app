@@ -760,6 +760,7 @@ async function abrirPagamento(pedido, valor){
   const sheet=document.getElementById("sheet");
   sheet.innerHTML = `
     <div class="sheet-head"><h2>Pagamento · ${fmt(valor)}</h2><button class="fechar" onclick="abrirSacola()">←</button></div>
+    <div id="pay-erro"></div>
     <div id="pay-brick"><div class="vazio">carregando pagamento seguro...</div></div>
     <div class="mp-note">Pagamento processado pelo Mercado Pago 🔒</div>`;
   const mp = new MercadoPago(MP_PUBLIC_KEY, {locale:"pt-BR"});
@@ -776,27 +777,53 @@ async function abrirPagamento(pedido, valor){
       onReady: ()=>{ document.querySelector("#pay-brick .vazio")?.remove(); },
       onError: (e)=>{ console.error(e); },
       onSubmit: async ({formData})=>{
+        limparPagamentoErro();
         const user_token = (await sb.auth.getSession()).data.session?.access_token ?? null;
         const r = await fetch(`${SUPA_URL}/functions/v1/mp-processar-pagamento`,{
           method:"POST", headers:{"Content-Type":"application/json"},
           body:JSON.stringify({pedido, formData, user_token})});
         const d = await r.json();
-        if(!r.ok){ mostrarPagamentoErro(pedido, valor, d.detalhe||d.erro); throw new Error(d.erro||"falhou"); }
+        // erro do servidor (não conseguiu nem criar o pagamento) — NÃO limpa a sacola
+        if(!r.ok){ mostrarPagamentoErro(traduzErroMP(d.detalhe||d.erro)); throw new Error(d.erro||"falhou"); }
+        // cartão RECUSADO — mantém a sacola pra tentar de novo, mostra erro claro
+        if(d.status==="rejected" || d.status==="cancelled"){ mostrarPagamentoErro(traduzErroMP(d.status_detail)); throw new Error("recusado"); }
+        // daqui pra baixo = pedido colocado (aprovado ou Pix pendente): aí sim limpa
         cart={}; localStorage.removeItem("rs_cart"); localStorage.removeItem("rs_cupom_url"); usarPontos=false; cupom=""; cupomInfo=null; render();
         if(sessao) carregarConta();
         localStorage.setItem("rs_ultimo", JSON.stringify({codigo:pedido.codigo, quando:Date.now()}));
         if(d.status==="approved"){ location.href=`?pedido=${pedido.codigo}`; }
         else if(d.pix){ mostrarPix(pedido.codigo, d.pix, valor); }
-        else if(d.status==="rejected"){ mostrarPagamentoErro(pedido, valor, d.status_detail); }
         else { location.href=`?pedido=${pedido.codigo}`; }
       },
     },
   });
 }
-function mostrarPagamentoErro(pedido, valor, motivo){
-  const el=document.getElementById("pay-brick");
-  if(el) el.insertAdjacentHTML("afterend",
-    `<div class="mp-note" style="color:var(--vermelho)">Pagamento não aprovado (${motivo||"tenta outro cartão"}). Nada foi cobrado.</div>`);
+// traduz o código de recusa do Mercado Pago pra algo que o cliente entende
+function traduzErroMP(codigo){
+  const m = {
+    cc_rejected_bad_filled_security_code: "o código de segurança (CVV) do cartão está errado.",
+    cc_rejected_bad_filled_date: "a data de validade do cartão está errada.",
+    cc_rejected_bad_filled_card_number: "o número do cartão está errado.",
+    cc_rejected_bad_filled_other: "algum dado do cartão está errado — confere e tenta de novo.",
+    cc_rejected_insufficient_amount: "saldo ou limite insuficiente nesse cartão.",
+    cc_rejected_call_for_authorize: "seu banco pediu pra autorizar esta compra — ligue no banco e tente de novo, ou use Pix.",
+    cc_rejected_card_disabled: "esse cartão está desabilitado — fale com o banco ou use outro.",
+    cc_rejected_high_risk: "o pagamento foi recusado por segurança — tente outro cartão ou pague com Pix.",
+    cc_rejected_max_attempts: "muitas tentativas nesse cartão — tente outro ou pague com Pix.",
+    cc_rejected_duplicated_payment: "esse pagamento parece duplicado — confere se já não pagou.",
+    cc_rejected_card_type_not_allowed: "esse tipo de cartão não é aceito — tente outro ou Pix.",
+    cc_rejected_blacklist: "o pagamento foi recusado — tente outro cartão ou Pix.",
+  };
+  return m[codigo] || "o cartão foi recusado. Confere os dados e tenta de novo, ou pague com Pix. 🙏";
+}
+function limparPagamentoErro(){ const el=document.getElementById("pay-erro"); if(el) el.innerHTML=""; }
+function mostrarPagamentoErro(msg){
+  const el=document.getElementById("pay-erro");
+  if(!el) return;
+  el.innerHTML = `<div style="background:rgba(192,57,43,.1);border:1px solid var(--vermelho);border-radius:12px;padding:14px 16px;margin-bottom:14px;color:var(--vermelho);font-size:14px;line-height:1.5">
+    <b>Cartão não aprovado</b> — nada foi cobrado.<br>${msg}<br>
+    <span style="opacity:.85">Você pode tentar outro cartão abaixo, ou trocar pra <b>Pix</b> na opção do formulário.</span></div>`;
+  el.scrollIntoView({behavior:"smooth",block:"center"});
 }
 function mostrarPix(codigo, pix, valor){
   const sheet=document.getElementById("sheet");
