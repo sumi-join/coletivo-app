@@ -63,6 +63,7 @@ const NEXT = {novo:["em_preparo","▶ Iniciar preparo"], em_preparo:["pronto","�
 const COLS = [["novo","🔴 Novos"],["em_preparo","🔪 Em preparo"],["pronto","📦 Prontos"]];
 let sess = JSON.parse(localStorage.getItem("rs_sess")||"null");
 let pedidos = [], vistos = new Set(JSON.parse(localStorage.getItem("rs_vistos")||"[]")), timer=null;
+let impressos = new Set(JSON.parse(localStorage.getItem("rs_impressos")||"[]"));
 const fmt = v => "R$ " + Number(v).toFixed(2).replace(".",",").replace(",00","");
 const $ = id => document.getElementById(id);
 
@@ -149,9 +150,18 @@ async function carregar(){
   if(novos.length && pedidos.length !== undefined && document.hasFocus()!==null){
     if(carregar.ja) bip();
   }
+  const autoprint = new URLSearchParams(location.search).has("autoprint");
+  const paraImprimir = carregar.ja && autoprint ? novos.filter(p=>!impressos.has(p.id)) : [];
   carregar.ja = true;
   pedidos = dados;
   render();
+  // modo quiosque (?autoprint=1 + Chrome --kiosk-printing): comanda sai sozinha na térmica
+  for(const p of paraImprimir){
+    impressos.add(p.id);
+    localStorage.setItem("rs_impressos", JSON.stringify([...impressos].slice(-200)));
+    imprimir(p.id);
+    await new Promise(r=>setTimeout(r,1500));
+  }
   setTimeout(()=>{ dados.forEach(p=>vistos.add(p.id));
     localStorage.setItem("rs_vistos",JSON.stringify([...vistos].slice(-200))); }, 8000);
 }
