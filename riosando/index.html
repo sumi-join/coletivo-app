@@ -25,7 +25,7 @@
   body{
     font-family:Futura,'Futura PT','Century Gothic','Jost',sans-serif;
     background:var(--creme); color:var(--preto);
-    padding-bottom:110px;
+    padding-bottom:110px; line-height:1.45;
   }
   .wrap{max-width:520px;margin:0 auto;padding:0 20px}
 
@@ -37,49 +37,49 @@
   .wordmark .osym{display:inline-block;position:relative;width:.72em;height:.72em;border:3px solid var(--preto);border-radius:2px;margin-left:.06em}
   .wordmark .osym::before{content:"";position:absolute;left:2px;right:2px;top:38%;height:26%;background:var(--vermelho)}
   .wordmark .osym::after{content:"";position:absolute;left:20%;right:20%;top:-9px;height:3px;background:var(--preto)}
-  .tagline{font-size:12px;opacity:.65;margin-top:6px}
-  .status{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;
-    background:var(--preto);color:var(--creme);padding:4px 10px;border-radius:99px}
+  .tagline{font-size:13.5px;opacity:.7;margin-top:7px}
+  .status{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;
+    background:var(--preto);color:var(--creme);padding:6px 12px;border-radius:99px}
   .dot{width:7px;height:7px;border-radius:50%;background:#7CBF6B}
   .dot.off{background:#C0392B}
-  .alma{font-style:italic;font-size:11px;opacity:.5;margin-top:8px;padding-bottom:2px}
-  .fechado-banner{background:var(--preto);color:var(--creme);font-size:12.5px;line-height:1.5;
-    padding:10px 14px;border-radius:12px;margin-top:10px}
-  .ultimo-pedido{display:inline-block;margin-top:8px;font-size:12px;color:var(--verde);
+  .alma{font-style:italic;font-size:12.5px;opacity:.55}
+  .fechado-banner{background:var(--preto);color:var(--creme);font-size:14px;line-height:1.55;
+    padding:12px 16px;border-radius:12px;margin-top:12px}
+  .ultimo-pedido{display:inline-block;margin-top:10px;margin-left:10px;font-size:13px;color:var(--verde);
     text-decoration:underline;cursor:pointer}
-  .destaque-badge{position:absolute;top:10px;left:10px;background:var(--creme);color:var(--preto);
-    font-size:11px;letter-spacing:.08em;padding:5px 10px;border-radius:99px;box-shadow:0 2px 8px rgba(26,26,26,.25)}
+  .destaque-badge{position:absolute;top:12px;left:12px;background:var(--creme);color:var(--preto);
+    font-size:12px;letter-spacing:.08em;padding:6px 12px;border-radius:99px;box-shadow:0 2px 8px rgba(26,26,26,.25)}
   .card{position:relative}
 
   /* category nav */
   nav{position:sticky;top:0;background:var(--creme);z-index:20;padding:12px 0;border-bottom:1px solid var(--linha)}
   .chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 20px;max-width:520px;margin:0 auto}
   .chips::-webkit-scrollbar{display:none}
-  .chip{flex:0 0 auto;font-family:inherit;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
-    padding:8px 14px;border-radius:99px;border:1px solid var(--preto);background:transparent;color:var(--preto);cursor:pointer}
+  .chip{flex:0 0 auto;font-family:inherit;font-size:13px;letter-spacing:.1em;text-transform:uppercase;
+    padding:10px 16px;border-radius:99px;border:1px solid var(--preto);background:transparent;color:var(--preto);cursor:pointer}
   .chip.on{background:var(--preto);color:var(--creme)}
 
   /* sections & cards */
-  section{padding-top:26px}
-  h2{font-size:13px;letter-spacing:.28em;text-transform:uppercase;color:var(--vermelho);
-    display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  section{padding-top:34px}
+  h2{font-size:14px;letter-spacing:.26em;text-transform:uppercase;color:var(--vermelho);
+    display:flex;align-items:center;gap:12px;margin-bottom:18px}
   h2::after{content:"";flex:1;height:1px;background:var(--linha)}
-  h2 small{font-size:10px;letter-spacing:.1em;color:var(--preto);opacity:.5}
-  .card{background:var(--creme-card);border:1px solid var(--linha);border-radius:14px;overflow:hidden;margin-bottom:12px}
+  h2 small{font-size:11.5px;letter-spacing:.08em;color:var(--preto);opacity:.55}
+  .card{background:var(--creme-card);border:1px solid var(--linha);border-radius:14px;overflow:hidden;margin-bottom:18px}
   .card img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block}
-  .card .info{padding:14px 16px 16px;display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
-  .card h3{font-size:16px;font-weight:500;line-height:1.3}
-  .card p{font-size:12.5px;opacity:.6;margin-top:4px;line-height:1.45}
-  .preco{font-size:15px;color:var(--vermelho);white-space:nowrap;font-weight:500}
-  .add{display:flex;align-items:center;gap:10px;margin-top:10px}
+  .card .info{padding:16px 18px 18px;display:flex;gap:14px;align-items:flex-start;justify-content:space-between}
+  .card h3{font-size:17.5px;font-weight:500;line-height:1.35}
+  .card p{font-size:14px;opacity:.62;margin-top:6px;line-height:1.5}
+  .preco{font-size:16.5px;color:var(--vermelho);white-space:nowrap;font-weight:500}
+  .add{display:flex;align-items:center;gap:12px;margin-top:14px}
   .btn-add,.btn-qty{font-family:inherit;border:1px solid var(--preto);background:var(--preto);color:var(--creme);
-    border-radius:99px;padding:8px 18px;font-size:13px;letter-spacing:.08em;cursor:pointer}
-  .btn-qty{padding:6px 13px;font-size:15px;line-height:1}
-  .qtd{min-width:20px;text-align:center;font-size:15px}
-  .linha-item{display:flex;justify-content:space-between;align-items:center;padding:13px 2px;border-bottom:1px solid var(--linha);gap:10px}
+    border-radius:99px;padding:10px 20px;font-size:14px;letter-spacing:.06em;cursor:pointer}
+  .btn-qty{padding:8px 15px;font-size:16px;line-height:1}
+  .qtd{min-width:22px;text-align:center;font-size:16px}
+  .linha-item{display:flex;justify-content:space-between;align-items:center;padding:16px 2px;border-bottom:1px solid var(--linha);gap:12px}
   .linha-item:last-child{border-bottom:none}
-  .linha-item h3{font-size:14.5px;font-weight:500}
-  .linha-item p{font-size:11.5px;opacity:.55;margin-top:2px}
+  .linha-item h3{font-size:15.5px;font-weight:500;line-height:1.4}
+  .linha-item p{font-size:13px;opacity:.58;margin-top:3px}
   .mini-add{display:flex;align-items:center;gap:8px}
   .nota{font-size:11.5px;opacity:.55;margin:6px 2px 0}
   .vinhos{background:var(--preto);color:var(--creme);border-radius:14px;padding:18px;margin-top:14px}
@@ -103,18 +103,18 @@
   .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
   .sheet-head h2{margin:0}.sheet-head h2::after{display:none}
   .fechar{background:none;border:none;font-size:22px;cursor:pointer;color:var(--preto);font-family:inherit}
-  .total-row{display:flex;justify-content:space-between;font-size:16px;font-weight:500;padding:16px 2px;border-top:2px solid var(--preto);margin-top:8px}
-  label{display:block;font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin:16px 0 6px;opacity:.7}
+  .total-row{display:flex;justify-content:space-between;font-size:18px;font-weight:500;padding:18px 2px;border-top:2px solid var(--preto);margin-top:10px}
+  label{display:block;font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;margin:20px 0 8px;opacity:.72}
   input[type=text],input[type=tel],textarea,select{width:100%;font-family:inherit;font-size:16px;padding:12px 14px;
     border:1px solid var(--preto);border-radius:10px;background:var(--creme-card);color:var(--preto)}
-  .toggle{display:flex;gap:8px;margin-top:6px}
-  .toggle button{flex:1;font-family:inherit;font-size:13px;letter-spacing:.08em;padding:12px;border-radius:10px;
+  .toggle{display:flex;gap:10px;margin-top:8px}
+  .toggle button{flex:1;font-family:inherit;font-size:14px;letter-spacing:.05em;padding:14px 10px;border-radius:10px;
     border:1px solid var(--preto);background:transparent;color:var(--preto);cursor:pointer}
   .toggle button.on{background:var(--preto);color:var(--creme)}
   .pagar{width:100%;margin-top:22px;font-family:inherit;background:var(--vermelho);color:#fff;border:none;
     border-radius:14px;padding:17px;font-size:15px;letter-spacing:.08em;cursor:pointer}
-  .mp-note{font-size:11.5px;opacity:.55;text-align:center;margin-top:10px}
-  .vazio{text-align:center;opacity:.5;padding:30px 0;font-size:14px}
+  .mp-note{font-size:13px;opacity:.6;text-align:center;margin-top:12px;line-height:1.5}
+  .vazio{text-align:center;opacity:.5;padding:32px 0;font-size:15px}
 
   /* confirmação */
   .ok-box{text-align:center;padding:26px 0 10px}
@@ -122,7 +122,7 @@
   .ok-box .osym::before{content:"";position:absolute;left:4px;right:4px;top:38%;height:26%;background:var(--vermelho)}
   .ok-box h3{font-size:20px;margin-bottom:8px}
   .ok-box p{font-size:13.5px;opacity:.65;line-height:1.5}
-  footer{margin-top:40px;padding:20px 0 30px;border-top:1px solid var(--linha);font-size:11px;letter-spacing:.14em;opacity:.5;text-transform:uppercase}
+  footer{margin-top:48px;padding:24px 0 34px;border-top:1px solid var(--linha);font-size:12px;letter-spacing:.14em;opacity:.5;text-transform:uppercase}
 
   /* desktop */
   @media(min-width:900px){
@@ -208,6 +208,28 @@ const MENU = [
   ]},
   {cat:"Da Padaria", itens:[
     {id:"shokupan", nome:"Nosso Shokupan", preco:48, desc:"pão de leite da casa · aprox. 500g"}
+  ]},
+  {cat:"Vinhos", nota:"pra acompanhar o sando 🍷", itens:[
+    {id:"v_finca", nome:"Finca in a Bubble · Espumante", preco:179, desc:"Cava Brut Nature · Espanha"},
+    {id:"v_char25", nome:"Quereu Chardonnay", preco:89, desc:"branco · 2025 · Chile"},
+    {id:"v_char24", nome:"Quereu Chardonnay 375ml", preco:59, desc:"branco · 2024 · Chile · meia garrafa"},
+    {id:"v_lobo_b", nome:"Lobo de Vasconcellos Branco", preco:159, desc:"branco · Alentejo, Portugal"},
+    {id:"v_arenile", nome:"Arenile Pinot Grigio", preco:149, desc:"branco · IGT Terre di Chieti 2024 · Itália"},
+    {id:"v_peres_b", nome:"Perescuma Branco", preco:159, desc:"branco · 2023 · Alentejo, Portugal"},
+    {id:"v_chereau", nome:"Chéreau Carré La Griffe", preco:169, desc:"branco · Muscadet Sèvre et Maine 2023 · França"},
+    {id:"v_rose", nome:"Quereu Rosé", preco:89, desc:"rosé · 2024 · Chile"},
+    {id:"v_cab24", nome:"Quereu Cabernet Sauvignon", preco:89, desc:"tinto · 2024 · Chile"},
+    {id:"v_cab375", nome:"Quereu Cabernet Sauvignon 375ml", preco:59, desc:"tinto · 2024 · Chile · meia garrafa"},
+    {id:"v_carm24", nome:"Quereu Carménère", preco:89, desc:"tinto · 2024 · Chile"},
+    {id:"v_carm375", nome:"Quereu Carménère 375ml", preco:59, desc:"tinto · 2023 · Chile · meia garrafa"},
+    {id:"v_temporada", nome:"Temporada Malbec", preco:99, desc:"tinto · 2025 · Argentina"},
+    {id:"v_pinot", nome:"Quereu Pinot Noir Reserva", preco:129, desc:"tinto · 2023 · Chile"},
+    {id:"v_somontes", nome:"Somontes Colheita Tinto", preco:129, desc:"tinto · 2022 · Portugal"},
+    {id:"v_bauvallon", nome:"Château Bauvallon", preco:149, desc:"tinto · AC Bordeaux 2022 · França"},
+    {id:"v_lobo_t", nome:"Lobo de Vasconcellos Perescuma", preco:159, desc:"tinto · 2021 · Alentejo, Portugal"},
+    {id:"v_dragone", nome:"Podere La Vigna Dragone", preco:154, desc:"tinto · IGT Toscana 2022 · Itália"},
+    {id:"v_fabre24", nome:"Fabre Montmayou Reserva Malbec", preco:169, desc:"tinto · 2024 · Argentina"},
+    {id:"v_fabre375", nome:"Fabre Montmayou Reserva 375ml", preco:99, desc:"tinto · Malbec 2021 · meia garrafa"}
   ]}
 ];
 const BYID = {}; MENU.forEach(c=>c.itens.forEach(i=>BYID[i.id]=i));
@@ -272,9 +294,6 @@ function render(){
           <div class="mini-add" id="add-${i.id}">${addCtrl(i.id,true)}</div>
         </div>`).join("")}
     </section>`).join("") + `
-    <div class="vinhos"><h3>🍷 Carta de vinhos</h3>
-      <p>Espumante, brancos, rosé e tintos — Chile, Argentina, Portugal, Itália e França. Peça a carta completa no WhatsApp.</p>
-    </div>
     <footer>@riosando_rj · coletivo.app</footer>`;
   document.getElementById("chips").innerHTML = MENU.map((c,ix)=>
     `<button class="chip ${ix===0?"on":""}" onclick="irPara('${slug(c.cat)}',this)">${c.cat}</button>`).join("");
