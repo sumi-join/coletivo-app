@@ -343,7 +343,7 @@ function render(){
           <div class="mini-add" id="add-${i.id}">${addCtrl(i.id,true)}</div>
         </div>`).join("")}
     </section>`).join("") + `
-    <footer>@riosando_rj · coletivo.app</footer>`;
+    <footer><a href="pontos.html" style="color:inherit">⭐ Pontos & indicação</a> · <a href="afiliados.html" style="color:inherit">🤝 Seja divulgador</a><br><span style="opacity:.7">@riosando_rj · coletivo.app</span></footer>`;
   document.getElementById("chips").innerHTML = MENU.map((c,ix)=>
     `<button class="chip ${ix===0?"on":""}" onclick="irPara('${slug(c.cat)}',this)">${c.cat}</button>`).join("");
   syncBar();
@@ -625,6 +625,7 @@ function abrirConta(){
         <p>Cada amigo que pedir pela 1ª vez com seu código te dá <b>100 pontos (R$ 5)</b> — e ele já entra com <b>50 pontos</b> de bônus.${meusIndicados?` Você já indicou <b>${meusIndicados}</b> ${meusIndicados>1?"amigos":"amigo"}! 🎉`:""}</p>
         <div class="codigo-box"><span id="meu-codigo">${esc(meuCodigo)}</span></div>
         <button class="pagar" style="margin-top:10px" onclick="compartilharConvite(this)">📲 Compartilhar meu convite</button>
+        <div style="text-align:center;margin-top:10px"><a href="pontos.html" style="color:var(--creme);font-size:12.5px;opacity:.75">como funciona os pontos →</a></div>
       </div>`:""}
 
       <label style="margin-top:26px">Meus pedidos</label><div id="hist" class="mp-note" style="text-align:left">carregando...</div>

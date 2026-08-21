@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rio Sandô — Pontos e Indicação</title>
+<style>
+  :root{--preto:#1A1A1A;--creme:#F5F0EB;--vermelho:#C0392B;--verde:#2D5A27;--card:#FDFBF8;--linha:rgba(26,26,26,.12)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Futura,'Century Gothic','Jost',sans-serif;background:var(--creme);color:var(--preto);line-height:1.55}
+  .wrap{max-width:620px;margin:0 auto;padding:40px 22px 64px}
+  .kana{color:var(--vermelho);font-size:11px;letter-spacing:.5em;margin-bottom:8px}
+  h1{font-size:28px;letter-spacing:.03em;margin-bottom:8px}
+  .sub{opacity:.6;font-size:14px;margin-bottom:34px}
+  .card{background:var(--card);border:1px solid var(--linha);border-radius:16px;padding:22px;margin-bottom:16px}
+  .card.dark{background:var(--preto);color:var(--creme)}
+  .card h2{font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:var(--vermelho);margin-bottom:12px;display:flex;gap:8px;align-items:center}
+  .card.dark h2{color:#fff}
+  .card p{font-size:15px;margin-bottom:10px}
+  .big{font-size:34px;font-weight:600;letter-spacing:.02em;margin:4px 0 2px}
+  .step{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+  .step .n{flex:0 0 26px;height:26px;border-radius:50%;background:var(--vermelho);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+  .step div{font-size:14.5px}
+  a.btn{display:block;text-align:center;background:var(--vermelho);color:#fff;text-decoration:none;border-radius:14px;padding:16px;font-size:15px;letter-spacing:.06em;margin-top:26px}
+  .fine{font-size:12.5px;opacity:.55;margin-top:8px}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--linha);font-size:12px;letter-spacing:.14em;opacity:.5;text-transform:uppercase}
+  a{color:var(--vermelho)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kana">サンド</div>
+  <h1>Pontos & Indicação</h1>
+  <div class="sub">Todo sandô tem alma — e todo pedido te dá pontos. 🥪</div>
+
+  <div class="card">
+    <h2>⭐ Como ganha pontos</h2>
+    <div class="big" style="color:var(--verde)">1 ponto = R$ 1 gasto</div>
+    <p>Cada real que você gasta em sando vira 1 ponto quando o pedido é entregue. Junte <b>100 pontos</b> e troque por <b>R$ 5 de desconto</b> direto na sacola.</p>
+    <p style="opacity:.7">E ao criar sua conta você já começa com <b>100 pontos de presente</b> (= R$ 5).</p>
+  </div>
+
+  <div class="card dark">
+    <h2>🤝 Indique um amigo</h2>
+    <div class="step"><span class="n">1</span><div>Na sua conta, toque em <b>"Convide amigos"</b> e compartilhe seu link ou código.</div></div>
+    <div class="step"><span class="n">2</span><div>Seu amigo cria a conta com seu código e já ganha <b>50 pontos</b> de bônus.</div></div>
+    <div class="step"><span class="n">3</span><div>Quando ele faz o <b>1º pedido</b>, você ganha <b>100 pontos (R$ 5)</b>. 🎉</div></div>
+    <p class="fine" style="opacity:.6;color:var(--creme)">Sem limite de amigos — quanto mais indica, mais junta.</p>
+  </div>
+
+  <div class="card">
+    <h2>💸 Como usa o desconto</h2>
+    <p>Na hora de fechar o pedido, se você tiver 100+ pontos, aparece a opção <b>"Usar meus pontos"</b> — o desconto entra na hora. Simples assim.</p>
+  </div>
+
+  <a class="btn" href="/riosando/">← Voltar e pedir meu sando</a>
+  <footer>Rio Sandô · Botafogo, Rio · coletivo.app</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rio Sandô — Seja um divulgador</title>
+<meta property="og:title" content="Divulgue o Rio Sandô e ganhe 🥪">
+<meta property="og:description" content="Compartilhe seu katsu sando favorito, seus seguidores ganham desconto e você ganha comissão.">
+<style>
+  :root{--preto:#1A1A1A;--creme:#F5F0EB;--vermelho:#C0392B;--verde:#2D5A27;--card:#FDFBF8;--linha:rgba(26,26,26,.12)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Futura,'Century Gothic','Jost',sans-serif;background:var(--creme);color:var(--preto);line-height:1.55}
+  .wrap{max-width:620px;margin:0 auto;padding:40px 22px 64px}
+  .kana{color:var(--vermelho);font-size:11px;letter-spacing:.5em;margin-bottom:8px}
+  h1{font-size:28px;letter-spacing:.03em;margin-bottom:8px}
+  .sub{opacity:.65;font-size:15px;margin-bottom:30px}
+  .card{background:var(--card);border:1px solid var(--linha);border-radius:16px;padding:22px;margin-bottom:16px}
+  .card.dark{background:var(--preto);color:var(--creme)}
+  .card h2{font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--vermelho);margin-bottom:14px}
+  .card.dark h2{color:#fff}
+  .step{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;font-size:14.5px}
+  .step .n{flex:0 0 26px;height:26px;border-radius:50%;background:var(--vermelho);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+  label{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin:16px 0 6px}
+  input,textarea{width:100%;font-family:inherit;font-size:16px;padding:12px 14px;border:1px solid var(--preto);border-radius:10px;background:#fff;color:var(--preto)}
+  button{width:100%;margin-top:22px;font-family:inherit;background:var(--vermelho);color:#fff;border:none;border-radius:14px;padding:16px;font-size:15px;letter-spacing:.06em;cursor:pointer}
+  .msg{font-size:13.5px;margin-top:12px;text-align:center;min-height:16px}
+  .ok-box{text-align:center;padding:20px 0}
+  .ok-box .big{font-size:44px}
+  .ok-box h3{font-size:20px;margin:8px 0}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--linha);font-size:12px;letter-spacing:.14em;opacity:.5;text-transform:uppercase}
+  a{color:var(--vermelho)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kana">サンド</div>
+  <h1>Seja um divulgador</h1>
+  <div class="sub">Você ama o Rio Sandô e tem um público? Divulgue, seus seguidores ganham desconto e você ganha comissão em cada pedido. 🥪</div>
+
+  <div class="card dark">
+    <h2>Como funciona</h2>
+    <div class="step"><span class="n">1</span><div>Você recebe um <b>código e um link só seu</b> (ex: <b>SUACARA10</b>).</div></div>
+    <div class="step"><span class="n">2</span><div>Divulga nos Stories, bio, posts. Quem pede pelo seu link ganha <b>desconto na hora</b>.</div></div>
+    <div class="step"><span class="n">3</span><div>A cada pedido feito com seu código, você ganha <b>comissão</b> — pago no seu <b>Pix</b>.</div></div>
+  </div>
+
+  <div class="card" id="form-card">
+    <h2>Quero divulgar</h2>
+    <label>Seu nome</label><input id="f-nome" placeholder="Como te chamam">
+    <label>WhatsApp (pro Pix da comissão)</label><input id="f-zap" type="tel" placeholder="(21) 9 9999-9999">
+    <label>Instagram (@ ou link)</label><input id="f-ig" placeholder="@seuinsta">
+    <label>TikTok / YouTube <span style="opacity:.5;text-transform:none;letter-spacing:0">(opcional)</span></label><input id="f-tt" placeholder="@ ou link">
+    <label>Onde você divulga? <span style="opacity:.5;text-transform:none;letter-spacing:0">(opcional)</span></label><textarea id="f-div" rows="2" placeholder="Ex: Stories quase todo dia, público de Botafogo/Zona Sul..."></textarea>
+    <button onclick="enviar(this)">Enviar candidatura</button>
+    <div class="msg" id="msg" style="color:var(--vermelho)"></div>
+  </div>
+
+  <a href="/riosando/" style="display:block;text-align:center;font-size:14px;margin-top:8px">← Voltar pro cardápio</a>
+  <footer>Rio Sandô · Botafogo, Rio · coletivo.app</footer>
+</div>
+<script>
+const SUPA_URL="https://xngsucsxqbmvdnyuabll.supabase.co";
+const SUPA_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZ3N1Y3N4cWJtdmRueXVhYmxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDg1MTYsImV4cCI6MjEwMjcyNDUxNn0.P5vuyAyooZ_BArc_lC7HiQ2N-p0Fi7ejpxzyehPSi1Q";
+async function enviar(btn){
+  const v=id=>document.getElementById(id).value.trim();
+  const nome=v("f-nome"), zap=v("f-zap");
+  const msg=document.getElementById("msg");
+  if(!nome||!zap){ msg.textContent="Precisamos do seu nome e WhatsApp. 🙏"; return; }
+  btn.disabled=true; btn.textContent="Enviando...";
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/afiliado_candidaturas`,{
+      method:"POST", headers:{apikey:SUPA_ANON, Authorization:`Bearer ${SUPA_ANON}`, "Content-Type":"application/json", Prefer:"return=minimal"},
+      body:JSON.stringify({nome, whatsapp:zap, instagram:v("f-ig")||null, tiktok:v("f-tt")||null, divulga:v("f-div")||null, status:"pendente"})});
+    if(!r.ok) throw new Error();
+    document.getElementById("form-card").innerHTML=`<div class="ok-box"><div class="big">🎉</div><h3>Recebemos, ${nome.split(" ")[0]}!</h3><p style="opacity:.7">A gente vai dar uma olhada no seu perfil e chama você no WhatsApp pra combinar tudo. Valeu por querer divulgar o Rio Sandô! 🙏</p></div>`;
+  }catch(e){ btn.disabled=false; btn.textContent="Enviar candidatura"; msg.textContent="Ops, não enviou. Tenta de novo?"; }
+}
+</script>
+</body>
+</html>

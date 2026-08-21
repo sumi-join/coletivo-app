@@ -105,60 +105,124 @@ function render(){
         ${!list.length?`<div class="vazio">nada por aqui</div>`:list.map(card).join("")}</div>`;
     }).join("")}</div>`;
 }
-let afiliados=[], comissoes=[];
+let afiliados=[], comissoes=[], candidaturas=[], codigosUsados=new Set(), aprovandoCand=null;
+// link da lojinha do afiliado (troca aqui quando o subdomínio bonito entrar)
+const linkAfiliado = cod => `https://coletivo.app/riosando/?cupom=${cod}`;
+const igLink = ig => { ig=(ig||"").trim(); if(!ig) return ""; if(/^https?:/i.test(ig)) return ig; return "https://instagram.com/"+ig.replace(/^@/,""); };
 function abrirAfiliados(){ view="afiliados"; render(); carregarAfiliados(); }
 function voltarBoard(){ view="board"; render(); }
 async function carregarAfiliados(){
-  const [ra,rc]=await Promise.all([
-    api("afiliados?tipo=eq.influencer&select=id,codigo,nome,desconto_pct,comissao_pct,ativo&order=created_at.desc"),
-    api("comissoes?status=eq.confirmada&select=afiliado_id,valor")
+  const [ra,rc,rcand,rcod]=await Promise.all([
+    api("afiliados?tipo=eq.influencer&select=id,codigo,nome,instagram,desconto_pct,comissao_pct,ativo&order=created_at.desc"),
+    api("comissoes?status=eq.confirmada&select=afiliado_id,valor"),
+    api("afiliado_candidaturas?status=eq.pendente&select=*&order=created_at.asc"),
+    api("afiliados?select=codigo"),
   ]);
   if(ra&&ra.ok) afiliados=await ra.json();
   if(rc&&rc.ok) comissoes=await rc.json();
+  if(rcand&&rcand.ok) candidaturas=await rcand.json();
+  if(rcod&&rcod.ok) codigosUsados=new Set((await rcod.json()).map(x=>x.codigo));
   if(view==="afiliados") renderAfiliados();
+}
+// monta código NOME+% a partir do @ (preferido) ou nome, resolvendo colisão
+function montarCodigo(base, desc){
+  base=(base||"").replace(/^@/,"").replace(/[^a-zA-Z0-9]/g,"").toUpperCase().slice(0,14);
+  if(!base) return "";
+  const n=Math.round(Number(desc)||0);
+  let cod=base+n;
+  if(!codigosUsados.has(cod)) return cod;
+  for(let i=2;i<=9;i++){ if(!codigosUsados.has(base+i+n)) return base+i+n; } // GABRIEL10 → GABRIEL210
+  return cod;
+}
+function sugerirCodigo(){
+  const ig=$("af-ig").value.trim(), nome=$("af-nome").value.trim(), desc=$("af-desc").value;
+  const base = ig ? ig.replace(/^@/,"").replace(/.*instagram\.com\//,"") : nome.split(" ")[0];
+  const c=montarCodigo(base, desc);
+  if(c) $("af-cod").value=c;
 }
 function renderAfiliados(){
   const pend={}; comissoes.forEach(c=>pend[c.afiliado_id]=(pend[c.afiliado_id]||0)+Number(c.valor));
   $("app").innerHTML=`<header>
-      <div><h1>RIO SAND<span>Ô</span> · AFILIADOS</h1><div class="sub">códigos de influencer, desconto e repasse</div></div>
+      <div><h1>RIO SAND<span>Ô</span> · AFILIADOS</h1><div class="sub">candidaturas, códigos e repasse</div></div>
       <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
     </header>
+    ${candidaturas.length?`<h3 style="font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--vermelho);margin-bottom:10px">📥 Candidaturas (${candidaturas.length})</h3>
+      ${candidaturas.map(c=>`<div class="afcard" style="border-left:3px solid var(--vermelho)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><h3>${esc(c.nome)}</h3>
+          <span style="font-size:12px;opacity:.6">${new Date(c.created_at).toLocaleDateString("pt-BR")}</span></div>
+        <div class="linha"><span>📱 ${esc(c.whatsapp)}</span></div>
+        <div class="linha" style="gap:12px">
+          ${c.instagram?`<a href="${igLink(c.instagram)}" target="_blank" style="color:var(--verde)">📸 ${esc(c.instagram)}</a>`:""}
+          ${c.tiktok?`<a href="${igLink(c.tiktok)}" target="_blank" style="color:var(--verde)">🎵 ${esc(c.tiktok)}</a>`:""}</div>
+        ${c.divulga?`<div class="linha" style="opacity:.75">💬 ${esc(c.divulga)}</div>`:""}
+        <div class="acoes" style="margin-top:10px">
+          <button class="pagarcom" onclick='aprovarCandidatura(${c.id})'>✓ Aprovar</button>
+          <button class="off" onclick="recusarCandidatura(${c.id})">recusar</button>
+        </div></div>`).join("")}`:""}
     <div class="afform">
-      <h3 style="font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--vermelho)">+ Novo afiliado</h3>
-      <label>Nome (quem divulga)</label><input id="af-nome" placeholder="Ex: Gabriel do Insta">
-      <label>Código (o que o cliente digita)</label><input id="af-cod" placeholder="GABRIEL" style="text-transform:uppercase">
+      <h3 style="font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--vermelho)">${aprovandoCand?"Aprovar candidatura":"+ Novo afiliado"}</h3>
+      <label>Nome (quem divulga)</label><input id="af-nome" placeholder="Ex: Gabriel" oninput="sugerirCodigo()">
+      <label>Instagram (@ ou link)</label><input id="af-ig" placeholder="@gabrieleats" oninput="sugerirCodigo()">
       <div class="grid">
-        <div><label>Desconto do cliente %</label><input id="af-desc" type="number" value="10" min="0" max="50"></div>
-        <div><label>Comissão do afiliado %</label><input id="af-com" type="number" value="0" min="0" max="30"></div>
+        <div><label>Desconto do cliente %</label><input id="af-desc" type="number" value="10" min="0" max="50" oninput="sugerirCodigo()"></div>
+        <div><label>Comissão do afiliado %</label><input id="af-com" type="number" value="8" min="0" max="30"></div>
       </div>
+      <label>Código (sugerido do @ + %, pode editar)</label><input id="af-cod" placeholder="GABRIELEATS10" style="text-transform:uppercase">
       <div class="mp-note" id="af-erro" style="color:var(--vermelho);font-size:12px;min-height:14px;margin-top:8px"></div>
-      <button onclick="criarAfiliado(this)">Criar código</button>
+      <button onclick="criarAfiliado(this)">${aprovandoCand?"Aprovar e criar código":"Criar afiliado"}</button>
+      ${aprovandoCand?`<button class="off" style="margin-top:8px" onclick="aprovandoCand=null;renderAfiliados()">cancelar</button>`:""}
     </div>
-    ${!afiliados.length?`<div class="vazio">Nenhum afiliado ainda. Cria o primeiro aí em cima.</div>`
+    ${!afiliados.length?`<div class="vazio">Nenhum afiliado ativo ainda.</div>`
       :afiliados.map(a=>{
-        const r=pend[a.id]||0;
+        const r=pend[a.id]||0, link=linkAfiliado(a.codigo);
         return `<div class="afcard">
           <div style="display:flex;justify-content:space-between;align-items:baseline">
             <h3>${esc(a.codigo)} ${a.ativo?"":"<span style='opacity:.5;font-size:12px'>(inativo)</span>"}</h3>
             <button class="off" onclick="toggleAfiliado(${a.id},${!a.ativo})">${a.ativo?"desativar":"reativar"}</button>
           </div>
-          <div class="linha"><span>${esc(a.nome||"—")}</span><span>${a.desconto_pct}% pro cliente · ${a.comissao_pct}% comissão</span></div>
+          <div class="linha"><span>${esc(a.nome||"—")}${a.instagram?` · <a href="${igLink(a.instagram)}" target="_blank" style="color:var(--verde)">${esc(a.instagram)}</a>`:""}</span>
+            <span>${a.desconto_pct}% cliente · ${a.comissao_pct}% comissão</span></div>
+          <div class="acoes" style="margin-top:8px">
+            <button class="imprimir" onclick='copiar(${JSON.stringify(link)}, this, "🔗 Copiar link")'>🔗 Copiar link</button>
+            <button class="imprimir" onclick='copiar(${JSON.stringify(a.codigo)}, this, "🏷️ Copiar código")'>🏷️ Copiar código</button>
+          </div>
           <div class="repasse">A repassar: <b>${fmt(r)}</b>
             ${r>0?`<button class="pagarcom" style="float:right" onclick="pagarComissoes(${a.id}, this)">✓ marquei que paguei</button>`:""}</div>
         </div>`;
       }).join("")}`;
 }
+function copiar(txt, btn, label){
+  navigator.clipboard.writeText(txt).then(()=>{ btn.textContent="✓ copiado"; setTimeout(()=>btn.textContent=label,1800); });
+}
+function aprovarCandidatura(id){
+  const c=candidaturas.find(x=>x.id===id); if(!c) return;
+  aprovandoCand=id; renderAfiliados();
+  $("af-nome").value=c.nome||""; $("af-ig").value=c.instagram||"";
+  sugerirCodigo();
+  $("af-nome").scrollIntoView({behavior:"smooth",block:"center"});
+}
+async function recusarCandidatura(id){
+  if(!confirm("Recusar essa candidatura?")) return;
+  await api(`afiliado_candidaturas?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({status:"recusada"})});
+  carregarAfiliados();
+}
 async function criarAfiliado(btn){
-  const nome=$("af-nome").value.trim(), cod=$("af-cod").value.trim().toUpperCase();
+  const nome=$("af-nome").value.trim(), ig=$("af-ig").value.trim(), cod=$("af-cod").value.trim().toUpperCase();
   const desc=Number($("af-desc").value)||0, com=Number($("af-com").value)||0;
   const erro=$("af-erro");
   if(!cod){ erro.textContent="Precisa de um código."; return; }
   if(!/^[A-Z0-9]{3,20}$/.test(cod)){ erro.textContent="Código: 3 a 20 letras/números, sem espaço."; return; }
   btn.disabled=true;
-  const r=await api("afiliados",{method:"POST",headers:{Prefer:"return=minimal"},
-    body:JSON.stringify({codigo:cod,tipo:"influencer",nome,desconto_pct:desc,comissao_pct:com})});
+  const r=await api("afiliados",{method:"POST",headers:{Prefer:"return=representation"},
+    body:JSON.stringify({codigo:cod,tipo:"influencer",nome,instagram:ig||null,desconto_pct:desc,comissao_pct:com})});
+  if(!r||!r.ok){ btn.disabled=false; erro.textContent = r&&r.status===409?"Esse código já existe — troca o código.":"Não deu pra criar."; return; }
+  // se veio de candidatura, marca aprovada e vincula
+  if(aprovandoCand){
+    const novo=(await r.json())[0];
+    await api(`afiliado_candidaturas?id=eq.${aprovandoCand}`,{method:"PATCH",body:JSON.stringify({status:"aprovada",afiliado_id:novo.id})});
+    aprovandoCand=null;
+  }
   btn.disabled=false;
-  if(!r||!r.ok){ erro.textContent = r&&r.status===409?"Esse código já existe.":"Não deu pra criar."; return; }
   carregarAfiliados();
 }
 async function toggleAfiliado(id,ativo){
