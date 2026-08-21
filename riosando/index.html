@@ -109,6 +109,13 @@
   input[type=text],input[type=tel],input[type=password],input[type=email],textarea,select{width:100%;font-family:inherit;font-size:16px;padding:12px 14px;
     border:1px solid var(--preto);border-radius:10px;background:var(--creme-card);color:var(--preto)}
   .conta-btn{border:none;cursor:pointer;font-family:inherit;margin-left:8px;background:var(--vermelho);color:#fff}
+  .conta-chip{display:inline-flex;align-items:center;gap:7px;margin-left:8px;margin-top:10px;cursor:pointer;
+    font-family:inherit;border:1px solid var(--linha);background:var(--creme-card);color:var(--preto);
+    border-radius:99px;padding:4px 10px 4px 4px;font-size:12.5px}
+  .conta-chip .av{width:24px;height:24px;border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;
+    justify-content:center;background:var(--preto);color:var(--creme);font-size:12px;font-weight:600}
+  .conta-chip .nm{font-weight:500;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .conta-chip .cpts{background:var(--preto);color:var(--creme);border-radius:99px;padding:2px 8px;font-size:11.5px}
   .pts-box{background:var(--preto);color:var(--creme);border-radius:14px;padding:18px;text-align:center;margin-top:4px}
   .pts-box b{font-size:30px;letter-spacing:.02em}
   .pts-box small{opacity:.72;font-size:12.5px;display:block;margin-top:6px;line-height:1.5}
@@ -119,6 +126,9 @@
     border-radius:12px;padding:14px 38px 14px 16px;margin-top:12px;font-size:13.5px;line-height:1.6;position:relative}
   .news b.titulo{color:var(--vermelho);letter-spacing:.1em;font-size:11.5px;text-transform:uppercase}
   .news .fechar{position:absolute;top:8px;right:10px;font-size:16px;opacity:.6}
+  .lojinha{background:var(--verde);color:#fff;border-radius:12px;padding:13px 16px;margin-top:12px;
+    font-size:14px;line-height:1.5}
+  .lojinha b{font-weight:600}
   .convite{background:var(--preto);color:var(--creme);border-radius:14px;padding:18px;margin-top:24px}
   .convite b.titulo{color:#fff;letter-spacing:.08em;font-size:12px;text-transform:uppercase}
   .convite p{font-size:13px;opacity:.85;line-height:1.55;margin-top:8px}
@@ -173,6 +183,7 @@
     <span class="ultimo-pedido" id="ultimo-pedido" style="display:none"></span>
     <div class="fechado-banner" id="fechado-banner" style="display:none"></div>
     <div class="news" id="news" style="display:none"></div>
+    <div class="lojinha" id="lojinha" style="display:none"></div>
   </div>
 </header>
 
@@ -269,10 +280,11 @@ const GOOGLE_ON = true; // projeto rio-sando (sumi@coletivo.app), OAuth client a
 let sessao = null, perfil = null, extrato = [], saldoPts = 0, usarPontos = false, modoConta = "entrar";
 let meuCodigo = null, meusIndicados = 0; // programa de indicação
 let cupom = "", cupomInfo = null; // cupom de afiliado no checkout
-// captura ?ref=CODIGO (link de indicação) e guarda pro cadastro
+// captura links de afiliado: ?ref (indicação p/ cadastro) e ?cupom (lojinha, desconto já aplicado)
 (function(){
-  const ref = new URLSearchParams(location.search).get("ref");
-  if(ref) localStorage.setItem("rs_ref", ref.toUpperCase().trim());
+  const q = new URLSearchParams(location.search);
+  const ref = q.get("ref"); if(ref) localStorage.setItem("rs_ref", ref.toUpperCase().trim());
+  const cup = q.get("cupom"); if(cup) localStorage.setItem("rs_cupom_url", cup.toUpperCase().trim());
 })();
 
 // horário: ter(2)–sáb(6), 18h–22h30 — fora disso o pedido entra agendado
@@ -461,7 +473,25 @@ async function aplicarCupom(){
       const m=document.getElementById("cupom-msg"); if(m){ m.className="cupom-erro"; m.textContent=d.motivo||"cupom inválido"; } }
   }catch(e){ const m=document.getElementById("cupom-msg"); if(m){ m.className="cupom-erro"; m.textContent="não deu pra conferir agora"; } }
 }
-function removerCupom(){ cupom=""; cupomInfo=null; reabrirSacola(); }
+function removerCupom(){ cupom=""; cupomInfo=null; localStorage.removeItem("rs_cupom_url"); document.getElementById("lojinha").style.display="none"; reabrirSacola(); }
+// lojinha do afiliado: chegou por link (?cupom= ou /handle reescrito) → desconto já entra + banner pessoal
+async function aplicarCupomURL(){
+  const cod = (localStorage.getItem("rs_cupom_url")||"").trim().toUpperCase();
+  if(!cod || cupomInfo) return;
+  try{
+    const r = await fetch(`${SUPA_URL}/functions/v1/validar-cupom`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({cupom:cod, subtotal:totais().t})});
+    const d = await r.json();
+    if(d.ok){
+      cupom=cod; cupomInfo={pct:d.desconto_pct, nome:d.nome}; usarPontos=false;
+      const el=document.getElementById("lojinha");
+      if(el){ el.style.display="block";
+        el.innerHTML=`🎁 Você chegou pela <b>${esc(d.nome)}</b> — <b>${d.desconto_pct}% de desconto</b> já entra no seu pedido!`; }
+      if(document.getElementById("sheet")?.classList.contains("on")) reabrirSacola();
+    } else { localStorage.removeItem("rs_cupom_url"); }
+  }catch(e){}
+}
 async function pagar(btn){
   const val = id => (document.getElementById(id)?.value||"").trim();
   const erro = document.getElementById("erro-envio");
@@ -507,7 +537,7 @@ async function pagar(btn){
         Qualquer coisa, <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">chama a gente no WhatsApp</a>.</p>
         <button class="pagar" style="margin-top:18px" onclick="location.href='?pedido=${ped.codigo}'">Acompanhar meu pedido 🛵</button>
       </div>`;
-    cart={}; localStorage.removeItem("rs_cart"); usarPontos=false; cupom=""; cupomInfo=null; render();
+    cart={}; localStorage.removeItem("rs_cart"); localStorage.removeItem("rs_cupom_url"); usarPontos=false; cupom=""; cupomInfo=null; render();
     if(sessao) carregarConta();
   }catch(e){
     btn.disabled=false; btn.textContent="Enviar pedido";
@@ -546,7 +576,18 @@ async function carregarConta(){
   syncConta();
 }
 function syncConta(){
-  document.getElementById("conta-chip").innerHTML = sessao ? `⭐ ${saldoPts} pts` : "👤 entrar";
+  const chip = document.getElementById("conta-chip");
+  if(!sessao){ chip.className = "status conta-btn"; chip.innerHTML = "👤 entrar"; return; }
+  const md = sessao.user.user_metadata || {};
+  const nome = (perfil?.nome || md.full_name || md.name || "").trim();
+  const primeiro = (nome ? nome.split(" ")[0] : (sessao.user.email||"").split("@")[0]) || "conta";
+  const foto = md.avatar_url || md.picture || "";
+  const ini = (primeiro[0]||"?").toUpperCase();
+  const av = foto
+    ? `<img class="av" src="${esc(foto)}" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'av ini',textContent:'${ini}'}))">`
+    : `<span class="av ini">${ini}</span>`;
+  chip.className = "conta-chip logado";
+  chip.innerHTML = `${av}<span class="nm">${esc(primeiro)}</span><span class="cpts">⭐ ${saldoPts}</span>`;
 }
 function abrirConta(){
   const sheet=document.getElementById("sheet");
@@ -569,7 +610,7 @@ function abrirConta(){
   }else{
     const nome1 = (perfil?.nome||cliente.nome||"").split(" ")[0];
     sheet.innerHTML = `
-      <div class="sheet-head"><h2>${nome1?`Olá, ${nome1}`:"Sua conta"}</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+      <div class="sheet-head"><div><h2 style="margin:0">${nome1?`Olá, ${nome1}`:"Sua conta"}</h2><div style="font-size:12.5px;opacity:.6;margin-top:2px">${esc(sessao?.user?.email||"")}</div></div><button class="fechar" onclick="fecharSheet()">✕</button></div>
       <div class="pts-box"><b>⭐ ${saldoPts}</b><small>pontos ${saldoPts>=100?`= ${fmt(Math.floor(saldoPts/100)*5)} de desconto — usa na sacola!`:`· faltam ${100-saldoPts} pra ganhar R$ 5`}<br>cada R$ 1 em sando vira 1 ponto quando o pedido chega</small></div>
       <label>Seu nome</label><input type="text" id="pf-nome" value="${(perfil?.nome||"").replace(/"/g,"&quot;")}">
       <label>WhatsApp</label><input type="tel" id="pf-zap" value="${(perfil?.whatsapp||cliente.zap||"").replace(/"/g,"&quot;")}">
@@ -740,7 +781,7 @@ async function abrirPagamento(pedido, valor){
           body:JSON.stringify({pedido, formData, user_token})});
         const d = await r.json();
         if(!r.ok){ mostrarPagamentoErro(pedido, valor, d.detalhe||d.erro); throw new Error(d.erro||"falhou"); }
-        cart={}; localStorage.removeItem("rs_cart"); usarPontos=false; render();
+        cart={}; localStorage.removeItem("rs_cart"); localStorage.removeItem("rs_cupom_url"); usarPontos=false; cupom=""; cupomInfo=null; render();
         if(sessao) carregarConta();
         localStorage.setItem("rs_ultimo", JSON.stringify({codigo:pedido.codigo, quando:Date.now()}));
         if(d.status==="approved"){ location.href=`?pedido=${pedido.codigo}`; }
@@ -778,6 +819,7 @@ function mostrarPix(codigo, pix, valor){
   })();
 }
 render();
+aplicarCupomURL();
 
 // novidades do app (subir o id a cada atualização — quem já viu não vê de novo)
 const NOVIDADES = {id:2, itens:[
