@@ -420,14 +420,18 @@ function abrirSacola(){
     <textarea id="obs" rows="2" placeholder="Sem repolho? Meio quilo de conserva? Conta aqui."></textarea>
 
     <label>Pagamento</label>
+    ${entrega==="entrega"?`
+    <div class="toggle"><button class="on" style="flex:1">⚡ Pagar agora · Pix ou cartão</button></div>
+    <div class="mp-note" style="text-align:left;opacity:.75">🛵 Entrega é paga no app — o motoboy não passa maquininha nem recebe. Pra pagar na hora, escolha <b>retirada</b>.</div>`
+    :`
     <div class="toggle">
       <button class="${pgto==="online"?"on":""}" onclick="setPgto('online')">⚡ Pagar agora</button>
-      <button class="${pgto==="pix"?"on":""}" onclick="setPgto('pix')">Pix na ${entrega==="entrega"?"entrega":"retirada"}</button>
-      <button class="${pgto==="cartao"?"on":""}" onclick="setPgto('cartao')">💳 na ${entrega==="entrega"?"entrega":"retirada"}</button>
-    </div>
+      <button class="${pgto==="pix"?"on":""}" onclick="setPgto('pix')">Pix na retirada</button>
+      <button class="${pgto==="cartao"?"on":""}" onclick="setPgto('cartao')">💳 na retirada</button>
+    </div>`}
 
-    <button class="pagar" onclick="pagar(this)">${pgto==="online"?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</button>
-    <div class="mp-note">${pgto==="online"?"Pix ou cartão, seguro via Mercado Pago":"Você paga na hora de receber"}</div>
+    <button class="pagar" onclick="pagar(this)">${(entrega==="entrega"||pgto==="online")?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</button>
+    <div class="mp-note">${(entrega==="entrega"||pgto==="online")?"Pix ou cartão, seguro via Mercado Pago":"Você paga na hora de retirar"}</div>
     <div class="mp-note" id="erro-envio" style="color:var(--vermelho)"></div>`}`;
   sheet.classList.add("on");
   document.getElementById("overlay").classList.add("on");
@@ -445,7 +449,7 @@ function restaurarForm(f){
   }
 }
 function reabrirSacola(){ const f=lerForm(); abrirSacola(); restaurarForm(f); }
-function setEntrega(v){ entrega=v; reabrirSacola(); }
+function setEntrega(v){ entrega=v; if(v==="entrega") pgto="online"; reabrirSacola(); }
 function setPgto(v){ pgto=v; reabrirSacola(); }
 function setBairro(v){ bairro=v; reabrirSacola(); }
 function setUsarPontos(v){ usarPontos=v; if(v){ cupom=""; cupomInfo=null; } reabrirSacola(); }
@@ -497,6 +501,7 @@ async function pagar(btn){
   const erro = document.getElementById("erro-envio");
   const nome=val("nome"), zap=val("zap"), endereco=val("endereco"), obs=val("obs");
   if(!nome || !zap){ erro.textContent="Precisamos do seu nome e WhatsApp. 🙏"; return; }
+  if(entrega==="entrega") pgto="online"; // entrega é sempre paga no app (motoboy não recebe)
   if(entrega==="entrega" && !bairro){ erro.textContent="Escolhe o bairro da entrega. 🙏"; return; }
   if(entrega==="entrega" && !endereco){ erro.textContent="Cadê o endereço de entrega? 🙏"; return; }
   const {t}=totais();
