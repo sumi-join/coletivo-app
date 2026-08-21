@@ -66,6 +66,9 @@ let pedidos = [], vistos = new Set(JSON.parse(localStorage.getItem("rs_vistos")|
 let impressos = new Set(JSON.parse(localStorage.getItem("rs_impressos")||"[]"));
 const fmt = v => "R$ " + Number(v).toFixed(2).replace(".",",").replace(",00","");
 const $ = id => document.getElementById(id);
+// todo dado digitado pelo cliente passa por aqui antes de virar HTML (anti-XSS)
+const esc = s => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const urlSegura = u => typeof u==="string" && /^https:\/\/[\w.-]+\//.test(u) ? esc(u) : null;
 
 function render(){
   const app=$("app");
@@ -93,12 +96,12 @@ function card(p){
   return `<div class="pedido ${flash?"novo-flash":""}">
     ${flash?`<span class="badge">NOVO</span>`:""}
     ${p.agendado_para && new Date(p.agendado_para).getTime()>Date.now() ? `<span class="badge" style="background:var(--verde);right:auto;left:12px">⏰ AGENDADO ${new Date(p.agendado_para).toLocaleString("pt-BR",{weekday:"short",hour:"2-digit",minute:"2-digit"})}</span>`:""}
-    <div class="ped-head"><span class="codigo">#${p.codigo}</span>
+    <div class="ped-head"><span class="codigo">#${esc(p.codigo)}</span>
       <span class="hora">${new Date(p.created_at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</span></div>
-    <div class="cliente">${p.nome} · <a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank">${p.whatsapp}</a><br>
-      ${p.modo==="entrega"?"🛵 "+(p.endereco||""):"🏠 Retirada"} · ${p.pagamento_status==="pago"?"✅ PAGO online":"pgto na entrega: "+p.pagamento}</div>
-    <div class="itens">${p.itens.map(i=>`<b>${i.qtd}×</b> ${i.item}`).join("<br>")}</div>
-    ${p.obs?`<div class="meta">📝 ${p.obs}</div>`:""}
+    <div class="cliente">${esc(p.nome)} · <a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank">${esc(p.whatsapp)}</a><br>
+      ${p.modo==="entrega"?"🛵 "+esc(p.endereco||""):"🏠 Retirada"} · ${p.pagamento_status==="pago"?"✅ PAGO online":"pgto na entrega: "+esc(p.pagamento)}</div>
+    <div class="itens">${p.itens.map(i=>`<b>${Number(i.qtd)||"?"}×</b> ${esc(i.item)}`).join("<br>")}</div>
+    ${p.obs?`<div class="meta">📝 ${esc(p.obs)}</div>`:""}
     <div class="total">${fmt(p.total)}</div>
     <div class="acoes">
       ${nx?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${rot}</button>`:""}
@@ -106,7 +109,7 @@ function card(p){
       ${p.status==="novo"?`<button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕</button>`:""}
     </div>
     ${p.entrega_id ? `
-    <div class="meta">🛵 Entregador ${p.entrega_provedor} já acionado${p.entrega_tracking_url?` · <a href="${p.entrega_tracking_url}" target="_blank" style="color:var(--verde)">rastrear 🗺️</a>`:""}</div>`
+    <div class="meta">🛵 Entregador ${esc(p.entrega_provedor)} já acionado${urlSegura(p.entrega_tracking_url)?` · <a href="${urlSegura(p.entrega_tracking_url)}" target="_blank" style="color:var(--verde)">rastrear 🗺️</a>`:""}</div>`
     : p.status==="pronto" && p.modo==="entrega" ? `
     <div class="acoes">
       <button class="imprimir" onclick="copiarEndereco(${p.id}, this)">📋 Copiar endereço</button>
@@ -195,8 +198,9 @@ async function cotarEntrega(id){
   const el = document.getElementById(`cotacao-${id}`);
   el.textContent = "cotando...";
   try{
+    if(Date.now()>sess.exp && !(await renovar())) return;
     const r = await fetch(`${SUPA_URL}/functions/v1/entrega-cotar`,{
-      method:"POST", headers:{"Content-Type":"application/json"},
+      method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${sess.token}`},
       body:JSON.stringify({endereco:p.endereco})});
     const d = await r.json();
     if(d.vencedor){
@@ -212,8 +216,9 @@ async function chamarEntrega(id, provedor, quoteId, btn){
   btn.disabled = true; btn.textContent = "Chamando...";
   const el = document.getElementById(`cotacao-${id}`);
   try{
+    if(Date.now()>sess.exp && !(await renovar())) return;
     const r = await fetch(`${SUPA_URL}/functions/v1/entrega-criar`,{
-      method:"POST", headers:{"Content-Type":"application/json"},
+      method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${sess.token}`},
       body:JSON.stringify({pedido_id:id, provedor, quote_id:quoteId})});
     const d = await r.json();
     if(!r.ok) throw new Error(d.detalhe ? `${d.erro}: ${String(d.detalhe).slice(0,120)}` : d.erro);

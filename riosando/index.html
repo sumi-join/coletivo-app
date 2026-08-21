@@ -270,7 +270,8 @@ function proximaAbertura(){
   }
   return d;
 }
-const DIAS=["domingo","terça","terça","quarta","quinta","sexta","sábado"];
+const DIAS=["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
+const esc = s => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function rotuloAbertura(){
   const p=proximaAbertura(), hoje=new Date();
   const nome = p.toDateString()===hoje.toDateString() ? "hoje" :
@@ -433,9 +434,9 @@ async function pagar(btn){
   const {t}=totais();
   const frete = freteAtual();
   const desconto = descontoAtual();
-  const itens = Object.keys(cart).map(id=>({item:BYID[id].nome, qtd:cart[id], preco:BYID[id].preco}));
+  const itens = Object.keys(cart).map(id=>({id, item:BYID[id].nome, qtd:cart[id], preco:BYID[id].preco}));
   btn.disabled=true; btn.textContent="Enviando...";
-  const codigo = Array.from({length:4},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
+  const codigo = Array.from({length:6},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
   const agendadoPara = lojaAberta() ? null : proximaAbertura().toISOString();
   cliente = {nome, zap, endereco, bairro};
   localStorage.setItem("rs_cliente", JSON.stringify(cliente));
@@ -461,7 +462,7 @@ async function pagar(btn){
       <div class="sheet-head"><h2>Pedido enviado</h2><button class="fechar" onclick="fecharTudo()">✕</button></div>
       <div class="ok-box">
         <span class="osym"></span>
-        <h3>Arigatô, ${nome.split(" ")[0]}! 🙏</h3>
+        <h3>Arigatô, ${esc(nome.split(" ")[0])}! 🙏</h3>
         <p>Seu pedido <strong>#${ped.codigo}</strong> ${agendadoPara?`ficou <b>agendado pra ${rotuloAbertura()}</b> — a cozinha prepara assim que abrir.`:"chegou na cozinha."}<br>
         ${entrega==="entrega"?"Pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na porta.":`Retirada: <a href="${MAPS_LOJA}" target="_blank" style="color:var(--verde)">${ENDERECO_LOJA}</a> — pagamento com ${pgto==="pix"?"Pix":"cartão"} na hora.`}<br><br>
         Qualquer coisa, <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">chama a gente no WhatsApp</a>.</p>
@@ -717,8 +718,7 @@ render();
 
 // novidades do app (subir o id a cada atualização — quem já viu não vê de novo)
 const NOVIDADES = {id:2, itens:[
-  "⭐ <b>Programa de pontos</b>: crie sua conta, ganhe 100 pontos de boas-vindas (R$ 5) e troque pontos por desconto na sacola.",
-  "📸 <b>Fotos novas do cardápio</b> — ensaio do Tomas Rangel, sando real na tábua real.",
+  "⭐ <b>Chegou o programa de pontos!</b> Crie sua conta, ganhe 100 pontos de presente (= R$ 5) e troque pontos por desconto direto na sacola.",
 ]};
 function fecharNews(){
   localStorage.setItem("rs_news_visto", NOVIDADES.id);
@@ -783,7 +783,7 @@ function fecharNews(){
             <div><b style="font-size:15px">${e[1]}</b><br><small style="opacity:.6">${e[2]}</small></div>
           </div>`).join("")}
         </div>
-        ${p.entrega_tracking_url?`<button class="pagar" onclick="window.open('${p.entrega_tracking_url}','_blank')">Ver o entregador no mapa 🗺️</button>`:""}
+        ${p.entrega_tracking_url && /^https:\/\//.test(p.entrega_tracking_url)?`<button class="pagar" onclick="window.open('${esc(p.entrega_tracking_url)}','_blank')">Ver o entregador no mapa 🗺️</button>`:""}
         <div class="mp-note">atualiza sozinho · ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</div>`}`;
       sheet.classList.add("on");
       document.getElementById("overlay").classList.add("on");
