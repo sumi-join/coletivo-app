@@ -119,6 +119,17 @@
     border-radius:12px;padding:14px 38px 14px 16px;margin-top:12px;font-size:13.5px;line-height:1.6;position:relative}
   .news b.titulo{color:var(--vermelho);letter-spacing:.1em;font-size:11.5px;text-transform:uppercase}
   .news .fechar{position:absolute;top:8px;right:10px;font-size:16px;opacity:.6}
+  .convite{background:var(--preto);color:var(--creme);border-radius:14px;padding:18px;margin-top:24px}
+  .convite b.titulo{color:#fff;letter-spacing:.08em;font-size:12px;text-transform:uppercase}
+  .convite p{font-size:13px;opacity:.85;line-height:1.55;margin-top:8px}
+  .codigo-box{background:var(--creme);color:var(--preto);border-radius:10px;padding:14px;margin-top:12px;
+    text-align:center;font-size:26px;letter-spacing:.3em;font-weight:500}
+  .cupom-row{display:flex;gap:8px;margin-top:8px}
+  .cupom-row input{flex:1;text-transform:uppercase}
+  .cupom-row button{flex:0 0 auto;font-family:inherit;background:var(--preto);color:var(--creme);
+    border:none;border-radius:10px;padding:0 18px;font-size:14px;cursor:pointer}
+  .cupom-ok{font-size:13px;color:var(--verde);margin-top:6px}
+  .cupom-erro{font-size:13px;color:var(--vermelho);margin-top:6px}
   .toggle{display:flex;gap:10px;margin-top:8px}
   .toggle button{flex:1;font-family:inherit;font-size:14px;letter-spacing:.05em;padding:14px 10px;border-radius:10px;
     border:1px solid var(--preto);background:transparent;color:var(--preto);cursor:pointer}
@@ -256,6 +267,13 @@ let cliente = JSON.parse(localStorage.getItem("rs_cliente")||"{}");
 const sb = supabase.createClient(SUPA_URL, SUPA_ANON);
 const GOOGLE_ON = false; // vira true quando o app for registrado no Google Cloud
 let sessao = null, perfil = null, extrato = [], saldoPts = 0, usarPontos = false, modoConta = "entrar";
+let meuCodigo = null, meusIndicados = 0; // programa de indicação
+let cupom = "", cupomInfo = null; // cupom de afiliado no checkout
+// captura ?ref=CODIGO (link de indicação) e guarda pro cadastro
+(function(){
+  const ref = new URLSearchParams(location.search).get("ref");
+  if(ref) localStorage.setItem("rs_ref", ref.toUpperCase().trim());
+})();
 
 // horário: ter(2)–sáb(6), 18h–22h30 — fora disso o pedido entra agendado
 function lojaAberta(d=new Date()){
@@ -361,7 +379,9 @@ function abrirSacola(){
       </div>`).join("")}
     ${entrega==="entrega"?`<div class="linha-item"><div><h3 style="font-weight:400">Entrega${bairro?` · ${bairro}`:""}</h3></div><span class="preco">${bairro?fmt(freteAtual()):"—"}</span></div>`:""}
     ${maxDesconto()>0?`<div class="linha-item"><label class="check-pontos"><input type="checkbox" ${usarPontos?"checked":""} onchange="setUsarPontos(this.checked)"><span style="text-transform:none;letter-spacing:0">Usar ${maxDesconto()*20} dos meus ⭐ ${saldoPts} pontos</span></label><span class="preco" style="color:var(--verde)">−${fmt(maxDesconto())}</span></div>`:""}
-    <div class="total-row"><span>Total</span><span>${fmt(t+freteAtual()-descontoAtual())}</span></div>
+    ${cupomInfo?`<div class="linha-item"><div><h3 style="font-weight:400">Cupom ${esc(cupom)}${cupomInfo.nome&&cupomInfo.nome!==cupom?` · ${esc(cupomInfo.nome)}`:""}</h3><p style="cursor:pointer;color:var(--vermelho)" onclick="removerCupom()">remover</p></div><span class="preco" style="color:var(--verde)">−${fmt(descontoCupomAtual())}</span></div>`:""}
+    <div class="total-row"><span>Total</span><span>${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</span></div>
+    ${!usarPontos && !cupomInfo?`<div class="cupom-row"><input type="text" id="cupom-input" placeholder="Cupom de desconto" value="${esc(cupom)}"><button onclick="aplicarCupom()">Aplicar</button></div><div id="cupom-msg"></div>`:""}
     ${!sessao?`<div class="nudge-conta" onclick="abrirConta()">✨ Entre na sua conta e ganhe ${Math.floor(t)} pontos com este pedido</div>`:""}
 
     <label>Receber como</label>
@@ -394,7 +414,7 @@ function abrirSacola(){
       <button class="${pgto==="cartao"?"on":""}" onclick="setPgto('cartao')">💳 na ${entrega==="entrega"?"entrega":"retirada"}</button>
     </div>
 
-    <button class="pagar" onclick="pagar(this)">${pgto==="online"?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual()-descontoAtual())}</button>
+    <button class="pagar" onclick="pagar(this)">${pgto==="online"?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</button>
     <div class="mp-note">${pgto==="online"?"Pix ou cartão, seguro via Mercado Pago":"Você paga na hora de receber"}</div>
     <div class="mp-note" id="erro-envio" style="color:var(--vermelho)"></div>`}`;
   sheet.classList.add("on");
@@ -403,7 +423,7 @@ function abrirSacola(){
 // re-render da sacola preservando o que o cliente já digitou
 function lerForm(){
   const v = id => document.getElementById(id)?.value ?? null;
-  return {nome:v("nome"), zap:v("zap"), endereco:v("endereco"), obs:v("obs")};
+  return {nome:v("nome"), zap:v("zap"), endereco:v("endereco"), obs:v("obs"), "cupom-input":v("cupom-input")};
 }
 function restaurarForm(f){
   if(!f) return;
@@ -416,14 +436,32 @@ function reabrirSacola(){ const f=lerForm(); abrirSacola(); restaurarForm(f); }
 function setEntrega(v){ entrega=v; reabrirSacola(); }
 function setPgto(v){ pgto=v; reabrirSacola(); }
 function setBairro(v){ bairro=v; reabrirSacola(); }
-function setUsarPontos(v){ usarPontos=v; reabrirSacola(); }
+function setUsarPontos(v){ usarPontos=v; if(v){ cupom=""; cupomInfo=null; } reabrirSacola(); }
 // resgate em blocos de R$5 (100 pts), limitado ao valor da comida
 function maxDesconto(){
-  if(!sessao || saldoPts<100) return 0;
+  if(!sessao || saldoPts<100 || cupomInfo) return 0;
   const {t}=totais();
   return Math.min(Math.floor(saldoPts/100), Math.floor(t/5))*5;
 }
-const descontoAtual = () => usarPontos ? maxDesconto() : 0;
+const descontoAtual = () => usarPontos && !cupomInfo ? maxDesconto() : 0;
+const descontoCupomAtual = () => cupomInfo ? Math.round(totais().t * cupomInfo.pct)/100 : 0;
+async function aplicarCupom(){
+  const el = document.getElementById("cupom-input");
+  const cod = (el?.value||"").trim().toUpperCase();
+  const msg = document.getElementById("cupom-msg");
+  if(!cod){ cupom=""; cupomInfo=null; reabrirSacola(); return; }
+  msg.className="mp-note"; msg.textContent="conferindo...";
+  try{
+    const r = await fetch(`${SUPA_URL}/functions/v1/validar-cupom`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({cupom:cod, subtotal:totais().t})});
+    const d = await r.json();
+    if(d.ok){ cupom=cod; cupomInfo={pct:d.desconto_pct, nome:d.nome}; usarPontos=false; reabrirSacola(); }
+    else { cupom=""; cupomInfo=null; reabrirSacola();
+      const m=document.getElementById("cupom-msg"); if(m){ m.className="cupom-erro"; m.textContent=d.motivo||"cupom inválido"; } }
+  }catch(e){ const m=document.getElementById("cupom-msg"); if(m){ m.className="cupom-erro"; m.textContent="não deu pra conferir agora"; } }
+}
+function removerCupom(){ cupom=""; cupomInfo=null; reabrirSacola(); }
 async function pagar(btn){
   const val = id => (document.getElementById(id)?.value||"").trim();
   const erro = document.getElementById("erro-envio");
@@ -434,6 +472,7 @@ async function pagar(btn){
   const {t}=totais();
   const frete = freteAtual();
   const desconto = descontoAtual();
+  const descCupom = descontoCupomAtual();
   const itens = Object.keys(cart).map(id=>({id, item:BYID[id].nome, qtd:cart[id], preco:BYID[id].preco}));
   btn.disabled=true; btn.textContent="Enviando...";
   const codigo = Array.from({length:6},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
@@ -441,9 +480,9 @@ async function pagar(btn){
   cliente = {nome, zap, endereco, bairro};
   localStorage.setItem("rs_cliente", JSON.stringify(cliente));
   if(pgto==="online"){
-    const pedido = {codigo, itens, frete, desconto, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
+    const pedido = {codigo, itens, frete, desconto, cupom:cupom||null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
       endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null, agendado_para:agendadoPara};
-    try{ await abrirPagamento(pedido, t+frete-desconto); }
+    try{ await abrirPagamento(pedido, t+frete-desconto-descCupom); }
     catch(e){
       btn.disabled=false; btn.textContent="Pagar";
       erro.textContent="Pagamento online indisponível agora — escolha pagar na entrega. 🙏";
@@ -451,8 +490,8 @@ async function pagar(btn){
     return;
   }
   try{
-    const {error} = await sb.from("pedidos").insert({codigo, itens, total:t+frete-desconto, frete, desconto,
-      user_id:sessao?.user?.id ?? null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
+    const {error} = await sb.from("pedidos").insert({codigo, itens, total:t+frete-desconto-descCupom, frete, desconto,
+      cupom:cupom||null, user_id:sessao?.user?.id ?? null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
       endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null, pagamento:pgto, agendado_para:agendadoPara});
     if(error) throw new Error(error.message);
     localStorage.setItem("rs_ultimo", JSON.stringify({codigo, quando:Date.now()}));
@@ -468,12 +507,13 @@ async function pagar(btn){
         Qualquer coisa, <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">chama a gente no WhatsApp</a>.</p>
         <button class="pagar" style="margin-top:18px" onclick="location.href='?pedido=${ped.codigo}'">Acompanhar meu pedido 🛵</button>
       </div>`;
-    cart={}; localStorage.removeItem("rs_cart"); usarPontos=false; render();
+    cart={}; localStorage.removeItem("rs_cart"); usarPontos=false; cupom=""; cupomInfo=null; render();
     if(sessao) carregarConta();
   }catch(e){
     btn.disabled=false; btn.textContent="Enviar pedido";
-    erro.textContent = /pontos insuficientes/i.test(String(e))
-      ? "Seus pontos mudaram — desmarca o desconto e tenta de novo. 🙏"
+    const m = String(e);
+    erro.textContent = /pontos insuficientes/i.test(m) ? "Seus pontos mudaram — desmarca o desconto e tenta de novo. 🙏"
+      : /cupom|código de indicação|próprio código/i.test(m) ? m.replace(/^Error:\s*/,"")
       : "Ops, não conseguimos enviar. Tenta de novo?";
   }
 }
@@ -488,12 +528,15 @@ async function carregarConta(){
   sessao = session;
   if(!sessao){ perfil=null; extrato=[]; saldoPts=0; usarPontos=false; syncConta(); return; }
   const uid = sessao.user.id;
-  const [{data:p},{data:e}] = await Promise.all([
+  const [{data:p},{data:e},{data:af}] = await Promise.all([
     sb.from("clientes").select("*").eq("id",uid).maybeSingle(),
     sb.from("pontos").select("delta,motivo,created_at").order("created_at",{ascending:false}),
+    sb.from("afiliados").select("codigo").eq("cliente_id",uid).eq("tipo","cliente").maybeSingle(),
   ]);
   perfil = p||null; extrato = e||[];
   saldoPts = extrato.reduce((s,x)=>s+x.delta,0);
+  meuCodigo = af?.codigo || null;
+  meusIndicados = extrato.filter(x=>x.motivo==="indicação de amigo 🎉").length;
   if(perfil){
     cliente = {nome:perfil.nome||cliente.nome||"", zap:perfil.whatsapp||cliente.zap||"",
       endereco:perfil.endereco||cliente.endereco||"", bairro:perfil.bairro||cliente.bairro||""};
@@ -518,6 +561,7 @@ function abrirConta(){
       ${modoConta==="criar"?`<label>Seu nome</label><input type="text" id="ac-nome" placeholder="Como te chamamos?">`:""}
       <label>E-mail</label><input type="email" id="ac-email" inputmode="email" autocomplete="email" placeholder="voce@email.com">
       <label>Senha</label><input type="password" id="ac-senha" autocomplete="${modoConta==="criar"?"new-password":"current-password"}" placeholder="${modoConta==="criar"?"mínimo 6 caracteres":"sua senha"}">
+      ${modoConta==="criar"?`<label>Código de indicação <span style="opacity:.5;text-transform:none;letter-spacing:0">(opcional)</span></label><input type="text" id="ac-ref" placeholder="ganhe 50 pts de bônus" value="${esc(localStorage.getItem("rs_ref")||"")}" style="text-transform:uppercase">`:""}
       <button class="pagar" onclick="contaSubmit(this)">${modoConta==="criar"?"Criar conta · ganhar 100 pts 🎁":"Entrar"}</button>
       ${GOOGLE_ON?`<button class="pagar" style="background:var(--preto);margin-top:10px" onclick="loginGoogle()">Entrar com Google</button>`:""}
       <div class="mp-note"><a onclick="esqueciSenha()" style="color:var(--verde);cursor:pointer">Esqueci minha senha</a></div>
@@ -534,6 +578,14 @@ function abrirConta(){
       <select id="pf-bairro"><option value="">Escolhe...</option>${Object.keys(FRETES).map(b=>`<option ${b===(perfil?.bairro||cliente.bairro)?"selected":""} value="${b}">${b}</option>`).join("")}</select>
       <button class="pagar" onclick="salvarPerfil(this)">Salvar meus dados</button>
       <div class="mp-note" id="pf-ok"></div>
+
+      ${meuCodigo?`<div class="convite">
+        <b class="titulo">🤝 Convide amigos</b>
+        <p>Cada amigo que pedir pela 1ª vez com seu código te dá <b>100 pontos (R$ 5)</b> — e ele já entra com <b>50 pontos</b> de bônus.${meusIndicados?` Você já indicou <b>${meusIndicados}</b> ${meusIndicados>1?"amigos":"amigo"}! 🎉`:""}</p>
+        <div class="codigo-box"><span id="meu-codigo">${esc(meuCodigo)}</span></div>
+        <button class="pagar" style="margin-top:10px" onclick="compartilharConvite(this)">📲 Compartilhar meu convite</button>
+      </div>`:""}
+
       <label style="margin-top:26px">Meus pedidos</label><div id="hist" class="mp-note" style="text-align:left">carregando...</div>
       ${extrato.length?`<label style="margin-top:26px">Extrato de pontos</label>
       ${extrato.slice(0,6).map(x=>`<div style="display:flex;justify-content:space-between;font-size:13.5px;padding:7px 2px;border-bottom:1px solid var(--linha)"><span style="opacity:.75">${x.motivo}</span><b style="color:${x.delta>0?"var(--verde)":"var(--vermelho)"}">${x.delta>0?"+":""}${x.delta}</b></div>`).join("")}`:""}
@@ -552,14 +604,15 @@ function setModoConta(m){
 }
 async function contaSubmit(btn){
   const v=id=>(document.getElementById(id)?.value||"").trim();
-  const email=v("ac-email"), senha=v("ac-senha"), nome=v("ac-nome");
+  const email=v("ac-email"), senha=v("ac-senha"), nome=v("ac-nome"), ref=v("ac-ref").toUpperCase();
   const erro=document.getElementById("ac-erro");
   if(!email||!senha){ erro.textContent="Preencha e-mail e senha. 🙏"; return; }
   if(modoConta==="criar" && senha.length<6){ erro.textContent="A senha precisa de pelo menos 6 caracteres."; return; }
   btn.disabled=true; btn.textContent="Um segundo...";
   const r = modoConta==="criar"
-    ? await sb.auth.signUp({email, password:senha, options:{data:{nome}}})
+    ? await sb.auth.signUp({email, password:senha, options:{data:{nome, ...(ref?{ref}:{})}}})
     : await sb.auth.signInWithPassword({email, password:senha});
+  if(!r.error && modoConta==="criar") localStorage.removeItem("rs_ref");
   if(r.error){
     btn.disabled=false; btn.textContent = modoConta==="criar"?"Criar conta · ganhar 100 pts 🎁":"Entrar";
     erro.textContent = /already|registered/i.test(r.error.message) ? "Esse e-mail já tem conta — troca pra Entrar."
@@ -642,6 +695,16 @@ async function carregarHistorico(){
 async function sairConta(){
   await sb.auth.signOut();
   fecharSheet();
+}
+async function compartilharConvite(btn){
+  if(!meuCodigo) return;
+  const link = `https://coletivo.app/riosando/?ref=${meuCodigo}`;
+  const msg = `Pede um katsu sando do Rio Sandô com meu código ${meuCodigo} e ganha 50 pontos (R$ 2,50) de bônus 🥪⛩️\n${link}`;
+  try{
+    if(navigator.share){ await navigator.share({title:"Rio Sandô", text:msg, url:link}); return; }
+  }catch(e){ if(e.name==="AbortError") return; }
+  try{ await navigator.clipboard.writeText(msg); btn.textContent="✓ Convite copiado — cola no WhatsApp"; }
+  catch(e){ window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,"_blank"); }
 }
 sb.auth.onAuthStateChange((ev)=>{
   if(ev==="PASSWORD_RECOVERY"){ carregarConta().then(abrirNovaSenha); return; }

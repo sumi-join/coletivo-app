@@ -45,6 +45,19 @@
   .cancelar{border-color:var(--vermelho);color:var(--vermelho)}
   .vazio{opacity:.4;font-size:13px;padding:14px 4px}
   .badge{position:absolute;top:-8px;right:12px;background:var(--vermelho);color:#fff;font-size:10px;letter-spacing:.1em;padding:3px 10px;border-radius:99px}
+  .topbtn{background:none;border:1px solid var(--creme);color:var(--creme);border-radius:99px;padding:7px 16px;font-size:12px;margin-left:8px}
+  .afcard{background:var(--card);color:var(--preto);border-radius:14px;padding:16px;margin-bottom:12px}
+  .afcard h3{font-size:17px}
+  .afcard .linha{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-top:6px;opacity:.8}
+  .afcard .repasse{font-size:20px;font-weight:500;margin-top:10px}
+  .afcard .repasse b{color:var(--vermelho)}
+  .afform{background:var(--card);color:var(--preto);border-radius:14px;padding:16px;margin-bottom:16px}
+  .afform label{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.7;margin:10px 0 4px}
+  .afform input{width:100%;font-family:inherit;font-size:15px;padding:10px;border:1px solid var(--preto);border-radius:8px;background:#fff}
+  .afform .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .afform button{width:100%;margin-top:14px;background:var(--vermelho);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px}
+  .pagarcom{background:var(--verde);color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:13px}
+  .off{background:var(--preto);color:var(--creme);border:none;border-radius:8px;padding:5px 10px;font-size:11px}
   @media print{
     body *{display:none}
     #comanda,#comanda *{display:block}
@@ -62,6 +75,7 @@ const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
 const NEXT = {novo:["em_preparo","▶ Iniciar preparo"], em_preparo:["pronto","✔ Pronto"], pronto:["entregue","🛵 Saiu / entregue"]};
 const COLS = [["novo","🔴 Novos"],["em_preparo","🔪 Em preparo"],["pronto","📦 Prontos"]];
 let sess = JSON.parse(localStorage.getItem("rs_sess")||"null");
+let view = "board";
 let pedidos = [], vistos = new Set(JSON.parse(localStorage.getItem("rs_vistos")||"[]")), timer=null;
 let impressos = new Set(JSON.parse(localStorage.getItem("rs_impressos")||"[]"));
 const fmt = v => "R$ " + Number(v).toFixed(2).replace(".",",").replace(",00","");
@@ -80,15 +94,83 @@ function render(){
       <button onclick="entrar()">Entrar</button><div class="erro" id="lerro"></div></div>`;
     return;
   }
+  if(view==="afiliados"){ renderAfiliados(); return; }
   app.innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
-      <button class="sair" onclick="sair()">Sair</button>
+      <div><button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button><button class="sair" onclick="sair()">Sair</button></div>
     </header>
     <div class="cols">${COLS.map(([st,titulo])=>{
       const list=pedidos.filter(p=>p.status===st);
       return `<div class="col"><h2>${titulo} (${list.length})</h2>
         ${!list.length?`<div class="vazio">nada por aqui</div>`:list.map(card).join("")}</div>`;
     }).join("")}</div>`;
+}
+let afiliados=[], comissoes=[];
+function abrirAfiliados(){ view="afiliados"; render(); carregarAfiliados(); }
+function voltarBoard(){ view="board"; render(); }
+async function carregarAfiliados(){
+  const [ra,rc]=await Promise.all([
+    api("afiliados?tipo=eq.influencer&select=id,codigo,nome,desconto_pct,comissao_pct,ativo&order=created_at.desc"),
+    api("comissoes?status=eq.confirmada&select=afiliado_id,valor")
+  ]);
+  if(ra&&ra.ok) afiliados=await ra.json();
+  if(rc&&rc.ok) comissoes=await rc.json();
+  if(view==="afiliados") renderAfiliados();
+}
+function renderAfiliados(){
+  const pend={}; comissoes.forEach(c=>pend[c.afiliado_id]=(pend[c.afiliado_id]||0)+Number(c.valor));
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · AFILIADOS</h1><div class="sub">códigos de influencer, desconto e repasse</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    <div class="afform">
+      <h3 style="font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--vermelho)">+ Novo afiliado</h3>
+      <label>Nome (quem divulga)</label><input id="af-nome" placeholder="Ex: Gabriel do Insta">
+      <label>Código (o que o cliente digita)</label><input id="af-cod" placeholder="GABRIEL" style="text-transform:uppercase">
+      <div class="grid">
+        <div><label>Desconto do cliente %</label><input id="af-desc" type="number" value="10" min="0" max="50"></div>
+        <div><label>Comissão do afiliado %</label><input id="af-com" type="number" value="0" min="0" max="30"></div>
+      </div>
+      <div class="mp-note" id="af-erro" style="color:var(--vermelho);font-size:12px;min-height:14px;margin-top:8px"></div>
+      <button onclick="criarAfiliado(this)">Criar código</button>
+    </div>
+    ${!afiliados.length?`<div class="vazio">Nenhum afiliado ainda. Cria o primeiro aí em cima.</div>`
+      :afiliados.map(a=>{
+        const r=pend[a.id]||0;
+        return `<div class="afcard">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <h3>${esc(a.codigo)} ${a.ativo?"":"<span style='opacity:.5;font-size:12px'>(inativo)</span>"}</h3>
+            <button class="off" onclick="toggleAfiliado(${a.id},${!a.ativo})">${a.ativo?"desativar":"reativar"}</button>
+          </div>
+          <div class="linha"><span>${esc(a.nome||"—")}</span><span>${a.desconto_pct}% pro cliente · ${a.comissao_pct}% comissão</span></div>
+          <div class="repasse">A repassar: <b>${fmt(r)}</b>
+            ${r>0?`<button class="pagarcom" style="float:right" onclick="pagarComissoes(${a.id}, this)">✓ marquei que paguei</button>`:""}</div>
+        </div>`;
+      }).join("")}`;
+}
+async function criarAfiliado(btn){
+  const nome=$("af-nome").value.trim(), cod=$("af-cod").value.trim().toUpperCase();
+  const desc=Number($("af-desc").value)||0, com=Number($("af-com").value)||0;
+  const erro=$("af-erro");
+  if(!cod){ erro.textContent="Precisa de um código."; return; }
+  if(!/^[A-Z0-9]{3,20}$/.test(cod)){ erro.textContent="Código: 3 a 20 letras/números, sem espaço."; return; }
+  btn.disabled=true;
+  const r=await api("afiliados",{method:"POST",headers:{Prefer:"return=minimal"},
+    body:JSON.stringify({codigo:cod,tipo:"influencer",nome,desconto_pct:desc,comissao_pct:com})});
+  btn.disabled=false;
+  if(!r||!r.ok){ erro.textContent = r&&r.status===409?"Esse código já existe.":"Não deu pra criar."; return; }
+  carregarAfiliados();
+}
+async function toggleAfiliado(id,ativo){
+  await api(`afiliados?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({ativo})});
+  carregarAfiliados();
+}
+async function pagarComissoes(id,btn){
+  if(!confirm("Confirma que você já pagou esse afiliado por fora (Pix)? Isso zera o valor a repassar.")) return;
+  btn.disabled=true;
+  await api(`comissoes?afiliado_id=eq.${id}&status=eq.confirmada`,{method:"PATCH",
+    body:JSON.stringify({status:"paga",paga_em:new Date().toISOString()})});
+  carregarAfiliados();
 }
 function card(p){
   const [nx,rot] = NEXT[p.status]||[];
@@ -157,7 +239,7 @@ async function carregar(){
   const paraImprimir = carregar.ja && autoprint ? novos.filter(p=>!impressos.has(p.id)) : [];
   carregar.ja = true;
   pedidos = dados;
-  render();
+  if(view==="board") render();
   // modo quiosque (?autoprint=1 + Chrome --kiosk-printing): comanda sai sozinha na térmica
   for(const p of paraImprimir){
     impressos.add(p.id);
