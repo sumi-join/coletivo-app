@@ -352,13 +352,17 @@ async function cotarEntrega(id){
       method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${sess.token}`},
       body:JSON.stringify({endereco:p.endereco})});
     const d = await r.json();
-    if(d.vencedor){
-      const opcoes = d.cotacoes.filter(c=>c.disponivel).map(c=>
-        `<button class="imprimir" onclick='chamarEntrega(${id},"${c.provedor}","${c.quote_id}",this)'>🛵 ${c.provedor} · R$ ${(c.preco??0).toFixed(2)}${c.coleta_min?` · ~${c.coleta_min}min`:""}</button>`).join(" ");
-      el.innerHTML = `Escolhe quem leva: ${opcoes}`;
-    } else {
-      el.innerHTML = `Cotação automática ainda indisponível (${d.cotacoes.map(c=>c.motivo).filter((v,i,a)=>a.indexOf(v)===i).join("; ")}).<br>👉 ${d.fallback}`;
-    }
+    const nomeP = p => p==="lalamove"?"Lalamove":p==="uber_direct"?"Uber":p;
+    const ord = [...d.cotacoes].sort((a,b)=> (b.disponivel-a.disponivel) || ((a.preco??1e9)-(b.preco??1e9)));
+    const linhas = ord.map(c=>{
+      if(c.disponivel){
+        const det=[c.veiculo, c.coleta_min?`busca ~${c.coleta_min}min`:"", c.eta?`entrega ~${c.eta}`:"", c.distancia?`${c.distancia}km`:""].filter(Boolean).join(" · ");
+        return `<button class="imprimir" style="display:block;width:100%;text-align:left;margin-bottom:6px" onclick='chamarEntrega(${id},"${c.provedor}","${c.quote_id}",this)'>🛵 <b>${nomeP(c.provedor)}</b> · R$ ${(c.preco??0).toFixed(2)}${det?` · <span style="opacity:.75">${det}</span>`:""}</button>`;
+      }
+      return `<div style="opacity:.45;font-size:12px;padding:6px 2px">✕ ${nomeP(c.provedor)} indisponível — ${c.motivo||"—"}</div>`;
+    }).join("");
+    const algum = d.cotacoes.some(c=>c.disponivel);
+    el.innerHTML = `<div style="margin-bottom:6px;opacity:.7">Escolhe quem leva:</div>${linhas}${algum?"":`<div style="margin-top:6px">👉 ${d.fallback}</div>`}`;
   }catch(e){ el.textContent = "erro ao cotar — usa o Entrega Fácil no Gestor iFood"; }
 }
 async function chamarEntrega(id, provedor, quoteId, btn){
