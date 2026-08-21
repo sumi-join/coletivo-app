@@ -15,6 +15,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <script src="https://sdk.mercadopago.com/js/v2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --preto:#1A1A1A; --creme:#F5F0EB; --vermelho:#C0392B; --verde:#2D5A27;
@@ -105,8 +106,15 @@
   .fechar{background:none;border:none;font-size:22px;cursor:pointer;color:var(--preto);font-family:inherit}
   .total-row{display:flex;justify-content:space-between;font-size:18px;font-weight:500;padding:18px 2px;border-top:2px solid var(--preto);margin-top:10px}
   label{display:block;font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;margin:20px 0 8px;opacity:.72}
-  input[type=text],input[type=tel],textarea,select{width:100%;font-family:inherit;font-size:16px;padding:12px 14px;
+  input[type=text],input[type=tel],input[type=password],input[type=email],textarea,select{width:100%;font-family:inherit;font-size:16px;padding:12px 14px;
     border:1px solid var(--preto);border-radius:10px;background:var(--creme-card);color:var(--preto)}
+  .conta-btn{border:none;cursor:pointer;font-family:inherit;margin-left:8px;background:var(--vermelho);color:#fff}
+  .pts-box{background:var(--preto);color:var(--creme);border-radius:14px;padding:18px;text-align:center;margin-top:4px}
+  .pts-box b{font-size:30px;letter-spacing:.02em}
+  .pts-box small{opacity:.72;font-size:12.5px;display:block;margin-top:6px;line-height:1.5}
+  .check-pontos{display:flex;gap:10px;align-items:center;font-size:15px;cursor:pointer;margin:0;text-transform:none;letter-spacing:0;opacity:1}
+  .check-pontos input{width:20px;height:20px;accent-color:var(--verde)}
+  .nudge-conta{font-size:13.5px;color:var(--verde);margin-top:14px;cursor:pointer;text-decoration:underline}
   .toggle{display:flex;gap:10px;margin-top:8px}
   .toggle button{flex:1;font-family:inherit;font-size:14px;letter-spacing:.05em;padding:14px 10px;border-radius:10px;
     border:1px solid var(--preto);background:transparent;color:var(--preto);cursor:pointer}
@@ -146,7 +154,7 @@
     <div class="kana">サンド</div>
     <div class="wordmark">RI<span class="oq"></span>&nbsp;SAND<span class="osym"></span></div>
     <div class="tagline">Katsu sando japonês · feito à mão · Botafogo, Rio <span class="alma">· todo sandô tem alma</span></div>
-    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 18h–22h30</div>
+    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 18h–22h30</div><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
     <span class="ultimo-pedido" id="ultimo-pedido" style="display:none"></span>
     <div class="fechado-banner" id="fechado-banner" style="display:none"></div>
   </div>
@@ -238,6 +246,11 @@ let entrega = "entrega";
 let pgto = "pix";
 let bairro = "";
 let cliente = JSON.parse(localStorage.getItem("rs_cliente")||"{}");
+
+// ── conta do cliente (Supabase Auth) + fidelidade ──
+const sb = supabase.createClient(SUPA_URL, SUPA_ANON);
+const GOOGLE_ON = false; // vira true quando o app for registrado no Google Cloud
+let sessao = null, perfil = null, extrato = [], saldoPts = 0, usarPontos = false, modoConta = "entrar";
 
 // horário: ter(2)–sáb(6), 18h–22h30 — fora disso o pedido entra agendado
 function lojaAberta(d=new Date()){
@@ -341,7 +354,9 @@ function abrirSacola(){
         <span class="preco">${fmt(cart[id]*BYID[id].preco)}</span>
       </div>`).join("")}
     ${entrega==="entrega"?`<div class="linha-item"><div><h3 style="font-weight:400">Entrega${bairro?` · ${bairro}`:""}</h3></div><span class="preco">${bairro?fmt(freteAtual()):"—"}</span></div>`:""}
-    <div class="total-row"><span>Total</span><span>${fmt(t+freteAtual())}</span></div>
+    ${maxDesconto()>0?`<div class="linha-item"><label class="check-pontos"><input type="checkbox" ${usarPontos?"checked":""} onchange="setUsarPontos(this.checked)"><span style="text-transform:none;letter-spacing:0">Usar ${maxDesconto()*20} dos meus ⭐ ${saldoPts} pontos</span></label><span class="preco" style="color:var(--verde)">−${fmt(maxDesconto())}</span></div>`:""}
+    <div class="total-row"><span>Total</span><span>${fmt(t+freteAtual()-descontoAtual())}</span></div>
+    ${!sessao?`<div class="nudge-conta" onclick="abrirConta()">✨ Entre na sua conta e ganhe ${Math.floor(t)} pontos com este pedido</div>`:""}
 
     <label>Receber como</label>
     <div class="toggle">
@@ -373,7 +388,7 @@ function abrirSacola(){
       <button class="${pgto==="cartao"?"on":""}" onclick="setPgto('cartao')">💳 na ${entrega==="entrega"?"entrega":"retirada"}</button>
     </div>
 
-    <button class="pagar" onclick="pagar(this)">${pgto==="online"?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual())}</button>
+    <button class="pagar" onclick="pagar(this)">${pgto==="online"?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual()-descontoAtual())}</button>
     <div class="mp-note">${pgto==="online"?"Pix ou cartão, seguro via Mercado Pago":"Você paga na hora de receber"}</div>
     <div class="mp-note" id="erro-envio" style="color:var(--vermelho)"></div>`}`;
   sheet.classList.add("on");
@@ -395,6 +410,14 @@ function reabrirSacola(){ const f=lerForm(); abrirSacola(); restaurarForm(f); }
 function setEntrega(v){ entrega=v; reabrirSacola(); }
 function setPgto(v){ pgto=v; reabrirSacola(); }
 function setBairro(v){ bairro=v; reabrirSacola(); }
+function setUsarPontos(v){ usarPontos=v; reabrirSacola(); }
+// resgate em blocos de R$5 (100 pts), limitado ao valor da comida
+function maxDesconto(){
+  if(!sessao || saldoPts<100) return 0;
+  const {t}=totais();
+  return Math.min(Math.floor(saldoPts/100), Math.floor(t/5))*5;
+}
+const descontoAtual = () => usarPontos ? maxDesconto() : 0;
 async function pagar(btn){
   const val = id => (document.getElementById(id)?.value||"").trim();
   const erro = document.getElementById("erro-envio");
@@ -404,6 +427,7 @@ async function pagar(btn){
   if(entrega==="entrega" && !endereco){ erro.textContent="Cadê o endereço de entrega? 🙏"; return; }
   const {t}=totais();
   const frete = freteAtual();
+  const desconto = descontoAtual();
   const itens = Object.keys(cart).map(id=>({item:BYID[id].nome, qtd:cart[id], preco:BYID[id].preco}));
   btn.disabled=true; btn.textContent="Enviando...";
   const codigo = Array.from({length:4},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
@@ -411,9 +435,9 @@ async function pagar(btn){
   cliente = {nome, zap, endereco, bairro};
   localStorage.setItem("rs_cliente", JSON.stringify(cliente));
   if(pgto==="online"){
-    const pedido = {codigo, itens, frete, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
+    const pedido = {codigo, itens, frete, desconto, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
       endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null, agendado_para:agendadoPara};
-    try{ await abrirPagamento(pedido, t+frete); }
+    try{ await abrirPagamento(pedido, t+frete-desconto); }
     catch(e){
       btn.disabled=false; btn.textContent="Pagar";
       erro.textContent="Pagamento online indisponível agora — escolha pagar na entrega. 🙏";
@@ -421,14 +445,10 @@ async function pagar(btn){
     return;
   }
   try{
-    const r = await fetch(`${SUPA_URL}/rest/v1/pedidos`,{
-      method:"POST",
-      headers:{apikey:SUPA_ANON, Authorization:`Bearer ${SUPA_ANON}`,
-        "Content-Type":"application/json", Prefer:"return=minimal"},
-      body:JSON.stringify({codigo, itens, total:t+frete, frete, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
-        endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null, pagamento:pgto, agendado_para:agendadoPara})
-    });
-    if(!r.ok) throw new Error(await r.text());
+    const {error} = await sb.from("pedidos").insert({codigo, itens, total:t+frete-desconto, frete, desconto,
+      user_id:sessao?.user?.id ?? null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
+      endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null, pagamento:pgto, agendado_para:agendadoPara});
+    if(error) throw new Error(error.message);
     localStorage.setItem("rs_ultimo", JSON.stringify({codigo, quando:Date.now()}));
     const ped = {codigo};
     const sheet=document.getElementById("sheet");
@@ -442,16 +462,147 @@ async function pagar(btn){
         Qualquer coisa, <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">chama a gente no WhatsApp</a>.</p>
         <button class="pagar" style="margin-top:18px" onclick="location.href='?pedido=${ped.codigo}'">Acompanhar meu pedido 🛵</button>
       </div>`;
-    cart={}; localStorage.removeItem("rs_cart"); render();
+    cart={}; localStorage.removeItem("rs_cart"); usarPontos=false; render();
+    if(sessao) carregarConta();
   }catch(e){
     btn.disabled=false; btn.textContent="Enviar pedido";
-    erro.textContent="Ops, não conseguimos enviar. Tenta de novo?";
+    erro.textContent = /pontos insuficientes/i.test(String(e))
+      ? "Seus pontos mudaram — desmarca o desconto e tenta de novo. 🙏"
+      : "Ops, não conseguimos enviar. Tenta de novo?";
   }
 }
 function fecharSheet(){
   document.getElementById("sheet").classList.remove("on");
   document.getElementById("overlay").classList.remove("on");
 }
+
+// ── conta: sessão, perfil, pontos ──
+async function carregarConta(){
+  const {data:{session}} = await sb.auth.getSession();
+  sessao = session;
+  if(!sessao){ perfil=null; extrato=[]; saldoPts=0; usarPontos=false; syncConta(); return; }
+  const uid = sessao.user.id;
+  const [{data:p},{data:e}] = await Promise.all([
+    sb.from("clientes").select("*").eq("id",uid).maybeSingle(),
+    sb.from("pontos").select("delta,motivo,created_at").order("created_at",{ascending:false}),
+  ]);
+  perfil = p||null; extrato = e||[];
+  saldoPts = extrato.reduce((s,x)=>s+x.delta,0);
+  if(perfil){
+    cliente = {nome:perfil.nome||cliente.nome||"", zap:perfil.whatsapp||cliente.zap||"",
+      endereco:perfil.endereco||cliente.endereco||"", bairro:perfil.bairro||cliente.bairro||""};
+    if(cliente.bairro && FRETES_EXISTE(cliente.bairro)) bairro = cliente.bairro;
+    localStorage.setItem("rs_cliente", JSON.stringify(cliente));
+  }
+  syncConta();
+}
+function syncConta(){
+  document.getElementById("conta-chip").innerHTML = sessao ? `⭐ ${saldoPts} pts` : "👤 entrar";
+}
+function abrirConta(){
+  const sheet=document.getElementById("sheet");
+  if(!sessao){
+    sheet.innerHTML = `
+      <div class="sheet-head"><h2>Sua conta</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+      <div class="pts-box"><b>🎁 100 pontos</b><small>de boas-vindas ao criar sua conta (= R$ 5).<br>Depois, cada R$ 1 em sando vira 1 ponto — 100 pontos = R$ 5 de desconto.</small></div>
+      <div class="toggle" style="margin-top:18px">
+        <button class="${modoConta==="entrar"?"on":""}" onclick="setModoConta('entrar')">Entrar</button>
+        <button class="${modoConta==="criar"?"on":""}" onclick="setModoConta('criar')">Criar conta</button>
+      </div>
+      ${modoConta==="criar"?`<label>Seu nome</label><input type="text" id="ac-nome" placeholder="Como te chamamos?">`:""}
+      <label>E-mail</label><input type="email" id="ac-email" inputmode="email" autocomplete="email" placeholder="voce@email.com">
+      <label>Senha</label><input type="password" id="ac-senha" autocomplete="${modoConta==="criar"?"new-password":"current-password"}" placeholder="${modoConta==="criar"?"mínimo 6 caracteres":"sua senha"}">
+      <button class="pagar" onclick="contaSubmit(this)">${modoConta==="criar"?"Criar conta · ganhar 100 pts 🎁":"Entrar"}</button>
+      ${GOOGLE_ON?`<button class="pagar" style="background:var(--preto);margin-top:10px" onclick="loginGoogle()">Entrar com Google</button>`:""}
+      <div class="mp-note"><a onclick="esqueciSenha()" style="color:var(--verde);cursor:pointer">Esqueci minha senha</a></div>
+      <div class="mp-note" id="ac-erro" style="color:var(--vermelho)"></div>`;
+  }else{
+    const nome1 = (perfil?.nome||cliente.nome||"").split(" ")[0];
+    sheet.innerHTML = `
+      <div class="sheet-head"><h2>${nome1?`Olá, ${nome1}`:"Sua conta"}</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+      <div class="pts-box"><b>⭐ ${saldoPts}</b><small>pontos ${saldoPts>=100?`= ${fmt(Math.floor(saldoPts/100)*5)} de desconto — usa na sacola!`:`· faltam ${100-saldoPts} pra ganhar R$ 5`}<br>cada R$ 1 em sando vira 1 ponto quando o pedido chega</small></div>
+      <label>Seu nome</label><input type="text" id="pf-nome" value="${(perfil?.nome||"").replace(/"/g,"&quot;")}">
+      <label>WhatsApp</label><input type="tel" id="pf-zap" value="${(perfil?.whatsapp||cliente.zap||"").replace(/"/g,"&quot;")}">
+      <label>Endereço</label><input type="text" id="pf-endereco" placeholder="Rua, número, complemento" value="${(perfil?.endereco||cliente.endereco||"").replace(/"/g,"&quot;")}">
+      <label>Bairro</label>
+      <select id="pf-bairro"><option value="">Escolhe...</option>${Object.keys(FRETES).map(b=>`<option ${b===(perfil?.bairro||cliente.bairro)?"selected":""} value="${b}">${b}</option>`).join("")}</select>
+      <button class="pagar" onclick="salvarPerfil(this)">Salvar meus dados</button>
+      <div class="mp-note" id="pf-ok"></div>
+      <label style="margin-top:26px">Meus pedidos</label><div id="hist" class="mp-note" style="text-align:left">carregando...</div>
+      ${extrato.length?`<label style="margin-top:26px">Extrato de pontos</label>
+      ${extrato.slice(0,6).map(x=>`<div style="display:flex;justify-content:space-between;font-size:13.5px;padding:7px 2px;border-bottom:1px solid var(--linha)"><span style="opacity:.75">${x.motivo}</span><b style="color:${x.delta>0?"var(--verde)":"var(--vermelho)"}">${x.delta>0?"+":""}${x.delta}</b></div>`).join("")}`:""}
+      <div class="mp-note" style="margin-top:20px"><a onclick="sairConta()" style="cursor:pointer;text-decoration:underline">Sair da conta</a></div>`;
+    carregarHistorico();
+  }
+  sheet.classList.add("on");
+  document.getElementById("overlay").classList.add("on");
+}
+function setModoConta(m){
+  const v=id=>document.getElementById(id)?.value??"";
+  const email=v("ac-email"), senha=v("ac-senha");
+  modoConta=m; abrirConta();
+  if(email) document.getElementById("ac-email").value=email;
+  if(senha) document.getElementById("ac-senha").value=senha;
+}
+async function contaSubmit(btn){
+  const v=id=>(document.getElementById(id)?.value||"").trim();
+  const email=v("ac-email"), senha=v("ac-senha"), nome=v("ac-nome");
+  const erro=document.getElementById("ac-erro");
+  if(!email||!senha){ erro.textContent="Preencha e-mail e senha. 🙏"; return; }
+  if(modoConta==="criar" && senha.length<6){ erro.textContent="A senha precisa de pelo menos 6 caracteres."; return; }
+  btn.disabled=true; btn.textContent="Um segundo...";
+  const r = modoConta==="criar"
+    ? await sb.auth.signUp({email, password:senha, options:{data:{nome}}})
+    : await sb.auth.signInWithPassword({email, password:senha});
+  if(r.error){
+    btn.disabled=false; btn.textContent = modoConta==="criar"?"Criar conta · ganhar 100 pts 🎁":"Entrar";
+    erro.textContent = /already|registered/i.test(r.error.message) ? "Esse e-mail já tem conta — troca pra Entrar."
+      : /invalid/i.test(r.error.message) ? "E-mail ou senha não conferem. 🤔"
+      : "Não rolou: "+r.error.message;
+    return;
+  }
+  await carregarConta();
+  abrirConta();
+}
+function loginGoogle(){
+  sb.auth.signInWithOAuth({provider:"google", options:{redirectTo:"https://coletivo.app/riosando/"}});
+}
+function esqueciSenha(){
+  window.open(`https://wa.me/${ZAP_LOJA}?text=${encodeURIComponent("Oi! Esqueci minha senha do app do Rio Sandô, me ajudam? 🙏")}`,"_blank");
+}
+async function salvarPerfil(btn){
+  const v=id=>(document.getElementById(id)?.value||"").trim();
+  const dados={id:sessao.user.id, nome:v("pf-nome"), whatsapp:v("pf-zap"), endereco:v("pf-endereco"), bairro:v("pf-bairro")||null};
+  btn.disabled=true;
+  const {error} = await sb.from("clientes").upsert(dados);
+  btn.disabled=false;
+  document.getElementById("pf-ok").textContent = error ? "Não salvou — tenta de novo?" : "✓ Salvo! Seus pedidos já vêm preenchidos.";
+  if(!error){
+    perfil={...(perfil||{}), ...dados};
+    cliente={nome:dados.nome, zap:dados.whatsapp, endereco:dados.endereco, bairro:dados.bairro||""};
+    if(cliente.bairro && FRETES_EXISTE(cliente.bairro)) bairro=cliente.bairro;
+    localStorage.setItem("rs_cliente", JSON.stringify(cliente));
+    const n1=(dados.nome||"").split(" ")[0];
+    if(n1) document.querySelector(".sheet-head h2").textContent=`Olá, ${n1}`;
+  }
+}
+async function carregarHistorico(){
+  const {data} = await sb.from("pedidos").select("codigo,status,total,created_at")
+    .order("created_at",{ascending:false}).limit(5);
+  const el=document.getElementById("hist");
+  if(!el) return;
+  if(!data?.length){ el.textContent="Nenhum pedido ainda — bora estrear? 🥪"; return; }
+  const ROTULO={novo:"recebido",em_preparo:"no fogo",pronto:"pronto",saiu:"a caminho",entregue:"entregue ✅",cancelado:"cancelado"};
+  el.innerHTML = data.map(p=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:7px 2px;border-bottom:1px solid var(--linha)">
+    <a href="?pedido=${p.codigo}" style="color:var(--verde)">#${p.codigo}</a>
+    <span style="opacity:.7">${new Date(p.created_at).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})} · ${ROTULO[p.status]||p.status}</span>
+    <b>${fmt(Number(p.total))}</b></div>`).join("");
+}
+async function sairConta(){
+  await sb.auth.signOut();
+  fecharSheet();
+}
+sb.auth.onAuthStateChange((ev)=>{ if(ev==="SIGNED_IN"||ev==="SIGNED_OUT"||ev==="INITIAL_SESSION") carregarConta(); });
 function fecharTudo(){ cart={}; localStorage.removeItem("rs_cart"); render(); fecharSheet(); }
 
 // ── pagamento embutido (Mercado Pago Payment Brick) ──
@@ -476,12 +627,14 @@ async function abrirPagamento(pedido, valor){
       onReady: ()=>{ document.querySelector("#pay-brick .vazio")?.remove(); },
       onError: (e)=>{ console.error(e); },
       onSubmit: async ({formData})=>{
+        const user_token = (await sb.auth.getSession()).data.session?.access_token ?? null;
         const r = await fetch(`${SUPA_URL}/functions/v1/mp-processar-pagamento`,{
           method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({pedido, formData})});
+          body:JSON.stringify({pedido, formData, user_token})});
         const d = await r.json();
         if(!r.ok){ mostrarPagamentoErro(pedido, valor, d.detalhe||d.erro); throw new Error(d.erro||"falhou"); }
-        cart={}; localStorage.removeItem("rs_cart"); render();
+        cart={}; localStorage.removeItem("rs_cart"); usarPontos=false; render();
+        if(sessao) carregarConta();
         localStorage.setItem("rs_ultimo", JSON.stringify({codigo:pedido.codigo, quando:Date.now()}));
         if(d.status==="approved"){ location.href=`?pedido=${pedido.codigo}`; }
         else if(d.pix){ mostrarPix(pedido.codigo, d.pix, valor); }
