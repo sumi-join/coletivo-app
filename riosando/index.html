@@ -115,6 +115,10 @@
   .check-pontos{display:flex;gap:10px;align-items:center;font-size:15px;cursor:pointer;margin:0;text-transform:none;letter-spacing:0;opacity:1}
   .check-pontos input{width:20px;height:20px;accent-color:var(--verde)}
   .nudge-conta{font-size:13.5px;color:var(--verde);margin-top:14px;cursor:pointer;text-decoration:underline}
+  .news{background:var(--creme-card);border:1px solid var(--linha);border-left:4px solid var(--vermelho);
+    border-radius:12px;padding:14px 38px 14px 16px;margin-top:12px;font-size:13.5px;line-height:1.6;position:relative}
+  .news b.titulo{color:var(--vermelho);letter-spacing:.1em;font-size:11.5px;text-transform:uppercase}
+  .news .fechar{position:absolute;top:8px;right:10px;font-size:16px;opacity:.6}
   .toggle{display:flex;gap:10px;margin-top:8px}
   .toggle button{flex:1;font-family:inherit;font-size:14px;letter-spacing:.05em;padding:14px 10px;border-radius:10px;
     border:1px solid var(--preto);background:transparent;color:var(--preto);cursor:pointer}
@@ -157,6 +161,7 @@
     <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 18h–22h30</div><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
     <span class="ultimo-pedido" id="ultimo-pedido" style="display:none"></span>
     <div class="fechado-banner" id="fechado-banner" style="display:none"></div>
+    <div class="news" id="news" style="display:none"></div>
   </div>
 </header>
 
@@ -175,7 +180,7 @@
 const MP_PUBLIC_KEY = "APP_USR-55c7ca33-342a-4897-bc77-faf59bdb0d15";
 const SUPA_URL = "https://xngsucsxqbmvdnyuabll.supabase.co";
 const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZ3N1Y3N4cWJtdmRueXVhYmxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDg1MTYsImV4cCI6MjEwMjcyNDUxNn0.P5vuyAyooZ_BArc_lC7HiQ2N-p0Fi7ejpxzyehPSi1Q";
-const IMG = p => `img/${p}.jpg`;
+const IMG = p => `img/${p}.jpg?v=2`; // v=2: fotos Tomas Rangel ago/26
 const ZAP_LOJA = "5521978857339";
 const ENDERECO_LOJA = "Travessa Pepe, 60 — sobreloja, Botafogo";
 const MAPS_LOJA = "https://maps.google.com/?q=Travessa+Pepe+60+Botafogo+Rio+de+Janeiro";
@@ -567,8 +572,43 @@ async function contaSubmit(btn){
 function loginGoogle(){
   sb.auth.signInWithOAuth({provider:"google", options:{redirectTo:"https://coletivo.app/riosando/"}});
 }
-function esqueciSenha(){
-  window.open(`https://wa.me/${ZAP_LOJA}?text=${encodeURIComponent("Oi! Esqueci minha senha do app do Rio Sandô, me ajudam? 🙏")}`,"_blank");
+async function esqueciSenha(){
+  const email=(document.getElementById("ac-email")?.value||"").trim();
+  const erro=document.getElementById("ac-erro");
+  if(!email){ erro.textContent="Escreve seu e-mail aí em cima que a gente manda o link. ☝️"; return; }
+  erro.style.color="var(--verde)"; erro.textContent="Enviando...";
+  const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo:"https://coletivo.app/riosando/"});
+  if(error){
+    erro.style.color="var(--vermelho)";
+    erro.textContent = /rate|seconds/i.test(error.message) ? "Calma, já enviamos — espera 1 minuto e olha o e-mail. 📬" : "Não conseguimos enviar agora — tenta de novo em instantes.";
+    return;
+  }
+  erro.textContent=`📬 Link enviado pra ${email} — abre o e-mail (olha o spam) e clica pra criar uma senha nova.`;
+}
+// cliente clicou no link do e-mail → tela de nova senha
+function abrirNovaSenha(){
+  const sheet=document.getElementById("sheet");
+  sheet.innerHTML = `
+    <div class="sheet-head"><h2>Nova senha</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <label>Escolhe a senha nova</label>
+    <input type="password" id="ns-1" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+    <label>Repete ela</label>
+    <input type="password" id="ns-2" autocomplete="new-password">
+    <button class="pagar" onclick="salvarNovaSenha(this)">Salvar senha nova</button>
+    <div class="mp-note" id="ns-erro" style="color:var(--vermelho)"></div>`;
+  sheet.classList.add("on");
+  document.getElementById("overlay").classList.add("on");
+}
+async function salvarNovaSenha(btn){
+  const s1=document.getElementById("ns-1").value, s2=document.getElementById("ns-2").value;
+  const erro=document.getElementById("ns-erro");
+  if(s1.length<6){ erro.textContent="Mínimo 6 caracteres. 🙏"; return; }
+  if(s1!==s2){ erro.textContent="As duas não bateram — confere?"; return; }
+  btn.disabled=true; btn.textContent="Salvando...";
+  const {error} = await sb.auth.updateUser({password:s1});
+  if(error){ btn.disabled=false; btn.textContent="Salvar senha nova"; erro.textContent="Não rolou: "+error.message; return; }
+  await carregarConta();
+  abrirConta();
 }
 async function salvarPerfil(btn){
   const v=id=>(document.getElementById(id)?.value||"").trim();
@@ -602,7 +642,10 @@ async function sairConta(){
   await sb.auth.signOut();
   fecharSheet();
 }
-sb.auth.onAuthStateChange((ev)=>{ if(ev==="SIGNED_IN"||ev==="SIGNED_OUT"||ev==="INITIAL_SESSION") carregarConta(); });
+sb.auth.onAuthStateChange((ev)=>{
+  if(ev==="PASSWORD_RECOVERY"){ carregarConta().then(abrirNovaSenha); return; }
+  if(ev==="SIGNED_IN"||ev==="SIGNED_OUT"||ev==="INITIAL_SESSION") carregarConta();
+});
 function fecharTudo(){ cart={}; localStorage.removeItem("rs_cart"); render(); fecharSheet(); }
 
 // ── pagamento embutido (Mercado Pago Payment Brick) ──
@@ -671,6 +714,24 @@ function mostrarPix(codigo, pix, valor){
   })();
 }
 render();
+
+// novidades do app (subir o id a cada atualização — quem já viu não vê de novo)
+const NOVIDADES = {id:2, itens:[
+  "⭐ <b>Programa de pontos</b>: crie sua conta, ganhe 100 pontos de boas-vindas (R$ 5) e troque pontos por desconto na sacola.",
+  "📸 <b>Fotos novas do cardápio</b> — ensaio do Tomas Rangel, sando real na tábua real.",
+]};
+function fecharNews(){
+  localStorage.setItem("rs_news_visto", NOVIDADES.id);
+  document.getElementById("news").style.display="none";
+}
+(function(){
+  if(Number(localStorage.getItem("rs_news_visto")||0) >= NOVIDADES.id) return;
+  if(new URLSearchParams(location.search).has("pedido")) return;
+  const el=document.getElementById("news");
+  el.style.display="block";
+  el.innerHTML=`<b class="titulo">🆕 Novidades no app</b><button class="fechar" onclick="fecharNews()">✕</button>`
+    + NOVIDADES.itens.map(i=>`<div style="margin-top:7px">${i}</div>`).join("");
+})();
 
 // header: status aberto/fechado + atalho pro último pedido
 (function(){
