@@ -96,9 +96,14 @@ function render(){
   }
   if(view==="afiliados"){ renderAfiliados(); return; }
   if(view==="historico"){ renderHistorico(); return; }
+  if(view==="manual"){ renderManual(); return; }
   app.innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
-      <div><button class="topbtn" onclick="abrirHistorico()">📋 Histórico</button><button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button><button class="sair" onclick="sair()">Sair</button></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
+        <button class="topbtn" onclick="abrirPedidoManual()">➕ Pedido</button>
+        <button class="topbtn" onclick="abrirHistorico()">📋 Histórico</button>
+        <button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button>
+        <button class="sair" onclick="sair()">Sair</button></div>
     </header>
     <div class="cols">${COLS.map(([st,titulo])=>{
       const list=pedidos.filter(p=>p.status===st);
@@ -143,6 +148,81 @@ function renderHistorico(){
     <input class="login" style="margin:0 0 16px;max-width:none;padding:12px 14px;border:1px solid var(--creme);background:var(--card);color:var(--preto);border-radius:10px;width:100%;font-family:inherit;font-size:15px" id="hist-busca" placeholder="🔎 buscar por código ou nome" oninput="filtrarHist()">
     <div id="hist-lista"></div>`;
   filtrarHist();
+}
+// ── Pedido manual (equipe monta + gera Pix pro WhatsApp) ──
+let mProdutos=[], mFretes={}, mCart={}, mModo="retirada", mResultado=null;
+let mF={nome:"",zap:"",end:"",obs:"",bairro:""};
+function abrirPedidoManual(){ view="manual"; mCart={}; mResultado=null; mModo="retirada"; mF={nome:"",zap:"",end:"",obs:"",bairro:""}; render(); carregarCatalogoManual(); }
+async function carregarCatalogoManual(){
+  const [rp,rf]=await Promise.all([api("produtos?ativo=eq.true&select=id,nome,preco&order=nome"), api("fretes?select=bairro,valor&order=bairro")]);
+  if(rp&&rp.ok) mProdutos=await rp.json();
+  if(rf&&rf.ok){ const f=await rf.json(); mFretes={}; f.forEach(x=>mFretes[x.bairro]=Number(x.valor)); }
+  if(view==="manual") renderManual();
+}
+const mById = id => mProdutos.find(p=>p.id===id);
+function mMudar(id,d){ mCart[id]=(mCart[id]||0)+d; if(mCart[id]<=0) delete mCart[id]; renderManual(); }
+function mComida(){ let t=0; for(const id in mCart){ const p=mById(id); if(p) t+=mCart[id]*Number(p.preco); } return t; }
+function mFrete(){ return mModo==="entrega" && mF.bairro && mFretes[mF.bairro]!=null ? mFretes[mF.bairro] : 0; }
+function mSetModo(v){ mModo=v; renderManual(); }
+function renderManual(){
+  if(mResultado){ renderManualPix(); return; }
+  const comida=mComida(), frete=mFrete(), total=comida+frete;
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · PEDIDO MANUAL</h1><div class="sub">monta o pedido e gera o Pix pro cliente</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    <div class="afform">
+      <h3 style="font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--vermelho)">Itens</h3>
+      <div style="max-height:240px;overflow:auto;margin:8px 0;border:1px solid var(--linha);border-radius:10px">
+        ${mProdutos.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-bottom:1px solid var(--linha)">
+          <span style="font-size:13px">${esc(p.nome)} <span style="opacity:.55">· ${fmt(p.preco)}</span></span>
+          <span style="display:flex;align-items:center;gap:8px">${mCart[p.id]?`<button class="off" onclick="mMudar('${p.id}',-1)">−</button><b>${mCart[p.id]}</b>`:""}<button class="off" onclick="mMudar('${p.id}',1)">+</button></span>
+        </div>`).join("")}
+      </div>
+      <div style="text-align:right;font-size:15px;margin-bottom:4px">${Object.keys(mCart).length?`Comida ${fmt(comida)}${frete?` + entrega ${fmt(frete)}`:""} = <b>${fmt(total)}</b>`:"<span style='opacity:.5'>escolhe os itens acima</span>"}</div>
+      <label>Nome do cliente</label><input id="m-nome" value="${esc(mF.nome)}" oninput="mF.nome=this.value" placeholder="Nome">
+      <label>WhatsApp do cliente</label><input id="m-zap" type="tel" value="${esc(mF.zap)}" oninput="mF.zap=this.value" placeholder="21 9 9999-9999">
+      <label>Entrega ou retirada</label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button type="button" class="off" style="flex:1${mModo==="retirada"?";background:var(--vermelho);color:#fff":""}" onclick="mSetModo('retirada')">🏠 Retirada</button>
+        <button type="button" class="off" style="flex:1${mModo==="entrega"?";background:var(--vermelho);color:#fff":""}" onclick="mSetModo('entrega')">🛵 Entrega</button>
+      </div>
+      ${mModo==="entrega"?`<label>Bairro</label><select id="m-bairro" onchange="mF.bairro=this.value;renderManual()"><option value="">Escolhe...</option>${Object.keys(mFretes).map(b=>`<option ${b===mF.bairro?"selected":""} value="${b}">${b} · ${fmt(mFretes[b])}</option>`).join("")}</select>
+        <label>Endereço</label><input id="m-end" value="${esc(mF.end)}" oninput="mF.end=this.value" placeholder="Rua, número, complemento">`:""}
+      <label>Observações (opcional)</label><input id="m-obs" value="${esc(mF.obs)}" oninput="mF.obs=this.value" placeholder="Ex: sem cebola; deixar na portaria">
+      <div class="mp-note" id="m-erro" style="color:var(--vermelho);font-size:12px;min-height:14px;margin-top:8px"></div>
+      <button onclick="gerarPixManual(this)" ${Object.keys(mCart).length?"":"disabled style='opacity:.5'"}>Gerar Pix · ${fmt(total)}</button>
+    </div>`;
+}
+async function gerarPixManual(btn){
+  const erro=$("m-erro");
+  if(!mF.nome.trim()||!mF.zap.trim()){ erro.textContent="Nome e WhatsApp do cliente."; return; }
+  if(mModo==="entrega"&&(!mF.bairro||!mF.end.trim())){ erro.textContent="Bairro e endereço da entrega."; return; }
+  const itens=Object.keys(mCart).map(id=>({id, item:mById(id).nome, qtd:mCart[id], preco:Number(mById(id).preco)}));
+  btn.disabled=true; btn.textContent="Gerando Pix...";
+  try{
+    if(Date.now()>sess.exp && !(await renovar())) return;
+    const r=await fetch(`${SUPA_URL}/functions/v1/pedido-manual`,{method:"POST",
+      headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},
+      body:JSON.stringify({itens, nome:mF.nome.trim(), whatsapp:mF.zap.trim(), modo:mModo, endereco:mF.end.trim(), bairro:mF.bairro, obs:mF.obs.trim()})});
+    const d=await r.json();
+    if(!r.ok||!d.pix){ btn.disabled=false; btn.textContent="Gerar Pix"; erro.textContent=(d.erro||"não deu")+(d.detalhe?": "+d.detalhe:""); return; }
+    mResultado=d; renderManualPix();
+  }catch(e){ btn.disabled=false; btn.textContent="Gerar Pix"; erro.textContent="erro ao gerar o Pix"; }
+}
+function renderManualPix(){
+  const d=mResultado, zap=("55"+mF.zap.replace(/\D/g,""));
+  const msg=`Oi, ${mF.nome.split(" ")[0]}! Seu pedido no Rio Sandô 🥪\nPedido #${d.codigo} · total ${fmt(d.total)}\n\nPra confirmar, paga com Pix — copia o código e cola no app do seu banco:\n\n${d.pix.qr_code}\n\nAssim que cair, a cozinha já começa. Arigatô! 🙏`;
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · PIX GERADO</h1><div class="sub">pedido #${d.codigo} · ${fmt(d.total)}</div></div>
+      <div><button class="topbtn" onclick="abrirPedidoManual()">+ Novo</button><button class="topbtn" onclick="voltarBoard()">← Pedidos</button></div>
+    </header>
+    <div class="afform" style="text-align:center">
+      <p style="opacity:.75;font-size:14px;margin-bottom:12px">Manda o Pix pro cliente. Quando ele pagar, o pedido entra na cozinha sozinho (aparece como ✅ PAGO).</p>
+      <img src="data:image/png;base64,${d.pix.qr_code_base64}" alt="QR Pix" style="width:200px;height:200px;border-radius:12px;border:1px solid var(--linha);background:#fff">
+      <a class="pagarcom" style="display:block;margin:16px 0 8px;text-decoration:none;padding:14px" href="https://wa.me/${zap}?text=${encodeURIComponent(msg)}" target="_blank">📲 Enviar Pix no WhatsApp do cliente</a>
+      <button class="off" style="width:100%" onclick='copiar(${JSON.stringify(d.pix.qr_code)}, this, "🏷️ Copiar código Pix")'>🏷️ Copiar código Pix</button>
+    </div>`;
 }
 async function carregarAfiliados(){
   const [ra,rc,rcand,rcod]=await Promise.all([
