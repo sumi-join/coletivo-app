@@ -95,9 +95,10 @@ function render(){
     return;
   }
   if(view==="afiliados"){ renderAfiliados(); return; }
+  if(view==="historico"){ renderHistorico(); return; }
   app.innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
-      <div><button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button><button class="sair" onclick="sair()">Sair</button></div>
+      <div><button class="topbtn" onclick="abrirHistorico()">📋 Histórico</button><button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button><button class="sair" onclick="sair()">Sair</button></div>
     </header>
     <div class="cols">${COLS.map(([st,titulo])=>{
       const list=pedidos.filter(p=>p.status===st);
@@ -111,6 +112,38 @@ const linkAfiliado = cod => `https://coletivo.app/riosando/?cupom=${cod}`;
 const igLink = ig => { ig=(ig||"").trim(); if(!ig) return ""; if(/^https?:/i.test(ig)) return ig; return "https://instagram.com/"+ig.replace(/^@/,""); };
 function abrirAfiliados(){ view="afiliados"; render(); carregarAfiliados(); }
 function voltarBoard(){ view="board"; render(); }
+// ── Histórico de pedidos (restaurante vê tudo) ──
+let historico=[];
+function abrirHistorico(){ view="historico"; render(); carregarHist(); }
+async function carregarHist(){
+  const r=await api("pedidos?select=codigo,nome,bairro,modo,total,status,pagamento,pagamento_status,itens,created_at&order=created_at.desc&limit=150");
+  if(r&&r.ok) historico=await r.json();
+  if(view==="historico") filtrarHist();
+}
+const ROTH={novo:"recebido",em_preparo:"em preparo",pronto:"pronto",saiu:"saiu 🛵",entregue:"entregue ✅",cancelado:"cancelado ✕"};
+function histCard(p){
+  return `<div class="afcard">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <h3>#${esc(p.codigo)}</h3><span style="font-size:12px;opacity:.6">${new Date(p.created_at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span></div>
+    <div class="linha"><span>${esc(p.nome)} · ${p.modo==="entrega"?"🛵 "+esc(p.bairro||"entrega"):"🏠 retirada"}</span><b>${fmt(p.total)}</b></div>
+    <div class="linha" style="opacity:.8">${(p.itens||[]).map(i=>`${Number(i.qtd)||"?"}× ${esc(i.item)}`).join(", ")}</div>
+    <div class="linha"><span style="opacity:.7">${ROTH[p.status]||esc(p.status)} · ${p.pagamento_status==="pago"?"pago online":"pgto "+esc(p.pagamento)}</span></div>
+  </div>`;
+}
+function filtrarHist(){
+  const q=($("hist-busca")?.value||"").toLowerCase().trim();
+  const list=historico.filter(p=>!q || p.codigo.toLowerCase().includes(q) || (p.nome||"").toLowerCase().includes(q));
+  const el=$("hist-lista"); if(el) el.innerHTML = list.length? list.map(histCard).join("") : `<div class="vazio">nenhum pedido encontrado</div>`;
+}
+function renderHistorico(){
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · HISTÓRICO</h1><div class="sub">${historico.length} pedidos · mais recentes primeiro</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    <input class="login" style="margin:0 0 16px;max-width:none;padding:12px 14px;border:1px solid var(--creme);background:var(--card);color:var(--preto);border-radius:10px;width:100%;font-family:inherit;font-size:15px" id="hist-busca" placeholder="🔎 buscar por código ou nome" oninput="filtrarHist()">
+    <div id="hist-lista"></div>`;
+  filtrarHist();
+}
 async function carregarAfiliados(){
   const [ra,rc,rcand,rcod]=await Promise.all([
     api("afiliados?tipo=eq.influencer&select=id,codigo,nome,instagram,desconto_pct,comissao_pct,ativo&order=created_at.desc"),

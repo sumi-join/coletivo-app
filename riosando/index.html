@@ -565,7 +565,7 @@ async function carregarConta(){
   const uid = sessao.user.id;
   const [{data:p},{data:e},{data:af}] = await Promise.all([
     sb.from("clientes").select("*").eq("id",uid).maybeSingle(),
-    sb.from("pontos").select("delta,motivo,created_at").order("created_at",{ascending:false}),
+    sb.from("pontos").select("delta,motivo,created_at").eq("cliente_id",uid).order("created_at",{ascending:false}),
     sb.from("afiliados").select("codigo").eq("cliente_id",uid).eq("tipo","cliente").maybeSingle(),
   ]);
   perfil = p||null; extrato = e||[];
@@ -729,7 +729,7 @@ async function salvarPerfil(btn){
 }
 async function carregarHistorico(){
   const {data} = await sb.from("pedidos").select("codigo,status,total,created_at")
-    .order("created_at",{ascending:false}).limit(5);
+    .eq("user_id", sessao.user.id).order("created_at",{ascending:false}).limit(5);
   const el=document.getElementById("hist");
   if(!el) return;
   if(!data?.length){ el.textContent="Nenhum pedido ainda — bora estrear? 🥪"; return; }
