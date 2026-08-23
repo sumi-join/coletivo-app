@@ -1,0 +1,25 @@
+/* Coletivo Sans 1.000 — SIL Open Font License 1.1 — coletivo.app/fonte
+   Uma família geométrica desenhada para o coletivo. Peso variável 300–900. */
+
+@font-face {
+  font-family: 'Coletivo Sans';
+  src: url('ColetivoSans[wght].woff2') format('woff2-variations'),
+       url('ColetivoSans[wght].woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Coletivo Sans';
+  src: url('ColetivoSans-Italic[wght].woff2') format('woff2-variations'),
+       url('ColetivoSans-Italic[wght].woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* pilha pronta: usa a Coletivo e cai nas geométricas de sempre */
+:root {
+  --fonte-coletivo: 'Coletivo Sans', Futura, 'Futura PT', 'Century Gothic',
+                    'Jost', 'Avenir Next', sans-serif;
+}
