@@ -60,8 +60,7 @@
   <footer>Rio Sandô · Botafogo, Rio · coletivo.app</footer>
 </div>
 <script>
-const SUPA_URL="https://xngsucsxqbmvdnyuabll.supabase.co";
-const SUPA_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZ3N1Y3N4cWJtdmRueXVhYmxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDg1MTYsImV4cCI6MjEwMjcyNDUxNn0.P5vuyAyooZ_BArc_lC7HiQ2N-p0Fi7ejpxzyehPSi1Q";
+const PGREST="https://postgrest-517724804994.southamerica-east1.run.app";
 async function enviar(btn){
   const v=id=>document.getElementById(id).value.trim();
   const nome=v("f-nome"), zap=v("f-zap");
@@ -69,8 +68,8 @@ async function enviar(btn){
   if(!nome||!zap){ msg.textContent="Precisamos do seu nome e WhatsApp. 🙏"; return; }
   btn.disabled=true; btn.textContent="Enviando...";
   try{
-    const r=await fetch(`${SUPA_URL}/rest/v1/afiliado_candidaturas`,{
-      method:"POST", headers:{apikey:SUPA_ANON, Authorization:`Bearer ${SUPA_ANON}`, "Content-Type":"application/json", Prefer:"return=minimal"},
+    const r=await fetch(`${PGREST}/afiliado_candidaturas`,{
+      method:"POST", headers:{"Content-Type":"application/json", Prefer:"return=minimal"},
       body:JSON.stringify({nome, whatsapp:zap, instagram:v("f-ig")||null, tiktok:v("f-tt")||null, divulga:v("f-div")||null, status:"pendente"})});
     if(!r.ok) throw new Error();
     document.getElementById("form-card").innerHTML=`<div class="ok-box"><div class="big">🎉</div><h3>Recebemos, ${nome.split(" ")[0]}!</h3><p style="opacity:.7">A gente vai dar uma olhada no seu perfil e chama você no WhatsApp pra combinar tudo. Valeu por querer divulgar o Rio Sandô! 🙏</p></div>`;

@@ -83,8 +83,9 @@
 <div class="wrap" id="app"></div>
 <div id="comanda"></div>
 <script>
-const SUPA_URL = "https://xngsucsxqbmvdnyuabll.supabase.co";
-const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZ3N1Y3N4cWJtdmRueXVhYmxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDg1MTYsImV4cCI6MjEwMjcyNDUxNn0.P5vuyAyooZ_BArc_lC7HiQ2N-p0Fi7ejpxzyehPSi1Q";
+const RIO_API = "https://rio-api-517724804994.southamerica-east1.run.app";
+const PGREST  = "https://postgrest-517724804994.southamerica-east1.run.app";
+const FB_KEY  = "AIzaSyChnmo3XFjrFodlnnRq_ZOc2NYqdMgZKDQ";
 const NEXT = {novo:["em_preparo","▶ Iniciar preparo"], em_preparo:["pronto","✔ Pronto"], pronto:["entregue","✅ Entregue / retirado"], saiu:["entregue","✅ Entregue"]};
 const COLS = [["novo","🔴 Novos"],["em_preparo","🔪 Em preparo"],["pronto","📦 Prontos"],["saiu","🛵 Saiu"]];
 let sess = JSON.parse(localStorage.getItem("rs_sess")||"null");
@@ -189,7 +190,7 @@ async function cotarEnvio(btn){
   const el=$("e-cotacao"); el.innerHTML=`<div style="text-align:center;opacity:.65;font-size:12px;margin:10px 0">🔎 cotando...</div>`;
   try{
     if(Date.now()>sess.exp && !(await renovar())) return;
-    const r=await fetch(`${SUPA_URL}/functions/v1/entrega-cotar`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},body:JSON.stringify({endereco:eF.destino})});
+    const r=await fetch(`${RIO_API}/entrega-cotar`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},body:JSON.stringify({endereco:eF.destino})});
     const d=await r.json();
     const nomeP=p=>p==="lalamove"?"Lalamove":p==="uber_direct"?"Uber":p;
     const disp=d.cotacoes.filter(c=>c.disponivel);
@@ -211,7 +212,7 @@ async function chamarEnvio(provedor, quoteId, btn){
   btn.disabled=true; btn.textContent="Chamando...";
   try{
     if(Date.now()>sess.exp && !(await renovar())) return;
-    const r=await fetch(`${SUPA_URL}/functions/v1/entrega-avulsa`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},body:JSON.stringify({destino:eF.destino,nome:eF.nome,whatsapp:eF.zap,obs:eF.obs,provedor,quote_id:quoteId})});
+    const r=await fetch(`${RIO_API}/entrega-avulsa`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},body:JSON.stringify({destino:eF.destino,nome:eF.nome,whatsapp:eF.zap,obs:eF.obs,provedor,quote_id:quoteId})});
     const d=await r.json();
     if(!r.ok||!d.ok) throw new Error(d.detalhe?`${d.erro}: ${String(d.detalhe).slice(0,100)}`:d.erro);
     $("e-cotacao").innerHTML=`<div class="afcard" style="text-align:center"><h3>✅ Motoboy chamado!</h3>
@@ -273,7 +274,7 @@ async function gerarPixManual(btn){
   btn.disabled=true; btn.textContent="Gerando Pix...";
   try{
     if(Date.now()>sess.exp && !(await renovar())) return;
-    const r=await fetch(`${SUPA_URL}/functions/v1/pedido-manual`,{method:"POST",
+    const r=await fetch(`${RIO_API}/pedido-manual`,{method:"POST",
       headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},
       body:JSON.stringify({itens, nome:mF.nome.trim(), whatsapp:mF.zap.trim(), modo:mModo, endereco:mF.end.trim(), bairro:mF.bairro, obs:mF.obs.trim()})});
     const d=await r.json();
@@ -448,30 +449,38 @@ function card(p){
     <div id="cotacao-${p.id}"></div>`:""}
     </div>`;
 }
+async function _ponte(idToken){
+  const r = await fetch(`${RIO_API}/auth/token`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({firebase_token:idToken})});
+  return r.ok ? await r.json() : null;
+}
 async function entrar(){
-  const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`,{
-    method:"POST",headers:{apikey:SUPA_ANON,"Content-Type":"application/json"},
-    body:JSON.stringify({email:$("email").value.trim(),password:$("senha").value})});
-  const d = await r.json();
-  if(!r.ok){ $("lerro").textContent="Login falhou — confere a senha?"; return; }
-  sess={token:d.access_token, refresh:d.refresh_token, exp:Date.now()+ (d.expires_in-60)*1000};
+  const fr = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FB_KEY}`,{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({email:$("email").value.trim(),password:$("senha").value,returnSecureToken:true})});
+  const fd = await fr.json();
+  if(!fr.ok){ $("lerro").textContent="Login falhou — confere a senha?"; return; }
+  const br = await _ponte(fd.idToken);
+  if(!br||!br.token){ $("lerro").textContent="Falha ao conectar — tenta de novo."; return; }
+  sess={token:br.token, refresh:fd.refreshToken, exp:Date.now()+(Number(fd.expiresIn)-60)*1000};
   localStorage.setItem("rs_sess",JSON.stringify(sess));
   iniciar();
 }
 async function renovar(){
-  const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`,{
-    method:"POST",headers:{apikey:SUPA_ANON,"Content-Type":"application/json"},
-    body:JSON.stringify({refresh_token:sess.refresh})});
+  const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FB_KEY}`,{
+    method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams({grant_type:"refresh_token",refresh_token:sess.refresh})});
   const d = await r.json();
   if(!r.ok){ sair(); return false; }
-  sess={token:d.access_token, refresh:d.refresh_token, exp:Date.now()+(d.expires_in-60)*1000};
+  const br = await _ponte(d.id_token);
+  if(!br||!br.token){ sair(); return false; }
+  sess={token:br.token, refresh:d.refresh_token, exp:Date.now()+(Number(d.expires_in)-60)*1000};
   localStorage.setItem("rs_sess",JSON.stringify(sess));
   return true;
 }
 async function api(path, opts={}){
   if(Date.now()>sess.exp && !(await renovar())) return null;
-  return fetch(`${SUPA_URL}/rest/v1/${path}`,{...opts,
-    headers:{apikey:SUPA_ANON, Authorization:`Bearer ${sess.token}`,
+  return fetch(`${PGREST}/${path}`,{...opts,
+    headers:{Authorization:`Bearer ${sess.token}`,
       "Content-Type":"application/json", ...(opts.headers||{})}});
 }
 async function carregar(){
@@ -529,7 +538,7 @@ async function cotarEntrega(id){
   el.innerHTML = `<div style="text-align:center;opacity:.65;font-size:12px;margin:10px 0">🔎 cotando Lalamove e Uber...</div>`;
   try{
     if(Date.now()>sess.exp && !(await renovar())) return;
-    const r = await fetch(`${SUPA_URL}/functions/v1/entrega-cotar`,{
+    const r = await fetch(`${RIO_API}/entrega-cotar`,{
       method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${sess.token}`},
       body:JSON.stringify({endereco:p.endereco})});
     const d = await r.json();
@@ -563,7 +572,7 @@ async function chamarEntrega(id, provedor, quoteId, btn){
   const el = document.getElementById(`cotacao-${id}`);
   try{
     if(Date.now()>sess.exp && !(await renovar())) return;
-    const r = await fetch(`${SUPA_URL}/functions/v1/entrega-criar`,{
+    const r = await fetch(`${RIO_API}/entrega-criar`,{
       method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${sess.token}`},
       body:JSON.stringify({pedido_id:id, provedor, quote_id:quoteId})});
     const d = await r.json();
@@ -580,7 +589,7 @@ async function cancelarEntrega(id, btn){
   btn.disabled = true; btn.textContent = "Cancelando...";
   try{
     if(Date.now()>sess.exp && !(await renovar())) return;
-    const r = await fetch(`${SUPA_URL}/functions/v1/entrega-cancelar`,{
+    const r = await fetch(`${RIO_API}/entrega-cancelar`,{
       method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${sess.token}`},
       body:JSON.stringify({pedido_id:id})});
     const d = await r.json();

@@ -15,7 +15,6 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <script src="https://sdk.mercadopago.com/js/v2"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --preto:#1A1A1A; --creme:#F5F0EB; --vermelho:#C0392B; --verde:#2D5A27;
@@ -200,8 +199,6 @@
 
 <script>
 const MP_PUBLIC_KEY = "APP_USR-55c7ca33-342a-4897-bc77-faf59bdb0d15";
-const SUPA_URL = "https://xngsucsxqbmvdnyuabll.supabase.co";
-const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZ3N1Y3N4cWJtdmRueXVhYmxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDg1MTYsImV4cCI6MjEwMjcyNDUxNn0.P5vuyAyooZ_BArc_lC7HiQ2N-p0Fi7ejpxzyehPSi1Q";
 const IMG = p => `img/${p}.jpg?v=2`; // v=2: fotos Tomas Rangel ago/26
 const ZAP_LOJA = "5521978857339";
 const ENDERECO_LOJA = "Travessa Pepe, 60 — sobreloja, Botafogo";
@@ -274,9 +271,94 @@ let pgto = "pix";
 let bairro = "";
 let cliente = JSON.parse(localStorage.getItem("rs_cliente")||"{}");
 
-// ── conta do cliente (Supabase Auth) + fidelidade ──
-const sb = supabase.createClient(SUPA_URL, SUPA_ANON);
-const GOOGLE_ON = true; // projeto rio-sando (sumi@coletivo.app), OAuth client ativo
+// ── conta do cliente (motor GCP: Firebase + rio-api + PostgREST) + fidelidade ──
+const RIO_API = "https://rio-api-517724804994.southamerica-east1.run.app";
+const PGREST  = "https://postgrest-517724804994.southamerica-east1.run.app";
+const FB_KEY  = "AIzaSyChnmo3XFjrFodlnnRq_ZOc2NYqdMgZKDQ";
+let _sess = JSON.parse(localStorage.getItem("rs_gcp_sess") || "null");
+const _cbs = [];
+const _emit = (ev) => _cbs.forEach(cb => { try { cb(ev, _sess ? { user: _sess.user } : null); } catch (e) {} });
+function _save(s) { _sess = s; s ? localStorage.setItem("rs_gcp_sess", JSON.stringify(s)) : localStorage.removeItem("rs_gcp_sess"); }
+async function _fb(action, body) {
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${action}?key=${FB_KEY}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({})); return r.ok ? d : { _err: d.error };
+}
+function _trAuth(e) { const m = (e?.message || "") + "";
+  if (/EMAIL_EXISTS/.test(m)) return { message: "esse e-mail já tem conta — faça login" };
+  if (/INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD|EMAIL_NOT_FOUND/.test(m)) return { message: "e-mail ou senha incorretos" };
+  if (/WEAK_PASSWORD/.test(m)) return { message: "senha muito curta (mín. 6)" };
+  if (/INVALID_EMAIL/.test(m)) return { message: "e-mail inválido" };
+  return { message: "não deu certo — tenta de novo" };
+}
+async function _bridge(idToken) {
+  const r = await fetch(`${RIO_API}/auth/token`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firebase_token: idToken }) });
+  return r.ok ? await r.json() : null;
+}
+async function _establish(fb) {
+  const br = await _bridge(fb.idToken); if (!br) return { error: { message: "falha ao conectar — tenta de novo" } };
+  const s = { token: br.token, refresh: fb.refreshToken, exp: Date.now() + (Number(fb.expiresIn) - 60) * 1000, fb_id: fb.idToken, user: { id: br.uid, email: br.email, nome: br.nome, foto: br.foto } };
+  _save(s); _emit("SIGNED_IN"); return { data: { session: { access_token: s.token, user: s.user }, user: s.user }, error: null };
+}
+async function _refresh() {
+  if (!_sess?.refresh) return false;
+  const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FB_KEY}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: _sess.refresh }) });
+  if (!r.ok) { _save(null); _emit("SIGNED_OUT"); return false; }
+  const d = await r.json(); const br = await _bridge(d.id_token); if (!br) return false;
+  _save({ ..._sess, token: br.token, refresh: d.refresh_token, exp: Date.now() + (Number(d.expires_in) - 60) * 1000, fb_id: d.id_token, user: { id: br.uid, email: br.email, nome: br.nome, foto: br.foto } });
+  return true;
+}
+async function _token() { if (!_sess) return null; if (Date.now() > _sess.exp && !(await _refresh())) return null; return _sess.token; }
+class PgQ {
+  constructor(t){this.t=t;this.op="select";this.cols="*";this.flt=[];this.ord=null;this.lim=null;this.one=null;this.pl=null;}
+  select(c="*"){this.cols=c;return this;} eq(c,v){this.flt.push(`${c}=eq.${encodeURIComponent(v)}`);return this;}
+  order(c,o={}){this.ord=`${c}.${o.ascending===false?"desc":"asc"}`;return this;} limit(n){this.lim=n;return this;}
+  maybeSingle(){this.one="maybe";return this;} single(){this.one="one";return this;}
+  insert(r){this.op="insert";this.pl=r;return this;} upsert(r){this.op="upsert";this.pl=r;return this;} update(r){this.op="update";this.pl=r;return this;}
+  async _run(){
+    const tok=await _token(); const h={"Content-Type":"application/json"}; if(tok)h.Authorization=`Bearer ${tok}`;
+    let url=`${PGREST}/${this.t}`,method="GET",body; const qs=[];
+    if(this.op==="select"){qs.push(`select=${encodeURIComponent(this.cols)}`);this.flt.forEach(f=>qs.push(f));if(this.ord)qs.push(`order=${this.ord}`);if(this.lim)qs.push(`limit=${this.lim}`);}
+    else if(this.op==="insert"){method="POST";body=JSON.stringify(this.pl);h.Prefer="return=representation";}
+    else if(this.op==="upsert"){method="POST";body=JSON.stringify(this.pl);h.Prefer="resolution=merge-duplicates,return=representation";}
+    else if(this.op==="update"){method="PATCH";this.flt.forEach(f=>qs.push(f));body=JSON.stringify(this.pl);h.Prefer="return=representation";}
+    if(this.one==="one")h.Accept="application/vnd.pgrst.object+json";
+    if(qs.length)url+="?"+qs.join("&");
+    try{const r=await fetch(url,{method,headers:h,body});const txt=await r.text();let data=txt?JSON.parse(txt):null;
+      if(!r.ok)return{data:null,error:(data&&(data.message||data.code))?data:{message:`erro ${r.status}`}};
+      if(this.one==="maybe")data=Array.isArray(data)?(data[0]??null):data; return{data,error:null};
+    }catch(e){return{data:null,error:{message:String(e)}};}
+  }
+  then(res,rej){return this._run().then(res,rej);}
+}
+const sb = {
+  auth: {
+    async getSession(){const tok=_sess?await _token():null;return{data:{session:tok?{access_token:tok,user:_sess.user}:null}};},
+    onAuthStateChange(cb){_cbs.push(cb);if(_sess)setTimeout(()=>cb("SIGNED_IN",{user:_sess.user}),0);return{data:{subscription:{unsubscribe(){}}}};},
+    async signInWithPassword({email,password}){const fb=await _fb("signInWithPassword",{email,password,returnSecureToken:true});if(fb._err)return{error:_trAuth(fb._err)};return await _establish(fb);},
+    async signUp({email,password,options}){
+      const fb=await _fb("signUp",{email,password,returnSecureToken:true});if(fb._err)return{error:_trAuth(fb._err)};
+      const d=(options&&options.data)||{}; if(d.nome)await _fb("update",{idToken:fb.idToken,displayName:d.nome,returnSecureToken:false});
+      const res=await _establish(fb); if(res.error)return res;
+      let ip=null; if(d.ref){const a=await new PgQ("afiliados").select("id").eq("codigo",String(d.ref).toUpperCase()).maybeSingle();ip=a.data?.id??null;}
+      await new PgQ("clientes").upsert({id:res.data.user.id,nome:d.nome||null,aceita_promo:!!d.aceita_promo,...(ip?{indicado_por:ip}:{})});
+      return res;
+    },
+    async signInWithOAuth({options}={}){return _googleLogin(options);},
+    async resetPasswordForEmail(email){await _fb("sendOobCode",{requestType:"PASSWORD_RESET",email});return{error:null};},
+    async updateUser({password,data}){
+      if(!_sess)return{error:{message:"sem sessão"}};
+      const upd={idToken:_sess.fb_id,returnSecureToken:true}; if(password)upd.password=password; if(data&&data.nome)upd.displayName=data.nome;
+      const fb=await _fb("update",upd); if(fb._err)return{error:_trAuth(fb._err)};
+      if(fb.idToken)await _establish({idToken:fb.idToken,refreshToken:fb.refreshToken||_sess.refresh,expiresIn:fb.expiresIn||3600});
+      return{error:null};
+    },
+    async signOut(){_save(null);_emit("SIGNED_OUT");return{error:null};},
+  },
+  from(t){return new PgQ(t);},
+};
+async function _googleLogin(){ alert("Login com Google chega já! Por enquanto, use e-mail e senha. 🙏"); return {data:null,error:{message:"google-em-breve"}}; }
+const GOOGLE_ON = false; // Google login entra quando o provedor for ligado no Identity Platform
 let sessao = null, perfil = null, extrato = [], saldoPts = 0, usarPontos = false, modoConta = "entrar";
 let meuCodigo = null, meusIndicados = 0; // programa de indicação
 let cupom = "", cupomInfo = null; // cupom de afiliado no checkout
@@ -468,7 +550,7 @@ async function aplicarCupom(){
   if(!cod){ cupom=""; cupomInfo=null; reabrirSacola(); return; }
   msg.className="mp-note"; msg.textContent="conferindo...";
   try{
-    const r = await fetch(`${SUPA_URL}/functions/v1/validar-cupom`,{
+    const r = await fetch(`${RIO_API}/validar-cupom`,{
       method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({cupom:cod, subtotal:totais().t})});
     const d = await r.json();
@@ -483,7 +565,7 @@ async function aplicarCupomURL(){
   const cod = (localStorage.getItem("rs_cupom_url")||"").trim().toUpperCase();
   if(!cod || cupomInfo) return;
   try{
-    const r = await fetch(`${SUPA_URL}/functions/v1/validar-cupom`,{
+    const r = await fetch(`${RIO_API}/validar-cupom`,{
       method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({cupom:cod, subtotal:totais().t})});
     const d = await r.json();
@@ -787,9 +869,9 @@ async function abrirPagamento(pedido, valor){
       onSubmit: async ({formData})=>{
         limparPagamentoErro();
         const user_token = (await sb.auth.getSession()).data.session?.access_token ?? null;
-        const r = await fetch(`${SUPA_URL}/functions/v1/mp-processar-pagamento`,{
-          method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({pedido, formData, user_token})});
+        const r = await fetch(`${RIO_API}/mp-processar-pagamento`,{
+          method:"POST", headers:{"Content-Type":"application/json", ...(user_token?{Authorization:`Bearer ${user_token}`}:{})},
+          body:JSON.stringify({pedido, formData})});
         const d = await r.json();
         // erro do servidor (não conseguiu nem criar o pagamento) — NÃO limpa a sacola
         if(!r.ok){ mostrarPagamentoErro(traduzErroMP(d.detalhe||d.erro)); throw new Error(d.erro||"falhou"); }
@@ -846,7 +928,7 @@ function mostrarPix(codigo, pix, valor){
     </div>`;
   (async function poll(){
     try{
-      const r = await fetch(`${SUPA_URL}/functions/v1/pedido-status`,{method:"POST",
+      const r = await fetch(`${RIO_API}/pedido-status`,{method:"POST",
         headers:{"Content-Type":"application/json"},body:JSON.stringify({codigo})});
       const p = await r.json();
       if(p.pagamento_status==="pago"){ location.href=`?pedido=${codigo}`; return; }
@@ -905,7 +987,7 @@ function fecharNews(){
   ];
   async function atualizar(){
     try{
-      const r = await fetch(`${SUPA_URL}/functions/v1/pedido-status`,{
+      const r = await fetch(`${RIO_API}/pedido-status`,{
         method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codigo})});
       const p = await r.json();
       const sheet=document.getElementById("sheet");

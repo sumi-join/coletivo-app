@@ -49,8 +49,7 @@
   <footer>Rio Sandô · Botafogo, Rio · coletivo.app</footer>
 </div>
 <script>
-const SUPA_URL="https://xngsucsxqbmvdnyuabll.supabase.co";
-const SUPA_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuZ3N1Y3N4cWJtdmRueXVhYmxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxNDg1MTYsImV4cCI6MjEwMjcyNDUxNn0.P5vuyAyooZ_BArc_lC7HiQ2N-p0Fi7ejpxzyehPSi1Q";
+const RIO_API="https://rio-api-517724804994.southamerica-east1.run.app";
 const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 // link bonito da lojinha no subdomínio (redireciona p/ ?cupom= aplicado)
 const linkDe = cod => `https://riosando.coletivo.app/${String(cod).toLowerCase()}`;
@@ -60,7 +59,7 @@ async function buscar(btn){
   if(!cod){ msg.textContent="Digite seu código."; return; }
   btn.disabled=true; btn.textContent="Buscando...";
   try{
-    const r=await fetch(`${SUPA_URL}/functions/v1/validar-cupom`,{method:"POST",
+    const r=await fetch(`${RIO_API}/validar-cupom`,{method:"POST",
       headers:{"Content-Type":"application/json"},body:JSON.stringify({cupom:cod, subtotal:0})});
     const d=await r.json();
     btn.disabled=false; btn.textContent="Acessar minha lojinha";
