@@ -15,6 +15,8 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <script src="https://sdk.mercadopago.com/js/v2"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
   :root{
     --preto:#1A1A1A; --creme:#F5F0EB; --vermelho:#C0392B; --verde:#2D5A27;
@@ -362,8 +364,34 @@ const sb = {
   },
   from(t){return new PgQ(t);},
 };
-async function _googleLogin(){ alert("Login com Google chega já! Por enquanto, use e-mail e senha. 🙏"); return {data:null,error:{message:"google-em-breve"}}; }
-const GOOGLE_ON = false; // Google login entra quando o provedor for ligado no Identity Platform
+// Firebase SDK usado SÓ pro popup do Google (e-mail/senha segue via REST no shim)
+let _fbAuth=null;
+function _initFirebase(){
+  if(_fbAuth) return _fbAuth;
+  if(typeof firebase==="undefined") return null;
+  if(!firebase.apps?.length) firebase.initializeApp({apiKey:FB_KEY, authDomain:"rio-sando.firebaseapp.com", projectId:"rio-sando"});
+  _fbAuth = firebase.auth();
+  return _fbAuth;
+}
+async function _googleLogin(){
+  const auth = _initFirebase();
+  if(!auth) return {data:null, error:{message:"Google indisponível agora — use e-mail e senha."}};
+  const prov = new firebase.auth.GoogleAuthProvider();
+  prov.setCustomParameters({prompt:"select_account"});
+  try{
+    const res = await auth.signInWithPopup(prov);
+    const idToken = await res.user.getIdToken();
+    const rt = res.user.refreshToken;
+    const out = await _establish({idToken, refreshToken:rt, expiresIn:3600});
+    try{ await auth.signOut(); }catch(e){}
+    return out;
+  }catch(e){
+    const c=(e&&e.code)||"";
+    if(/popup-closed-by-user|cancelled-popup-request|popup-blocked/.test(c)) return {data:null, error:{message:""}};
+    return {data:null, error:{message:"não deu pra entrar com Google — tenta de novo"}};
+  }
+}
+const GOOGLE_ON = true; // login com Google ligado (Identity Platform + popup Firebase)
 let sessao = null, perfil = null, extrato = [], saldoPts = 0, usarPontos = false, modoConta = "entrar";
 let meuCodigo = null, meusIndicados = 0; // programa de indicação
 let cupom = "", cupomInfo = null; // cupom de afiliado no checkout
@@ -775,8 +803,12 @@ async function contaSubmit(btn){
   await carregarConta();
   abrirConta();
 }
-function loginGoogle(){
-  sb.auth.signInWithOAuth({provider:"google", options:{redirectTo:"https://coletivo.app/riosando/"}});
+async function loginGoogle(){
+  const erro=document.getElementById("ac-erro");
+  const r = await sb.auth.signInWithOAuth({provider:"google"});
+  if(r.error){ if(r.error.message&&erro) erro.textContent="Não rolou o Google: "+r.error.message; return; }
+  await carregarConta();
+  abrirConta();
 }
 async function esqueciSenha(){
   const email=(document.getElementById("ac-email")?.value||"").trim();
