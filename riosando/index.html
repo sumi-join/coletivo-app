@@ -277,6 +277,9 @@ let entrega = "entrega";
 let pgto = "pix";
 let bairro = "";
 let cliente = JSON.parse(localStorage.getItem("rs_cliente")||"{}");
+// frete dinâmico: cotado de verdade no endereço do cliente (via rio-api), com crachá assinado
+let freteCotado = null, freteToken = null, freteFonte = null, freteStatus = "";
+let _freteTimer = null;
 
 // ── conta do cliente (motor GCP: Firebase + rio-api + PostgREST) + fidelidade ──
 const RIO_API = "https://rio-api-517724804994.southamerica-east1.run.app";
@@ -430,8 +433,74 @@ const FRETES = {
   "Copacabana":13, "Leme":13, "Lagoa":13, "Jardim Botânico":13,
   "Ipanema":15, "Leblon":15, "Gávea":15
 };
-const freteAtual = () => entrega==="entrega" && FRETES[bairro]!==undefined ? FRETES[bairro] : 0;
+// frete cobrado = cotação real no endereço; enquanto não cotou, mostra a tabela do bairro como estimativa
+const freteAtual = () => entrega!=="entrega" ? 0 : (freteCotado!=null ? freteCotado : (FRETES[bairro] ?? 0));
 if(cliente.bairro && FRETES_EXISTE(cliente.bairro)) bairro = cliente.bairro;
+
+// ── CEP automático (ViaCEP) + cotação de frete no endereço real ──
+const normStr = s => (s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
+const BAIRRO_NORM = {}; Object.keys(FRETES).forEach(b=>{ BAIRRO_NORM[normStr(b)] = b; });
+function onCep(el){
+  let v = el.value.replace(/\D/g,"").slice(0,8);
+  el.value = v.length>5 ? v.slice(0,5)+"-"+v.slice(5) : v;
+  if(v.length===8) buscarCep(v);
+}
+async function buscarCep(cep){
+  const msg = document.getElementById("cep-msg");
+  const setMsg = (t,cor="") => { if(msg){ msg.textContent=t; msg.style.color=cor; } };
+  setMsg("🔎 buscando o endereço…");
+  try{
+    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const d = await r.json();
+    if(d.erro) return setMsg("CEP não encontrado — pode digitar o endereço à mão. 🙏","var(--vermelho)");
+    if(normStr(d.localidade)!=="rio de janeiro") return setMsg("Esse CEP não é do Rio — por enquanto entregamos só na Zona Sul. 🙈","var(--vermelho)");
+    const b = BAIRRO_NORM[normStr(d.bairro)];
+    const end = document.getElementById("endereco");
+    if(end && d.logradouro) end.value = d.logradouro + ", ";
+    if(b){
+      bairro = b; const sel=document.getElementById("sel-bairro"); if(sel) sel.value=b;
+      setMsg(`📍 ${d.logradouro?d.logradouro+" · ":""}${b}`,"var(--verde)");
+    } else {
+      setMsg(`📍 ${d.bairro||"esse bairro"} — fora da nossa área (Botafogo → Gávea) por enquanto. 🙈`,"var(--vermelho)");
+    }
+    freteCotado=null; freteToken=null; atualizarFrete();
+    if(end){ end.focus(); const L=end.value.length; try{ end.setSelectionRange(L,L); }catch(e){} }
+    cotarFrete();
+  }catch{ setMsg("Não deu pra buscar o CEP — digita o endereço à mão. 🙏","var(--vermelho)"); }
+}
+function onEnderecoInput(){ clearTimeout(_freteTimer); _freteTimer=setTimeout(cotarFrete, 800); }
+async function cotarFrete(){
+  const end = (document.getElementById("endereco")?.value||"").trim();
+  if(entrega!=="entrega" || !bairro || !FRETES_EXISTE(bairro) || end.length<6 || !/\d/.test(end)){
+    freteCotado=null; freteToken=null; freteStatus=""; atualizarFrete(); return;   // endereço ainda incompleto
+  }
+  const meu = ++cotarFrete._seq;
+  freteStatus="calculando"; atualizarFrete();
+  try{
+    const r = await fetch(`${RIO_API}/frete-cliente`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({endereco:end, bairro})});
+    const d = await r.json().catch(()=>({}));
+    if(meu!==cotarFrete._seq) return;               // chegou resposta velha, ignora
+    if(r.ok && typeof d.frete==="number"){ freteCotado=d.frete; freteToken=d.token; freteFonte=d.fonte; }
+    else { freteCotado=null; freteToken=null; }
+  }catch{ if(meu===cotarFrete._seq){ freteCotado=null; freteToken=null; } }
+  if(meu===cotarFrete._seq){ freteStatus=""; atualizarFrete(); }
+}
+cotarFrete._seq = 0;
+function entregaLabel(){
+  if(!bairro) return "—";
+  if(freteStatus==="calculando") return "calculando…";
+  if(freteCotado!=null) return fmt(freteCotado);
+  return fmt(FRETES[bairro]);
+}
+// atualiza os números do frete/total SEM re-renderizar a sacola (preserva foco e o que foi digitado)
+function atualizarFrete(){
+  const {t}=totais();
+  const el = document.getElementById("frete-valor"); if(el) el.textContent = entregaLabel();
+  const total = t+freteAtual()-descontoAtual()-descontoCupomAtual();
+  const tv = document.getElementById("total-valor"); if(tv) tv.textContent = fmt(total);
+  const bt = document.getElementById("btn-pagar"); if(bt && !bt.disabled) bt.textContent = `${(entrega==="entrega"||pgto==="online")?"Pagar":"Enviar pedido"} · ${fmt(total)}`;
+}
 
 const fmt = v => "R$ " + v.toFixed(2).replace(".",",").replace(",00","");
 const slug = s => s.toLowerCase().normalize("NFD").replace(/[^a-z ]/g,"").replace(/ /g,"-");
@@ -504,10 +573,10 @@ function abrirSacola(){
         <div class="mini-add" id="add-${id}">${addCtrl(id,true)}</div>
         <span class="preco">${fmt(cart[id]*BYID[id].preco)}</span>
       </div>`).join("")}
-    ${entrega==="entrega"?`<div class="linha-item"><div><h3 style="font-weight:400">Entrega${bairro?` · ${bairro}`:""}</h3></div><span class="preco">${bairro?fmt(freteAtual()):"—"}</span></div>`:""}
+    ${entrega==="entrega"?`<div class="linha-item"><div><h3 style="font-weight:400">Entrega${bairro?` · ${bairro}`:""}</h3></div><span class="preco" id="frete-valor">${entregaLabel()}</span></div>`:""}
     ${maxDesconto()>0?`<div class="linha-item"><label class="check-pontos"><input type="checkbox" ${usarPontos?"checked":""} onchange="setUsarPontos(this.checked)"><span style="text-transform:none;letter-spacing:0">Usar ${maxDesconto()*20} dos meus ⭐ ${saldoPts} pontos</span></label><span class="preco" style="color:var(--verde)">−${fmt(maxDesconto())}</span></div>`:""}
     ${cupomInfo?`<div class="linha-item"><div><h3 style="font-weight:400">Cupom ${esc(cupom)}${cupomInfo.nome&&cupomInfo.nome!==cupom?` · ${esc(cupomInfo.nome)}`:""}</h3><p style="cursor:pointer;color:var(--vermelho)" onclick="removerCupom()">remover</p></div><span class="preco" style="color:var(--verde)">−${fmt(descontoCupomAtual())}</span></div>`:""}
-    <div class="total-row"><span>Total</span><span>${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</span></div>
+    <div class="total-row"><span>Total</span><span id="total-valor">${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</span></div>
     ${!usarPontos && !cupomInfo?`<div class="cupom-row"><input type="text" id="cupom-input" placeholder="Cupom de desconto" value="${esc(cupom)}"><button onclick="aplicarCupom()">Aplicar</button></div><div id="cupom-msg"></div>`:""}
     ${!sessao?`<div class="nudge-conta" onclick="abrirConta()">✨ Entre na sua conta e ganhe ${Math.floor(t)} pontos com este pedido</div>`:""}
 
@@ -519,13 +588,17 @@ function abrirSacola(){
     ${entrega==="retirada"?`<div class="mp-note" style="text-align:left;opacity:.8">🏠 Retirada: <a href="${MAPS_LOJA}" target="_blank" style="color:var(--verde)">${ENDERECO_LOJA}</a></div>`:""}
     ${!lojaAberta()?`<div class="fechado-banner">🕐 Estamos fechados agora — seu pedido entra <b>agendado pra ${rotuloAbertura()}</b>. A cozinha prepara assim que abrir.</div>`:""}
     <div id="campo-endereco" style="display:${entrega==="entrega"?"block":"none"}">
+      <label>CEP</label>
+      <input type="tel" id="cep" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${(cliente.cep||"").replace(/"/g,"&quot;")}" oninput="onCep(this)" autocomplete="postal-code">
+      <div id="cep-msg" class="mp-note" style="text-align:left;margin:2px 0 0;min-height:0"></div>
+      <label>Endereço de entrega</label>
+      <input type="text" id="endereco" placeholder="Rua, número, complemento" value="${(cliente.endereco||"").replace(/"/g,"&quot;")}" oninput="onEnderecoInput()">
       <label>Bairro</label>
       <select id="sel-bairro" onchange="setBairro(this.value)">
         <option value="">Escolhe o bairro...</option>
-        ${Object.keys(FRETES).map(b=>`<option ${b===bairro?"selected":""} value="${b}">${b} · entrega ${fmt(FRETES[b])}</option>`).join("")}
+        ${Object.keys(FRETES).map(b=>`<option ${b===bairro?"selected":""} value="${b}">${b}</option>`).join("")}
       </select>
-      <label>Endereço de entrega</label>
-      <input type="text" id="endereco" placeholder="Rua, número, complemento" value="${(cliente.endereco||"").replace(/"/g,"&quot;")}">
+      <div class="mp-note" style="text-align:left;opacity:.7;margin-top:4px">🛵 O frete é calculado de verdade no seu endereço — pode variar alguns reais.</div>
     </div>
     <label>Seu nome</label>
     <input type="text" id="nome" placeholder="Como te chamamos?" value="${(cliente.nome||"").replace(/"/g,"&quot;")}">
@@ -545,16 +618,17 @@ function abrirSacola(){
       <button class="${pgto==="cartao"?"on":""}" onclick="setPgto('cartao')">💳 na retirada</button>
     </div>`}
 
-    <button class="pagar" onclick="pagar(this)">${(entrega==="entrega"||pgto==="online")?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</button>
+    <button class="pagar" id="btn-pagar" onclick="pagar(this)">${(entrega==="entrega"||pgto==="online")?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</button>
     <div class="mp-note">${(entrega==="entrega"||pgto==="online")?"Pix ou cartão, seguro via Mercado Pago":"Você paga na hora de retirar"}</div>
     <div class="mp-note" id="erro-envio" style="color:var(--vermelho)"></div>`}`;
   sheet.classList.add("on");
   document.getElementById("overlay").classList.add("on");
+  if(entrega==="entrega" && bairro && freteCotado==null) setTimeout(cotarFrete, 60); // já cota se voltou com endereço salvo
 }
 // re-render da sacola preservando o que o cliente já digitou
 function lerForm(){
   const v = id => document.getElementById(id)?.value ?? null;
-  return {nome:v("nome"), zap:v("zap"), endereco:v("endereco"), obs:v("obs"), "cupom-input":v("cupom-input")};
+  return {nome:v("nome"), zap:v("zap"), cep:v("cep"), endereco:v("endereco"), obs:v("obs"), "cupom-input":v("cupom-input")};
 }
 function restaurarForm(f){
   if(!f) return;
@@ -564,9 +638,9 @@ function restaurarForm(f){
   }
 }
 function reabrirSacola(){ const f=lerForm(); abrirSacola(); restaurarForm(f); }
-function setEntrega(v){ entrega=v; if(v==="entrega") pgto="online"; reabrirSacola(); }
+function setEntrega(v){ entrega=v; if(v==="entrega") pgto="online"; else { freteCotado=null; freteToken=null; freteStatus=""; } reabrirSacola(); }
 function setPgto(v){ pgto=v; reabrirSacola(); }
-function setBairro(v){ bairro=v; reabrirSacola(); }
+function setBairro(v){ bairro=v; freteCotado=null; freteToken=null; freteStatus=""; reabrirSacola(); cotarFrete(); }
 function setUsarPontos(v){ usarPontos=v; if(v){ cupom=""; cupomInfo=null; } reabrirSacola(); }
 // resgate em blocos de R$5 (100 pts), limitado ao valor da comida
 function maxDesconto(){
@@ -614,11 +688,12 @@ async function aplicarCupomURL(){
 async function pagar(btn){
   const val = id => (document.getElementById(id)?.value||"").trim();
   const erro = document.getElementById("erro-envio");
-  const nome=val("nome"), zap=val("zap"), endereco=val("endereco"), obs=val("obs");
+  const nome=val("nome"), zap=val("zap"), endereco=val("endereco"), obs=val("obs"), cep=val("cep");
   if(!nome || !zap){ erro.textContent="Precisamos do seu nome e WhatsApp. 🙏"; return; }
   if(entrega==="entrega") pgto="online"; // entrega é sempre paga no app (motoboy não recebe)
   if(entrega==="entrega" && !bairro){ erro.textContent="Escolhe o bairro da entrega. 🙏"; return; }
   if(entrega==="entrega" && !endereco){ erro.textContent="Cadê o endereço de entrega? 🙏"; return; }
+  if(entrega==="entrega" && freteStatus==="calculando"){ erro.textContent="Só um segundo, calculando o frete… 🛵"; return; }
   const {t}=totais();
   const frete = freteAtual();
   const desconto = descontoAtual();
@@ -627,10 +702,10 @@ async function pagar(btn){
   btn.disabled=true; btn.textContent="Enviando...";
   const codigo = Array.from({length:6},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
   const agendadoPara = lojaAberta() ? null : proximaAbertura().toISOString();
-  cliente = {nome, zap, endereco, bairro};
+  cliente = {nome, zap, endereco, bairro, cep};
   localStorage.setItem("rs_cliente", JSON.stringify(cliente));
   if(pgto==="online"){
-    const pedido = {codigo, itens, frete, desconto, cupom:cupom||null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
+    const pedido = {codigo, itens, frete, frete_token:freteToken||null, desconto, cupom:cupom||null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
       endereco:entrega==="entrega"?`${endereco} — ${bairro}`:null, obs:obs||null, agendado_para:agendadoPara};
     try{ await abrirPagamento(pedido, t+frete-desconto-descCupom); }
     catch(e){

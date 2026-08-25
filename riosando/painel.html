@@ -30,6 +30,16 @@
   .col h2{font-size:12px;letter-spacing:.25em;text-transform:uppercase;margin-bottom:10px;opacity:.8}
   .pedido{background:var(--card);color:var(--preto);border-radius:14px;padding:16px;margin-bottom:12px;position:relative}
   .pedido.novo-flash{outline:3px solid var(--vermelho)}
+  /* pedido pronto p/ entrega mas ainda não despachado — não deixar esquecer */
+  .badge-entrega{position:absolute;top:-9px;left:12px;background:var(--vermelho);color:#fff;font-size:10px;letter-spacing:.08em;padding:3px 10px;border-radius:99px;font-weight:600}
+  @media (prefers-reduced-motion: no-preference){
+    @keyframes pulseCard{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0)}50%{box-shadow:0 0 0 5px rgba(192,57,43,.5)}}
+    @keyframes pulseBtn{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.025);filter:brightness(1.13)}}
+    .pedido.chamar-entrega{animation:pulseCard 1.25s ease-in-out infinite}
+    .enviar-btn.pulsa{animation:pulseBtn 1.05s ease-in-out infinite}
+    .badge-entrega.pulsa{animation:pulseBtn 1.05s ease-in-out infinite}
+  }
+  .pedido.chamar-entrega{outline:2px solid var(--vermelho)}
   .ped-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
   .codigo{font-size:18px;font-weight:500}
   .hora{font-size:12px;opacity:.55}
@@ -92,6 +102,7 @@ let sess = JSON.parse(localStorage.getItem("rs_sess")||"null");
 let view = "board";
 let pedidos = [], vistos = new Set(JSON.parse(localStorage.getItem("rs_vistos")||"[]")), timer=null;
 let impressos = new Set(JSON.parse(localStorage.getItem("rs_impressos")||"[]"));
+let avisadosEntrega = new Set();  // pedidos de entrega já avisados como "prontos p/ despachar" (só nesta sessão)
 const fmt = v => "R$ " + Number(v).toFixed(2).replace(".",",").replace(",00","");
 const $ = id => document.getElementById(id);
 // todo dado digitado pelo cliente passa por aqui antes de virar HTML (anti-XSS)
@@ -424,8 +435,10 @@ async function pagarComissoes(id,btn){
 function card(p){
   const [nx,rot] = NEXT[p.status]||[];
   const flash = !vistos.has(p.id) && p.status==="novo";
-  return `<div class="pedido ${flash?"novo-flash":""}">
+  const chamarEntrega = p.status==="pronto" && p.modo==="entrega" && !p.entrega_id;
+  return `<div class="pedido ${flash?"novo-flash":""} ${chamarEntrega?"chamar-entrega":""}">
     ${flash?`<span class="badge">NOVO</span>`:""}
+    ${chamarEntrega?`<span class="badge-entrega pulsa">🛵 CHAMAR ENTREGA</span>`:""}
     ${p.agendado_para && new Date(p.agendado_para).getTime()>Date.now() ? `<span class="badge" style="background:var(--verde);right:auto;left:12px">⏰ AGENDADO ${new Date(p.agendado_para).toLocaleString("pt-BR",{weekday:"short",hour:"2-digit",minute:"2-digit"})}</span>`:""}
     <div class="ped-head"><span class="codigo">#${esc(p.codigo)}</span>
       <span class="hora">${new Date(p.created_at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</span></div>
@@ -444,7 +457,7 @@ function card(p){
     ${p.status!=="saiu"?`<div class="acoes"><button class="cancelar" onclick="cancelarEntrega(${p.id}, this)">✕ cancelar entrega</button></div>`:""}
     <div class="meta" id="cotacao-${p.id}"></div>`
     : p.status==="pronto" && p.modo==="entrega" ? `
-    <button class="enviar-btn" onclick="cotarEntrega(${p.id})">🛵 Cotar e enviar entrega</button>
+    <button class="enviar-btn pulsa" onclick="cotarEntrega(${p.id})">🛵 Cotar e enviar entrega</button>
     <div style="text-align:center;margin-top:6px"><button class="off" onclick="copiarEndereco(${p.id}, this)">📋 copiar endereço do cliente</button></div>
     <div id="cotacao-${p.id}"></div>`:""}
     </div>`;
@@ -492,6 +505,10 @@ async function carregar(){
   if(novos.length && pedidos.length !== undefined && document.hasFocus()!==null){
     if(carregar.ja) bip();
   }
+  // pedido de entrega ficou pronto e ainda não foi despachado → avisa (uma vez) e o card pulsa
+  const prontosEntrega = dados.filter(p=>p.status==="pronto" && p.modo==="entrega" && !p.entrega_id && !avisadosEntrega.has(p.id));
+  if(prontosEntrega.length && carregar.ja) bip();
+  prontosEntrega.forEach(p=>avisadosEntrega.add(p.id));
   const autoprint = new URLSearchParams(location.search).has("autoprint");
   const paraImprimir = carregar.ja && autoprint ? novos.filter(p=>!impressos.has(p.id)) : [];
   carregar.ja = true;
