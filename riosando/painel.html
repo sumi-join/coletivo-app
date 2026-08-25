@@ -58,6 +58,19 @@
   .afform button{width:100%;margin-top:14px;background:var(--vermelho);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px}
   .pagarcom{background:var(--verde);color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:13px}
   .off{background:var(--preto);color:var(--creme);border:none;border-radius:8px;padding:5px 10px;font-size:11px}
+  /* cotação de entrega */
+  .enviar-btn{width:100%;background:var(--verde);color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:500;letter-spacing:.03em;margin-top:8px}
+  .cot-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .cotcard{background:var(--card);color:var(--preto);border:2px solid var(--linha);border-radius:12px;padding:12px;position:relative;text-align:left}
+  .cotcard.melhor{border-color:var(--verde)}
+  .cotcard .prov{font-size:14px;font-weight:600}
+  .cotcard .preco{font-size:22px;font-weight:600;margin:4px 0 2px}
+  .cotcard .det{font-size:11px;opacity:.65;line-height:1.4;min-height:28px}
+  .cotcard .selo{position:absolute;top:-9px;right:8px;background:var(--verde);color:#fff;font-size:9px;letter-spacing:.06em;padding:2px 8px;border-radius:99px}
+  .cotcard .chamar{width:100%;margin-top:8px;background:var(--preto);color:var(--creme);border:none;border-radius:8px;padding:9px;font-size:12.5px;font-weight:500}
+  .cotcard.melhor .chamar{background:var(--verde)}
+  .cot-off{background:var(--card);color:var(--preto);border:1px dashed var(--linha);border-radius:12px;padding:12px;opacity:.6;font-size:11.5px}
+  .cot-ifood{display:block;text-align:center;background:#EA1D2C;color:#fff;border-radius:10px;padding:11px;font-size:13px;text-decoration:none;margin-top:8px;font-weight:500}
   @media print{
     body *{display:none}
     #comanda,#comanda *{display:block}
@@ -372,12 +385,9 @@ function card(p){
     ${p.status!=="saiu"?`<div class="acoes"><button class="cancelar" onclick="cancelarEntrega(${p.id}, this)">✕ cancelar entrega</button></div>`:""}
     <div class="meta" id="cotacao-${p.id}"></div>`
     : p.status==="pronto" && p.modo==="entrega" ? `
-    <div class="acoes">
-      <button class="imprimir" onclick="copiarEndereco(${p.id}, this)">📋 Copiar endereço</button>
-      <button class="imprimir" onclick="cotarEntrega(${p.id})">🛵 Cotar entrega</button>
-      <a class="imprimir" href="https://portal.ifood.com.br" target="_blank" style="text-decoration:none;color:inherit">🔴 Entregador iFood</a>
-    </div>
-    <div class="meta" id="cotacao-${p.id}"></div>`:""}
+    <button class="enviar-btn" onclick="cotarEntrega(${p.id})">🛵 Cotar e enviar entrega</button>
+    <div style="text-align:center;margin-top:6px"><button class="off" onclick="copiarEndereco(${p.id}, this)">📋 copiar endereço do cliente</button></div>
+    <div id="cotacao-${p.id}"></div>`:""}
     </div>`;
 }
 async function entrar(){
@@ -458,7 +468,7 @@ function copiarEndereco(id, btn){
 async function cotarEntrega(id){
   const p = pedidos.find(x=>x.id===id); if(!p) return;
   const el = document.getElementById(`cotacao-${id}`);
-  el.textContent = "cotando...";
+  el.innerHTML = `<div style="text-align:center;opacity:.65;font-size:12px;margin:10px 0">🔎 cotando Lalamove e Uber...</div>`;
   try{
     if(Date.now()>sess.exp && !(await renovar())) return;
     const r = await fetch(`${SUPA_URL}/functions/v1/entrega-cotar`,{
@@ -466,17 +476,27 @@ async function cotarEntrega(id){
       body:JSON.stringify({endereco:p.endereco})});
     const d = await r.json();
     const nomeP = p => p==="lalamove"?"Lalamove":p==="uber_direct"?"Uber":p;
-    const ord = [...d.cotacoes].sort((a,b)=> (b.disponivel-a.disponivel) || ((a.preco??1e9)-(b.preco??1e9)));
-    const linhas = ord.map(c=>{
-      if(c.disponivel){
-        const det=[c.veiculo, c.coleta_min?`busca ~${c.coleta_min}min`:"", c.eta?`entrega ~${c.eta}`:"", c.distancia?`${c.distancia}km`:""].filter(Boolean).join(" · ");
-        return `<button class="imprimir" style="display:block;width:100%;text-align:left;margin-bottom:6px" onclick='chamarEntrega(${id},"${c.provedor}","${c.quote_id}",this)'>🛵 <b>${nomeP(c.provedor)}</b> · R$ ${(c.preco??0).toFixed(2)}${det?` · <span style="opacity:.75">${det}</span>`:""}</button>`;
-      }
-      return `<div style="opacity:.45;font-size:12px;padding:6px 2px">✕ ${nomeP(c.provedor)} indisponível — ${c.motivo||"—"}</div>`;
+    const disp = d.cotacoes.filter(c=>c.disponivel);
+    const maisBarato = [...disp].sort((a,b)=>(a.preco??1e9)-(b.preco??1e9))[0]?.provedor;
+    const comTempo = disp.filter(c=>c.coleta_min);
+    const maisRapido = comTempo.length ? [...comTempo].sort((a,b)=>a.coleta_min-b.coleta_min)[0]?.provedor : null;
+    const cards = d.cotacoes.map(c=>{
+      if(!c.disponivel) return `<div class="cot-off">✕ ${nomeP(c.provedor)}<br>${esc(c.motivo||"indisponível")}</div>`;
+      const selo = c.provedor===maisBarato ? "💚 MAIS BARATO" : (c.provedor===maisRapido ? "⚡ MAIS RÁPIDO" : "");
+      const det=[c.veiculo, c.coleta_min?`busca ~${c.coleta_min}min`:"", c.eta?`entrega ~${c.eta}`:"", c.distancia?`${c.distancia} km`:""].filter(Boolean).join(" · ");
+      return `<div class="cotcard ${c.provedor===maisBarato?"melhor":""}">
+        ${selo?`<span class="selo">${selo}</span>`:""}
+        <div class="prov">${nomeP(c.provedor)}</div>
+        <div class="preco">R$ ${(c.preco??0).toFixed(2)}</div>
+        <div class="det">${det||"&nbsp;"}</div>
+        <button class="chamar" onclick='chamarEntrega(${id},"${c.provedor}","${c.quote_id}",this)'>Chamar ✓</button>
+      </div>`;
     }).join("");
-    const algum = d.cotacoes.some(c=>c.disponivel);
-    el.innerHTML = `<div style="margin-bottom:6px;opacity:.7">Escolhe quem leva:</div>${linhas}${algum?"":`<div style="margin-top:6px">👉 ${d.fallback}</div>`}`;
-  }catch(e){ el.textContent = "erro ao cotar — usa o Entrega Fácil no Gestor iFood"; }
+    const algum = disp.length>0;
+    el.innerHTML = `<div class="cot-grid">${cards}</div>
+      <a class="cot-ifood" href="https://portal.ifood.com.br" target="_blank">🔴 ou pedir entregador pelo iFood</a>
+      ${algum?"":`<div style="margin-top:6px;font-size:12px;opacity:.7">Nenhum app cotou — usa o iFood acima 👆</div>`}`;
+  }catch(e){ el.innerHTML = `<div style="font-size:12px;opacity:.8;margin-top:8px">erro ao cotar. <a class="cot-ifood" href="https://portal.ifood.com.br" target="_blank">🔴 pedir entregador pelo iFood</a></div>`; }
 }
 async function chamarEntrega(id, provedor, quoteId, btn){
   const nome = provedor==="lalamove"?"Lalamove":provedor==="uber_direct"?"Uber":provedor;
