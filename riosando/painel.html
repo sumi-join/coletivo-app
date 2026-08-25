@@ -110,10 +110,12 @@ function render(){
   if(view==="afiliados"){ renderAfiliados(); return; }
   if(view==="historico"){ renderHistorico(); return; }
   if(view==="manual"){ renderManual(); return; }
+  if(view==="envio"){ renderEnvioAvulso(); return; }
   app.innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
         <button class="topbtn" onclick="abrirPedidoManual()">➕ Pedido</button>
+        <button class="topbtn" onclick="abrirEnvioAvulso()">🛵 Envio</button>
         <button class="topbtn" onclick="abrirHistorico()">📋 Histórico</button>
         <button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button>
         <button class="sair" onclick="sair()">Sair</button></div>
@@ -161,6 +163,62 @@ function renderHistorico(){
     <input class="login" style="margin:0 0 16px;max-width:none;padding:12px 14px;border:1px solid var(--creme);background:var(--card);color:var(--preto);border-radius:10px;width:100%;font-family:inherit;font-size:15px" id="hist-busca" placeholder="🔎 buscar por código ou nome" oninput="filtrarHist()">
     <div id="hist-lista"></div>`;
   filtrarHist();
+}
+// ── Envio avulso (só a entrega, sem pedido de comida — coleta na cozinha) ──
+let eF={destino:"",nome:"",zap:"",obs:""};
+function abrirEnvioAvulso(){ view="envio"; eF={destino:"",nome:"",zap:"",obs:""}; render(); }
+function renderEnvioAvulso(){
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · ENVIO AVULSO</h1><div class="sub">chamar motoboy só pra levar algo (coleta aqui na cozinha)</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    <div class="afform">
+      <label>Endereço de entrega</label><input id="e-dest" value="${esc(eF.destino)}" oninput="eF.destino=this.value" placeholder="Rua, número, bairro, complemento">
+      <label>Quem recebe</label><input id="e-nome" value="${esc(eF.nome)}" oninput="eF.nome=this.value" placeholder="Nome do destinatário">
+      <label>WhatsApp de quem recebe (opcional)</label><input id="e-zap" type="tel" value="${esc(eF.zap)}" oninput="eF.zap=this.value" placeholder="21 9 9999-9999">
+      <label>Observações (opcional)</label><input id="e-obs" value="${esc(eF.obs)}" oninput="eF.obs=this.value" placeholder="Ex: entregar na portaria, apto 302">
+      <div class="mp-note" id="e-erro" style="color:var(--vermelho);font-size:12px;min-height:14px;margin-top:8px"></div>
+      <button class="enviar-btn" onclick="cotarEnvio(this)">🔎 Cotar entregadores</button>
+      <div id="e-cotacao" style="margin-top:10px"></div>
+    </div>`;
+}
+async function cotarEnvio(btn){
+  if(!eF.destino.trim()){ $("e-erro").textContent="Coloca o endereço de entrega."; return; }
+  if(!eF.nome.trim()){ $("e-erro").textContent="Quem vai receber?"; return; }
+  $("e-erro").textContent="";
+  const el=$("e-cotacao"); el.innerHTML=`<div style="text-align:center;opacity:.65;font-size:12px;margin:10px 0">🔎 cotando...</div>`;
+  try{
+    if(Date.now()>sess.exp && !(await renovar())) return;
+    const r=await fetch(`${SUPA_URL}/functions/v1/entrega-cotar`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},body:JSON.stringify({endereco:eF.destino})});
+    const d=await r.json();
+    const nomeP=p=>p==="lalamove"?"Lalamove":p==="uber_direct"?"Uber":p;
+    const disp=d.cotacoes.filter(c=>c.disponivel);
+    const maisBarato=[...disp].sort((a,b)=>(a.preco??1e9)-(b.preco??1e9))[0]?.provedor;
+    const cards=d.cotacoes.map(c=>{
+      if(!c.disponivel) return `<div class="cot-off">✕ ${nomeP(c.provedor)}<br>${esc(c.motivo||"")}</div>`;
+      const det=[c.veiculo,c.coleta_min?`busca ~${c.coleta_min}min`:"",c.eta?`entrega ~${c.eta}`:"",c.distancia?`${c.distancia} km`:""].filter(Boolean).join(" · ");
+      return `<div class="cotcard ${c.provedor===maisBarato?"melhor":""}">${c.provedor===maisBarato?'<span class="selo">💚 MAIS BARATO</span>':""}
+        <div class="prov">${nomeP(c.provedor)}</div><div class="preco">R$ ${(c.preco??0).toFixed(2)}</div>
+        <div class="det">${det||"&nbsp;"}</div>
+        <button class="chamar" onclick='chamarEnvio("${c.provedor}","${c.quote_id}",this)'>Chamar ✓</button></div>`;
+    }).join("");
+    el.innerHTML=`<div class="cot-grid">${cards}</div>${disp.length?"":`<a class="cot-ifood" href="https://portal.ifood.com.br" target="_blank">🔴 pedir pelo iFood</a>`}`;
+  }catch(e){ el.innerHTML=`<div style="font-size:12px;opacity:.8">erro ao cotar</div>`; }
+}
+async function chamarEnvio(provedor, quoteId, btn){
+  const nome=provedor==="lalamove"?"Lalamove":"Uber";
+  if(!confirm(`Chama um motoboy DE VERDADE (${nome}) pra buscar aqui e levar? Cobra na conta.`)) return;
+  btn.disabled=true; btn.textContent="Chamando...";
+  try{
+    if(Date.now()>sess.exp && !(await renovar())) return;
+    const r=await fetch(`${SUPA_URL}/functions/v1/entrega-avulsa`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},body:JSON.stringify({destino:eF.destino,nome:eF.nome,whatsapp:eF.zap,obs:eF.obs,provedor,quote_id:quoteId})});
+    const d=await r.json();
+    if(!r.ok||!d.ok) throw new Error(d.detalhe?`${d.erro}: ${String(d.detalhe).slice(0,100)}`:d.erro);
+    $("e-cotacao").innerHTML=`<div class="afcard" style="text-align:center"><h3>✅ Motoboy chamado!</h3>
+      <p style="opacity:.75;font-size:13px;margin:8px 0">${nome} · envio ${esc(d.codigo||"")}${d.preco?` · R$ ${Number(d.preco).toFixed(2)}`:""}</p>
+      ${d.tracking_url?`<a class="pagarcom" style="display:block;text-decoration:none;padding:12px" href="${esc(d.tracking_url)}" target="_blank">rastrear no mapa 🗺️</a>`:""}
+      <button class="off" style="width:100%;margin-top:8px" onclick="abrirEnvioAvulso()">+ novo envio</button></div>`;
+  }catch(e){ btn.disabled=false; btn.textContent="tentar de novo"; $("e-erro").textContent="Falhou: "+e.message; }
 }
 // ── Pedido manual (equipe monta + gera Pix pro WhatsApp) ──
 let mProdutos=[], mFretes={}, mCart={}, mModo="retirada", mResultado=null;
