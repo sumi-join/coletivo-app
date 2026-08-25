@@ -607,7 +607,8 @@ function abrirConta(){
       ${modoConta==="criar"?`<label>Seu nome</label><input type="text" id="ac-nome" placeholder="Como te chamamos?">`:""}
       <label>E-mail</label><input type="email" id="ac-email" inputmode="email" autocomplete="email" placeholder="voce@email.com">
       <label>Senha</label><input type="password" id="ac-senha" autocomplete="${modoConta==="criar"?"new-password":"current-password"}" placeholder="${modoConta==="criar"?"mínimo 6 caracteres":"sua senha"}">
-      ${modoConta==="criar"?`<label>Código de indicação <span style="opacity:.5;text-transform:none;letter-spacing:0">(opcional)</span></label><input type="text" id="ac-ref" placeholder="ganhe 50 pts de bônus" value="${esc(localStorage.getItem("rs_ref")||"")}" style="text-transform:uppercase">`:""}
+      ${modoConta==="criar"?`<label>Código de indicação <span style="opacity:.5;text-transform:none;letter-spacing:0">(opcional)</span></label><input type="text" id="ac-ref" placeholder="ganhe 50 pts de bônus" value="${esc(localStorage.getItem("rs_ref")||"")}" style="text-transform:uppercase">
+      <label class="check-pontos" style="margin-top:16px"><input type="checkbox" id="ac-promo"><span style="text-transform:none;letter-spacing:0;font-size:13.5px">Quero receber promoções e novidades do Rio Sandô no WhatsApp/e-mail</span></label>`:""}
       <button class="pagar" onclick="contaSubmit(this)">${modoConta==="criar"?"Criar conta · ganhar 100 pts 🎁":"Entrar"}</button>
       ${GOOGLE_ON?`<button class="pagar" style="background:var(--preto);margin-top:10px" onclick="loginGoogle()">Entrar com Google</button>`:""}
       <div class="mp-note"><a onclick="esqueciSenha()" style="color:var(--verde);cursor:pointer">Esqueci minha senha</a></div>
@@ -622,6 +623,7 @@ function abrirConta(){
       <label>Endereço</label><input type="text" id="pf-endereco" placeholder="Rua, número, complemento" value="${(perfil?.endereco||cliente.endereco||"").replace(/"/g,"&quot;")}">
       <label>Bairro</label>
       <select id="pf-bairro"><option value="">Escolhe...</option>${Object.keys(FRETES).map(b=>`<option ${b===(perfil?.bairro||cliente.bairro)?"selected":""} value="${b}">${b}</option>`).join("")}</select>
+      <label class="check-pontos" style="margin-top:16px"><input type="checkbox" id="pf-promo" ${perfil?.aceita_promo?"checked":""}><span style="text-transform:none;letter-spacing:0;font-size:13.5px">Receber promoções e novidades no WhatsApp/e-mail</span></label>
       <button class="pagar" onclick="salvarPerfil(this)">Salvar meus dados</button>
       <div class="mp-note" id="pf-ok"></div>
 
@@ -652,12 +654,13 @@ function setModoConta(m){
 async function contaSubmit(btn){
   const v=id=>(document.getElementById(id)?.value||"").trim();
   const email=v("ac-email"), senha=v("ac-senha"), nome=v("ac-nome"), ref=v("ac-ref").toUpperCase();
+  const promo=document.getElementById("ac-promo")?.checked||false;
   const erro=document.getElementById("ac-erro");
   if(!email||!senha){ erro.textContent="Preencha e-mail e senha. 🙏"; return; }
   if(modoConta==="criar" && senha.length<6){ erro.textContent="A senha precisa de pelo menos 6 caracteres."; return; }
   btn.disabled=true; btn.textContent="Um segundo...";
   const r = modoConta==="criar"
-    ? await sb.auth.signUp({email, password:senha, options:{data:{nome, ...(ref?{ref}:{})}}})
+    ? await sb.auth.signUp({email, password:senha, options:{data:{nome, aceita_promo:promo, ...(ref?{ref}:{})}}})
     : await sb.auth.signInWithPassword({email, password:senha});
   if(!r.error && modoConta==="criar") localStorage.removeItem("rs_ref");
   if(r.error){
@@ -713,7 +716,7 @@ async function salvarNovaSenha(btn){
 }
 async function salvarPerfil(btn){
   const v=id=>(document.getElementById(id)?.value||"").trim();
-  const dados={id:sessao.user.id, nome:v("pf-nome"), whatsapp:v("pf-zap"), endereco:v("pf-endereco"), bairro:v("pf-bairro")||null};
+  const dados={id:sessao.user.id, nome:v("pf-nome"), whatsapp:v("pf-zap"), endereco:v("pf-endereco"), bairro:v("pf-bairro")||null, aceita_promo:document.getElementById("pf-promo")?.checked||false};
   btn.disabled=true;
   const {error} = await sb.from("clientes").upsert(dados);
   btn.disabled=false;
