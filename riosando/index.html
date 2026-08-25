@@ -108,6 +108,11 @@
   input[type=text],input[type=tel],input[type=password],input[type=email],textarea,select{width:100%;font-family:inherit;font-size:16px;padding:12px 14px;
     border:1px solid var(--preto);border-radius:10px;background:var(--creme-card);color:var(--preto)}
   .conta-btn{border:none;cursor:pointer;font-family:inherit;margin-left:8px;background:var(--vermelho);color:#fff}
+  .menu-nav{display:flex;flex-direction:column}
+  .menu-nav a{display:flex;flex-direction:column;padding:14px 14px;border-radius:12px;text-decoration:none;color:var(--preto);border:1px solid rgba(26,26,26,.12);margin-bottom:8px;font-family:inherit}
+  .menu-nav a b{font-size:15px;font-weight:500}
+  .menu-nav a span{font-size:12.5px;opacity:.6;margin-top:3px}
+  .menu-nav a:active{background:rgba(26,26,26,.05)}
   .conta-chip{display:inline-flex;align-items:center;gap:7px;margin-left:8px;margin-top:10px;cursor:pointer;
     font-family:inherit;border:1px solid var(--linha);background:var(--creme-card);color:var(--preto);
     border-radius:99px;padding:4px 10px 4px 4px;font-size:12.5px}
@@ -178,7 +183,7 @@
     <div class="kana">サンド</div>
     <div class="wordmark">RI<span class="oq"></span>&nbsp;SAND<span class="osym"></span></div>
     <div class="tagline">Katsu sando japonês · feito à mão · Botafogo, Rio <span class="alma">· todo sandô tem alma</span></div>
-    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 17h–21h30</div><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
+    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 17h–21h30</div><button class="status conta-btn" id="menu-btn" onclick="abrirMenu()" style="background:var(--preto);color:#fff">☰ menu</button><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
     <span class="ultimo-pedido" id="ultimo-pedido" style="display:none"></span>
     <div class="fechado-banner" id="fechado-banner" style="display:none"></div>
     <div class="news" id="news" style="display:none"></div>
@@ -637,6 +642,21 @@ async function pagar(btn){
 function fecharSheet(){
   document.getElementById("sheet").classList.remove("on");
   document.getElementById("overlay").classList.remove("on");
+}
+function abrirMenu(){
+  const sheet=document.getElementById("sheet");
+  sheet.innerHTML=`
+    <div class="sheet-head"><h2>Menu</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div class="menu-nav">
+      <a href="/riosando/">🥪 <b>Cardápio</b><span>peça seu sando</span></a>
+      <a href="pontos.html">⭐ <b>Programa de pontos</b><span>como funciona · ganhe e troque</span></a>
+      <a href="afiliados.html">🤝 <b>Divulgue e ganhe</b><span>vire divulgador do Rio Sandô</span></a>
+      <a href="afiliado.html">📣 <b>Já sou divulgador</b><span>minha lojinha e material</span></a>
+      <a href="privacidade.html">🔒 <b>Privacidade</b><span>como cuidamos dos seus dados</span></a>
+    </div>
+    <div style="text-align:center;font-size:12px;opacity:.5;margin-top:18px;letter-spacing:.1em;text-transform:uppercase">Rio Sandô · Botafogo · todo sandô tem alma</div>`;
+  sheet.classList.add("on");
+  document.getElementById("overlay").classList.add("on");
 }
 
 // ── conta: sessão, perfil, pontos ──
