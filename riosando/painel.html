@@ -128,7 +128,7 @@ function render(){
 }
 let afiliados=[], comissoes=[], candidaturas=[], codigosUsados=new Set(), aprovandoCand=null;
 // link da lojinha do afiliado (troca aqui quando o subdomínio bonito entrar)
-const linkAfiliado = cod => `https://coletivo.app/riosando/?cupom=${cod}`;
+const linkAfiliado = cod => `https://riosando.coletivo.app/${String(cod).toLowerCase()}`;
 const igLink = ig => { ig=(ig||"").trim(); if(!ig) return ""; if(/^https?:/i.test(ig)) return ig; return "https://instagram.com/"+ig.replace(/^@/,""); };
 function abrirAfiliados(){ view="afiliados"; render(); carregarAfiliados(); }
 function voltarBoard(){ view="board"; render(); }
