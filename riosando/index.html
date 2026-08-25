@@ -7,7 +7,7 @@
 <title>Rio Sandô — peça seu sando</title>
 <meta name="description" content="Katsu sando japonês feito à mão em Botafogo. Peça pelo app: Pix ou cartão, entrega na Zona Sul do Rio.">
 <meta property="og:title" content="Rio Sandô — katsu sando japonês 🥪⛩️">
-<meta property="og:description" content="Todo sandô tem alma. Peça pelo app: entrega na Zona Sul do Rio, ter–sáb 18h–22h30.">
+<meta property="og:description" content="Todo sandô tem alma. Peça pelo app: entrega na Zona Sul do Rio, ter–sáb 17h–21h30.">
 <meta property="og:image" content="https://coletivo.app/riosando/img/1_frango.jpg">
 <meta property="og:url" content="https://coletivo.app/riosando/">
 <meta property="og:type" content="website">
@@ -178,7 +178,7 @@
     <div class="kana">サンド</div>
     <div class="wordmark">RI<span class="oq"></span>&nbsp;SAND<span class="osym"></span></div>
     <div class="tagline">Katsu sando japonês · feito à mão · Botafogo, Rio <span class="alma">· todo sandô tem alma</span></div>
-    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 18h–22h30</div><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
+    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 17h–21h30</div><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
     <span class="ultimo-pedido" id="ultimo-pedido" style="display:none"></span>
     <div class="fechado-banner" id="fechado-banner" style="display:none"></div>
     <div class="news" id="news" style="display:none"></div>
@@ -369,15 +369,15 @@ let cupom = "", cupomInfo = null; // cupom de afiliado no checkout
   const cup = q.get("cupom"); if(cup) localStorage.setItem("rs_cupom_url", cup.toUpperCase().trim());
 })();
 
-// horário: ter(2)–sáb(6), 18h–22h30 — fora disso o pedido entra agendado
+// horário: ter(2)–sáb(6), 17h–21h30 — fora disso o pedido entra agendado
 function lojaAberta(d=new Date()){
   const dia=d.getDay(), m=d.getHours()*60+d.getMinutes();
-  return dia>=2 && dia<=6 && m>=18*60 && m<=22*60+30;
+  return dia>=2 && dia<=6 && m>=17*60 && m<=21*60+30;
 }
 function proximaAbertura(){
   const d=new Date();
   for(let i=0;i<8;i++){
-    const c=new Date(d.getFullYear(),d.getMonth(),d.getDate()+i,18,0,0);
+    const c=new Date(d.getFullYear(),d.getMonth(),d.getDate()+i,17,0,0);
     if(c.getDay()>=2 && c.getDay()<=6 && c.getTime()>d.getTime()) return c;
   }
   return d;
@@ -388,7 +388,7 @@ function rotuloAbertura(){
   const p=proximaAbertura(), hoje=new Date();
   const nome = p.toDateString()===hoje.toDateString() ? "hoje" :
     p.toDateString()===new Date(hoje.getTime()+86400000).toDateString() ? "amanhã" : DIAS[p.getDay()];
-  return `${nome} às 18h`;
+  return `${nome} às 17h`;
 }
 function FRETES_EXISTE(b){ return Object.prototype.hasOwnProperty.call(FRETES,b); }
 const FRETES = {
