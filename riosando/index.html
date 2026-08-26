@@ -440,13 +440,18 @@ if(cliente.bairro && FRETES_EXISTE(cliente.bairro)) bairro = cliente.bairro;
 // ── CEP automático (ViaCEP) + cotação de frete no endereço real ──
 const normStr = s => (s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
 const BAIRRO_NORM = {}; Object.keys(FRETES).forEach(b=>{ BAIRRO_NORM[normStr(b)] = b; });
-function onCep(el){
+// alvos por contexto: checkout (com cotação de frete) e perfil/cadastro (só preenche)
+const CEP_ALVO = { checkout:{msg:"cep-msg",end:"endereco",bairro:"sel-bairro",cota:true},
+                   perfil:{msg:"pf-cep-msg",end:"pf-endereco",bairro:"pf-bairro",cota:false} };
+function onCep(el, ctx){
+  ctx = ctx||"checkout";
   let v = el.value.replace(/\D/g,"").slice(0,8);
   el.value = v.length>5 ? v.slice(0,5)+"-"+v.slice(5) : v;
-  if(v.length===8) buscarCep(v);
+  if(v.length===8) buscarCep(v, ctx);
 }
-async function buscarCep(cep){
-  const msg = document.getElementById("cep-msg");
+async function buscarCep(cep, ctx){
+  ctx = ctx||"checkout"; const A = CEP_ALVO[ctx];
+  const msg = document.getElementById(A.msg);
   const setMsg = (t,cor="") => { if(msg){ msg.textContent=t; msg.style.color=cor; } };
   setMsg("🔎 buscando o endereço…");
   try{
@@ -455,17 +460,19 @@ async function buscarCep(cep){
     if(d.erro) return setMsg("CEP não encontrado — pode digitar o endereço à mão. 🙏","var(--vermelho)");
     if(normStr(d.localidade)!=="rio de janeiro") return setMsg("Esse CEP não é do Rio — por enquanto entregamos só na Zona Sul. 🙈","var(--vermelho)");
     const b = BAIRRO_NORM[normStr(d.bairro)];
-    const end = document.getElementById("endereco");
+    const end = document.getElementById(A.end);
     if(end && d.logradouro) end.value = d.logradouro + ", ";
+    const sel = document.getElementById(A.bairro);
     if(b){
-      bairro = b; const sel=document.getElementById("sel-bairro"); if(sel) sel.value=b;
+      if(sel) sel.value=b;
+      if(ctx==="checkout") bairro = b;
       setMsg(`📍 ${d.logradouro?d.logradouro+" · ":""}${b}`,"var(--verde)");
     } else {
       setMsg(`📍 ${d.bairro||"esse bairro"} — fora da nossa área (Botafogo → Gávea) por enquanto. 🙈`,"var(--vermelho)");
     }
-    freteCotado=null; freteToken=null; atualizarFrete();
+    if(A.cota){ freteCotado=null; freteToken=null; atualizarFrete(); }
     if(end){ end.focus(); const L=end.value.length; try{ end.setSelectionRange(L,L); }catch(e){} }
-    cotarFrete();
+    if(A.cota) cotarFrete();
   }catch{ setMsg("Não deu pra buscar o CEP — digita o endereço à mão. 🙏","var(--vermelho)"); }
 }
 function onEnderecoInput(){ clearTimeout(_freteTimer); _freteTimer=setTimeout(cotarFrete, 800); }
@@ -649,7 +656,10 @@ function maxDesconto(){
   return Math.min(Math.floor(saldoPts/100), Math.floor(t/5))*5;
 }
 const descontoAtual = () => usarPontos && !cupomInfo ? maxDesconto() : 0;
-const descontoCupomAtual = () => cupomInfo ? Math.round(totais().t * cupomInfo.pct)/100 : 0;
+// cupom de valor fixo (promo) desconta o valor direto (limitado à comida); cupom % desconta o percentual
+const descontoCupomAtual = () => { if(!cupomInfo) return 0;
+  if(cupomInfo.valor!=null) return Math.min(cupomInfo.valor, totais().t);
+  return Math.round(totais().t * (cupomInfo.pct||0))/100; };
 async function aplicarCupom(){
   const el = document.getElementById("cupom-input");
   const cod = (el?.value||"").trim().toUpperCase();
@@ -661,7 +671,8 @@ async function aplicarCupom(){
       method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({cupom:cod, subtotal:totais().t})});
     const d = await r.json();
-    if(d.ok){ cupom=cod; cupomInfo={pct:d.desconto_pct, nome:d.nome}; usarPontos=false; reabrirSacola(); }
+    if(d.ok){ cupom=cod; cupomInfo={pct:d.desconto_pct, valor:d.promo?d.desconto:null, nome:d.nome, primeiro:!!d.primeiro_pedido}; usarPontos=false; reabrirSacola();
+      if(d.primeiro_pedido && !sessao){ const m2=document.getElementById("cupom-msg"); if(m2){ m2.className="mp-note"; m2.textContent="✨ esse cupom é pra quem tem conta — entra ali em cima pra valer no pagamento."; } } }
     else { cupom=""; cupomInfo=null; reabrirSacola();
       const m=document.getElementById("cupom-msg"); if(m){ m.className="cupom-erro"; m.textContent=d.motivo||"cupom inválido"; } }
   }catch(e){ const m=document.getElementById("cupom-msg"); if(m){ m.className="cupom-erro"; m.textContent="não deu pra conferir agora"; } }
@@ -677,10 +688,11 @@ async function aplicarCupomURL(){
       body:JSON.stringify({cupom:cod, subtotal:totais().t})});
     const d = await r.json();
     if(d.ok){
-      cupom=cod; cupomInfo={pct:d.desconto_pct, nome:d.nome}; usarPontos=false;
+      cupom=cod; cupomInfo={pct:d.desconto_pct, valor:d.promo?d.desconto:null, nome:d.nome, primeiro:!!d.primeiro_pedido}; usarPontos=false;
       const el=document.getElementById("lojinha");
       if(el){ el.style.display="block";
-        el.innerHTML=`🎁 Você chegou pela <b>${esc(d.nome)}</b> — <b>${d.desconto_pct}% de desconto</b> já entra no seu pedido!`; }
+        const off = d.promo ? `R$ ${fmt(d.desconto).replace("R$ ","")} de desconto` : `${d.desconto_pct}% de desconto`;
+        el.innerHTML=`🎁 Você chegou pela <b>${esc(d.nome)}</b> — <b>${off}</b> já entra no seu pedido!`; }
       if(document.getElementById("sheet")?.classList.contains("on")) reabrirSacola();
     } else { localStorage.removeItem("rs_cupom_url"); }
   }catch(e){}
@@ -825,6 +837,8 @@ function abrirConta(){
       <div class="pts-box"><b>⭐ ${saldoPts}</b><small>pontos ${saldoPts>=100?`= ${fmt(Math.floor(saldoPts/100)*5)} de desconto — usa na sacola!`:`· faltam ${100-saldoPts} pra ganhar R$ 5`}<br>cada R$ 1 em sando vira 1 ponto quando o pedido chega</small></div>
       <label>Seu nome</label><input type="text" id="pf-nome" value="${(perfil?.nome||"").replace(/"/g,"&quot;")}">
       <label>WhatsApp</label><input type="tel" id="pf-zap" value="${(perfil?.whatsapp||cliente.zap||"").replace(/"/g,"&quot;")}">
+      <label>CEP</label><input type="tel" id="pf-cep" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${(perfil?.cep||cliente.cep||"").replace(/"/g,"&quot;")}" oninput="onCep(this,'perfil')" autocomplete="postal-code">
+      <div id="pf-cep-msg" class="mp-note" style="text-align:left;margin:2px 0 0;min-height:0"></div>
       <label>Endereço</label><input type="text" id="pf-endereco" placeholder="Rua, número, complemento" value="${(perfil?.endereco||cliente.endereco||"").replace(/"/g,"&quot;")}">
       <label>Bairro</label>
       <select id="pf-bairro"><option value="">Escolhe...</option>${Object.keys(FRETES).map(b=>`<option ${b===(perfil?.bairro||cliente.bairro)?"selected":""} value="${b}">${b}</option>`).join("")}</select>
@@ -932,7 +946,7 @@ async function salvarPerfil(btn){
   document.getElementById("pf-ok").textContent = error ? "Não salvou — tenta de novo?" : "✓ Salvo! Seus pedidos já vêm preenchidos.";
   if(!error){
     perfil={...(perfil||{}), ...dados};
-    cliente={nome:dados.nome, zap:dados.whatsapp, endereco:dados.endereco, bairro:dados.bairro||""};
+    cliente={nome:dados.nome, zap:dados.whatsapp, endereco:dados.endereco, bairro:dados.bairro||"", cep:v("pf-cep")};
     if(cliente.bairro && FRETES_EXISTE(cliente.bairro)) bairro=cliente.bairro;
     localStorage.setItem("rs_cliente", JSON.stringify(cliente));
     const n1=(dados.nome||"").split(" ")[0];
