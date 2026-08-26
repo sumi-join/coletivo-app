@@ -123,6 +123,7 @@ function render(){
   if(view==="historico"){ renderHistorico(); return; }
   if(view==="manual"){ renderManual(); return; }
   if(view==="envio"){ renderEnvioAvulso(); return; }
+  if(view==="cupons"){ renderCupons(); return; }
   app.innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
@@ -130,6 +131,7 @@ function render(){
         <button class="topbtn" onclick="abrirEnvioAvulso()">🛵 Envio</button>
         <button class="topbtn" onclick="abrirHistorico()">📋 Histórico</button>
         <button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button>
+        <button class="topbtn" onclick="abrirCupons()">🎟️ Cupons</button>
         <button class="sair" onclick="sair()">Sair</button></div>
     </header>
     <div class="cols">${COLS.map(([st,titulo])=>{
@@ -144,6 +146,86 @@ const linkAfiliado = cod => `https://riosando.coletivo.app/${String(cod).toLower
 const igLink = ig => { ig=(ig||"").trim(); if(!ig) return ""; if(/^https?:/i.test(ig)) return ig; return "https://instagram.com/"+ig.replace(/^@/,""); };
 function abrirAfiliados(){ view="afiliados"; render(); carregarAfiliados(); }
 function voltarBoard(){ view="board"; render(); }
+
+// ── 🎟️ Cupons de promoção ──
+let cupons=[];
+function abrirCupons(){ view="cupons"; cupons=[]; render(); carregarCupons(); }
+async function carregarCupons(){
+  const r=await api("cupons?select=*&order=criado_em.desc");
+  if(r&&r.ok){ cupons=await r.json(); if(view==="cupons") renderCupons(); }
+}
+const dCurto = s => { try{ return new Date(s).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"}); }catch(e){ return "—"; } };
+const cupomExpirado = c => new Date(c.valido_ate).getTime() < Date.now();
+function renderCupons(){
+  const hoje=new Date(); const em10=new Date(Date.now()+10*864e5).toISOString().slice(0,10);
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · CUPONS</h1><div class="sub">promoções com validade e limite</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    <div class="afform">
+      <h3 style="margin:0 0 6px">Criar cupom</h3>
+      <div class="grid">
+        <div><label>Código</label><input id="c-cod" placeholder="ESTREIA10" style="text-transform:uppercase"></div>
+        <div><label>Campanha (interno)</label><input id="c-camp" placeholder="Inauguração"></div>
+      </div>
+      <div class="grid">
+        <div><label>Tipo</label><select id="c-tipo" onchange="cTipoUI()"><option value="valor">Valor fixo (R$)</option><option value="percentual">Percentual (%)</option></select></div>
+        <div><label id="c-vlabel">Valor (R$)</label><input id="c-valor" type="number" inputmode="decimal" placeholder="10"></div>
+      </div>
+      <div class="grid">
+        <div><label>Vale até</label><input id="c-ate" type="date" value="${em10}"></div>
+        <div><label>Pedido mínimo (R$)</label><input id="c-min" type="number" inputmode="decimal" placeholder="25" value="25"></div>
+      </div>
+      <div class="grid">
+        <div><label>Usos por cliente</label><input id="c-porcli" type="number" value="1"></div>
+        <div><label>Usos no total (vazio = ilimitado)</label><input id="c-max" type="number" placeholder="ilimitado"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:14px;margin-top:10px"><input type="checkbox" id="c-primeiro" checked style="width:auto"> Só no primeiro pedido do cliente</label>
+      <button onclick="criarCupom(this)">Criar cupom</button>
+      <div class="erro" id="c-erro" style="color:var(--vermelho);font-size:13px;margin-top:8px"></div>
+    </div>
+    <h3 style="margin:6px 0 10px;font-size:15px">Cupons (${cupons.length})</h3>
+    ${!cupons.length?`<div class="vazio">nenhum cupom ainda</div>`:cupons.map(c=>{
+      const exp=cupomExpirado(c); const off = c.tipo==="valor"?fmt(c.valor):`${c.valor}%`;
+      const usos = c.usos_max!=null ? `${c.usos}/${c.usos_max}` : `${c.usos} usos`;
+      return `<div class="afcard" style="${c.ativo&&!exp?'':'opacity:.55'}">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <h3 style="letter-spacing:.02em">🎟️ ${esc(c.codigo)}</h3>
+          <b style="color:var(--verde);font-size:19px">−${off}</b></div>
+        <div class="linha"><span>${esc(c.campanha||"—")} · mín ${fmt(c.min_pedido)}${c.primeiro_pedido?" · 1º pedido":""}</span></div>
+        <div class="linha"><span>${exp?"⛔ expirado":"vale até "+dCurto(c.valido_ate)} · ${c.por_cliente_max}/cliente · ${usos}</span></div>
+        <div class="acoes" style="margin-top:10px">
+          <button class="off" onclick="copiarTxt('${esc(c.codigo)}',this)">📋 copiar código</button>
+          <button class="off" onclick="toggleCupom('${esc(c.codigo)}',${!c.ativo})">${c.ativo?"⏸ desativar":"▶ reativar"}</button>
+        </div>
+      </div>`;
+    }).join("")}`;
+}
+function cTipoUI(){ const t=$("c-tipo").value; $("c-vlabel").textContent = t==="valor"?"Valor (R$)":"Percentual (%)"; }
+function copiarTxt(t,btn){ navigator.clipboard.writeText(t).then(()=>{ const o=btn.textContent; btn.textContent="✓ copiado"; setTimeout(()=>btn.textContent=o,1500); }); }
+async function criarCupom(btn){
+  const err=$("c-erro"); err.textContent="";
+  const cod=($("c-cod").value||"").trim().toUpperCase().replace(/\s+/g,"");
+  const tipo=$("c-tipo").value, valor=Number($("c-valor").value), ate=$("c-ate").value;
+  const min=Number($("c-min").value)||0, porcli=Number($("c-porcli").value)||1;
+  const maxRaw=$("c-max").value.trim(), usos_max=maxRaw===""?null:Number(maxRaw);
+  if(!cod){ err.textContent="Põe um código."; return; }
+  if(!(valor>0)){ err.textContent="Valor tem que ser maior que zero."; return; }
+  if(tipo==="percentual"&&valor>100){ err.textContent="Percentual não pode passar de 100."; return; }
+  if(!ate){ err.textContent="Escolhe até quando vale."; return; }
+  btn.disabled=true; btn.textContent="Criando...";
+  const body={codigo:cod, campanha:($("c-camp").value||"").trim()||null, tipo, valor,
+    valido_ate:`${ate}T23:59:59-03:00`, min_pedido:min, por_cliente_max:porcli, usos_max,
+    primeiro_pedido:$("c-primeiro").checked, ativo:true};
+  const r=await api("cupons",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify(body)});
+  btn.disabled=false; btn.textContent="Criar cupom";
+  if(!r||!r.ok){ err.textContent = r&&r.status===409?"Já existe um cupom com esse código.":"Não deu pra criar — confere os campos."; return; }
+  carregarCupons();
+}
+async function toggleCupom(cod,ativo){
+  await api(`cupons?codigo=eq.${encodeURIComponent(cod)}`,{method:"PATCH",body:JSON.stringify({ativo})});
+  carregarCupons();
+}
 // ── Histórico de pedidos (restaurante vê tudo) ──
 let historico=[];
 function abrirHistorico(){ view="historico"; render(); carregarHist(); }
