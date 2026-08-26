@@ -672,7 +672,7 @@ async function aplicarCupom(){
       method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({cupom:cod, subtotal:totais().t})});
     const d = await r.json();
-    if(d.ok){ cupom=cod; cupomInfo={pct:d.desconto_pct, valor:d.promo?d.desconto:null, nome:d.nome, primeiro:!!d.primeiro_pedido}; usarPontos=false; reabrirSacola();
+    if(d.ok){ cupom=cod; cupomInfo={pct:d.desconto_pct, valor:(d.promo && !d.desconto_pct)?d.desconto:null, nome:d.nome, primeiro:!!d.primeiro_pedido}; usarPontos=false; reabrirSacola();
       if(d.primeiro_pedido && !sessao){ const m2=document.getElementById("cupom-msg"); if(m2){ m2.className="mp-note"; m2.textContent="✨ esse cupom é pra quem tem conta — entra ali em cima pra valer no pagamento."; } } }
     else { cupom=""; cupomInfo=null; reabrirSacola();
       const m=document.getElementById("cupom-msg"); if(m){ m.className="cupom-erro"; m.textContent=d.motivo||"cupom inválido"; } }
@@ -689,7 +689,7 @@ async function aplicarCupomURL(){
       body:JSON.stringify({cupom:cod, subtotal:totais().t})});
     const d = await r.json();
     if(d.ok){
-      cupom=cod; cupomInfo={pct:d.desconto_pct, valor:d.promo?d.desconto:null, nome:d.nome, primeiro:!!d.primeiro_pedido}; usarPontos=false;
+      cupom=cod; cupomInfo={pct:d.desconto_pct, valor:(d.promo && !d.desconto_pct)?d.desconto:null, nome:d.nome, primeiro:!!d.primeiro_pedido}; usarPontos=false;
       const el=document.getElementById("lojinha");
       if(el){ el.style.display="block";
         const off = d.promo ? `R$ ${fmt(d.desconto).replace("R$ ","")} de desconto` : `${d.desconto_pct}% de desconto`;
