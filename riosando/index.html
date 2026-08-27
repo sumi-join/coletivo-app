@@ -24,9 +24,9 @@ a{color:inherit;text-decoration:none}
 nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:16px clamp(22px,5vw,64px);transition:background .4s,backdrop-filter .4s,box-shadow .4s}
 nav.scrolled{background:rgba(245,240,235,.82);backdrop-filter:saturate(1.4) blur(14px);box-shadow:0 1px 0 var(--linha)}
 .brand{display:flex;align-items:center;gap:12px}
-.brand img{width:34px;height:auto}
+.brand .lg-creme,.brand .lg-preto{height:26px;width:auto;display:block}.brand .lg-preto{display:none}nav:not(.over) .brand .lg-creme{display:none}nav:not(.over) .brand .lg-preto{display:block}
 .brand span{font-family:"FBold";font-size:18px;letter-spacing:.06em}
-nav.over .brand span,nav.over .nav-links a{color:var(--creme)}
+nav.over .nav-links a{color:var(--creme)}
 nav.over .brand img{filter:none}
 .nav-links{display:flex;align-items:center;gap:26px}
 .nav-links a{font-family:"FMed";font-size:14px;letter-spacing:.02em;transition:color .3s}
@@ -89,7 +89,7 @@ section{padding:clamp(120px,18vh,230px) 0}
 /* FOOTER */
 footer{background:var(--ink);color:var(--creme);padding:70px 0 46px}
 .foot-grid{display:flex;flex-wrap:wrap;justify-content:space-between;gap:34px}
-.foot-brand{font-family:"FHeavy";font-size:30px;letter-spacing:.04em}
+.foot-brand{height:34px;width:auto;display:block}
 .foot-col h4{font-family:"FMed";font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:rgba(245,240,235,.5);margin-bottom:12px}
 .foot-col a,.foot-col p{font-size:15px;line-height:1.9;color:rgba(245,240,235,.85)}
 .foot-col a:hover{color:#F0C24B}
@@ -99,7 +99,7 @@ footer{background:var(--ink);color:var(--creme);padding:70px 0 46px}
 <script>(function(){try{var p=new URLSearchParams(location.search),c=p.get("cupom");if(!c){var s=location.pathname.replace(/^\/(riosando\/)?/,"").replace(/\/+$/,"");if(s&&/^[A-Za-z0-9_-]{2,24}$/.test(s)&&["pedir","painel","pontos","afiliado","afiliados","privacidade","index.html","pedir.html"].indexOf(s.toLowerCase())<0)c=s;}if(c){location.replace("pedir.html?cupom="+encodeURIComponent(c));}}catch(e){}})();</script>
 
 <nav id="nav" class="over">
-  <a class="brand" href="/"><img src="img/oo.png" alt=""><span>RIO SANDÔ</span></a>
+  <a class="brand" href="/"><img class="lg-creme" src="img/logo-creme.png" alt="Rio Sandô"><img class="lg-preto" src="img/logo-preto.png" alt="Rio Sandô"></a>
   <div class="nav-links">
     <a href="#pedir">Pedir</a><a href="#midia">Na mídia</a><a href="#sando">O sandô</a>
     <a class="nav-cta" href="pedir.html">Pedir direto</a>
@@ -178,7 +178,7 @@ footer{background:var(--ink);color:var(--creme);padding:70px 0 46px}
 <footer>
   <div class="wrap">
     <div class="foot-grid">
-      <div><div class="foot-brand">RIO SANDÔ</div><p style="color:rgba(245,240,235,.6);margin-top:8px;max-width:24ch">Katsu sando japonês, feito à mão em Botafogo.</p></div>
+      <div><img class="foot-brand" src="img/logo-creme.png" alt="Rio Sandô"><p style="color:rgba(245,240,235,.6);margin-top:8px;max-width:24ch">Katsu sando japonês, feito à mão em Botafogo.</p></div>
       <div class="foot-col"><h4>Pedir</h4>
         <a href="pedir.html">Delivery direto</a><br><a href="https://www.ifood.com.br/delivery/rio-de-janeiro-rj/rio-sando-botafogo/5f8e276b-8e5d-4043-b6ca-cb8f3ee424f8" target="_blank" rel="noopener">iFood</a><br><a href="afiliados.html">Ser divulgador</a></div>
       <div class="foot-col"><h4>Aberto</h4><p>Ter–Sáb · 17h–21h30<br>Entrega na Zona Sul</p></div>
