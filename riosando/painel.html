@@ -259,15 +259,41 @@ function renderHistorico(){
   filtrarHist();
 }
 // ── Envio avulso (só a entrega, sem pedido de comida — coleta na cozinha) ──
-let eF={destino:"",nome:"",zap:"",obs:""};
-function abrirEnvioAvulso(){ view="envio"; eF={destino:"",nome:"",zap:"",obs:""}; render(); }
+let eF={destino:"",comp:"",cep:"",bairro:"",nome:"",zap:"",obs:""};
+function abrirEnvioAvulso(){ view="envio"; eF={destino:"",comp:"",cep:"",bairro:"",nome:"",zap:"",obs:""}; render(); }
+// CEP automático no envio avulso — SEM restrição de área (vai pra qualquer lugar)
+function onCepEnvio(el){
+  let v=el.value.replace(/\D/g,"").slice(0,8);
+  el.value=v.length>5?v.slice(0,5)+"-"+v.slice(5):v; eF.cep=el.value;
+  if(v.length===8) buscarCepEnvio(v);
+}
+async function buscarCepEnvio(cep){
+  const m=$("e-cepmsg"); if(m){m.textContent="🔎 buscando…";m.style.color="";}
+  try{
+    const r=await fetch(`https://viacep.com.br/ws/${cep}/json/`); const d=await r.json();
+    if(d.erro){ if(m){m.textContent="CEP não encontrado — digita o endereço à mão.";m.style.color="var(--vermelho)";} return; }
+    if(d.logradouro){ eF.destino=d.logradouro+", "; const e=$("e-dest"); if(e){e.value=eF.destino; e.focus(); const L=e.value.length; try{e.setSelectionRange(L,L);}catch(_){}} }
+    eF.bairro=[d.bairro, d.localidade&&d.uf?`${d.localidade}/${d.uf}`:d.localidade].filter(Boolean).join(", ");
+    const b=$("e-bairro"); if(b) b.value=eF.bairro;
+    if(m){m.textContent=`📍 ${d.logradouro||""}${d.logradouro&&eF.bairro?" · ":""}${eF.bairro||""}`; m.style.color="var(--verde)";}
+  }catch{ if(m){m.textContent="não deu pra buscar o CEP — digita o endereço à mão.";m.style.color="var(--vermelho)";} }
+}
+// monta o endereço completo pro motoboy: rua+número, complemento — bairro/cidade
+function envioDestino(){
+  const p=[eF.destino.trim()]; if(eF.comp.trim()) p.push(eF.comp.trim());
+  let s=p.join(", "); if(eF.bairro.trim()) s+=" — "+eF.bairro.trim(); return s;
+}
 function renderEnvioAvulso(){
   $("app").innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · ENVIO AVULSO</h1><div class="sub">chamar motoboy só pra levar algo (coleta aqui na cozinha)</div></div>
       <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
     </header>
     <div class="afform">
-      <label>Endereço de entrega</label><input id="e-dest" value="${esc(eF.destino)}" oninput="eF.destino=this.value" placeholder="Rua, número, bairro, complemento">
+      <label>CEP</label><input id="e-cep" type="tel" inputmode="numeric" maxlength="9" value="${esc(eF.cep)}" oninput="onCepEnvio(this)" placeholder="00000-000">
+      <div class="mp-note" id="e-cepmsg" style="font-size:12px;min-height:0;margin:2px 0 0"></div>
+      <label>Endereço de entrega</label><input id="e-dest" value="${esc(eF.destino)}" oninput="eF.destino=this.value" placeholder="Rua e número">
+      <label>Complemento</label><input id="e-comp" value="${esc(eF.comp)}" oninput="eF.comp=this.value" placeholder="Apto, bloco, casa, referência">
+      <label>Bairro / cidade</label><input id="e-bairro" value="${esc(eF.bairro)}" oninput="eF.bairro=this.value" placeholder="Bairro (preenche pelo CEP)">
       <label>Quem recebe</label><input id="e-nome" value="${esc(eF.nome)}" oninput="eF.nome=this.value" placeholder="Nome do destinatário">
       <label>WhatsApp de quem recebe (opcional)</label><input id="e-zap" type="tel" value="${esc(eF.zap)}" oninput="eF.zap=this.value" placeholder="21 9 9999-9999">
       <label>Observações (opcional)</label><input id="e-obs" value="${esc(eF.obs)}" oninput="eF.obs=this.value" placeholder="Ex: entregar na portaria, apto 302">
@@ -283,7 +309,7 @@ async function cotarEnvio(btn){
   const el=$("e-cotacao"); el.innerHTML=`<div style="text-align:center;opacity:.65;font-size:12px;margin:10px 0">🔎 cotando...</div>`;
   try{
     if(Date.now()>sess.exp && !(await renovar())) return;
-    const r=await fetch(`${RIO_API}/entrega-cotar`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},body:JSON.stringify({endereco:eF.destino})});
+    const r=await fetch(`${RIO_API}/entrega-cotar`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},body:JSON.stringify({endereco:envioDestino()})});
     const d=await r.json();
     const nomeP=p=>p==="lalamove"?"Lalamove":p==="uber_direct"?"Uber":p;
     const disp=d.cotacoes.filter(c=>c.disponivel);
@@ -305,7 +331,7 @@ async function chamarEnvio(provedor, quoteId, btn){
   btn.disabled=true; btn.textContent="Chamando...";
   try{
     if(Date.now()>sess.exp && !(await renovar())) return;
-    const r=await fetch(`${RIO_API}/entrega-avulsa`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},body:JSON.stringify({destino:eF.destino,nome:eF.nome,whatsapp:eF.zap,obs:eF.obs,provedor,quote_id:quoteId})});
+    const r=await fetch(`${RIO_API}/entrega-avulsa`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},body:JSON.stringify({destino:envioDestino(),nome:eF.nome,whatsapp:eF.zap,obs:eF.obs,provedor,quote_id:quoteId})});
     const d=await r.json();
     if(!r.ok||!d.ok) throw new Error(d.detalhe?`${d.erro}: ${String(d.detalhe).slice(0,100)}`:d.erro);
     $("e-cotacao").innerHTML=`<div class="afcard" style="text-align:center"><h3>✅ Motoboy chamado!</h3>
