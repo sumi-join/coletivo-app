@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1A1A1A">
+<title>Rio Sandô — peça seu sando</title>
+<meta name="description" content="Katsu sando japonês feito à mão em Botafogo. Peça pelo app: Pix ou cartão, entrega na Zona Sul do Rio.">
+<meta property="og:title" content="Rio Sandô — katsu sando japonês 🥪⛩️">
+<meta property="og:description" content="Todo sandô tem alma. Peça pelo app: entrega na Zona Sul do Rio, ter–sáb 17h–21h30.">
+<meta property="og:image" content="https://coletivo.app/riosando/img/1_frango.jpg">
+<meta property="og:url" content="https://riosando.coletivo.app/">
+<link rel="canonical" href="https://riosando.coletivo.app/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<script src="https://sdk.mercadopago.com/js/v2"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --preto:#1A1A1A; --creme:#F5F0EB; --vermelho:#C0392B; --verde:#2D5A27;
+    --creme-card:#FDFBF8; --linha:rgba(26,26,26,.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:Futura,'Futura PT','Century Gothic','Jost',sans-serif;
+    background:var(--creme); color:var(--preto);
+    padding-bottom:110px; line-height:1.45;
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:0 20px}
+
+  /* header */
+  header{background:var(--creme);padding:14px 0 0}
+  .kana{color:var(--vermelho);font-size:10px;letter-spacing:.5em;margin-bottom:4px}
+  .wordmark{font-weight:500;font-size:26px;letter-spacing:.06em;line-height:1;display:flex;align-items:center;gap:2px}
+  .wordmark .oq{display:inline-block;width:.72em;height:.72em;border:3px solid var(--preto);border-radius:2px;margin:0 .06em}
+  .wordmark .osym{display:inline-block;position:relative;width:.72em;height:.72em;border:3px solid var(--preto);border-radius:2px;margin-left:.06em}
+  .wordmark .osym::before{content:"";position:absolute;left:2px;right:2px;top:38%;height:26%;background:var(--vermelho)}
+  .wordmark .osym::after{content:"";position:absolute;left:20%;right:20%;top:-9px;height:3px;background:var(--preto)}
+  .tagline{font-size:13.5px;opacity:.7;margin-top:7px}
+  .status{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;
+    background:var(--preto);color:var(--creme);padding:6px 12px;border-radius:99px}
+  .dot{width:7px;height:7px;border-radius:50%;background:#7CBF6B}
+  .dot.off{background:#C0392B}
+  .alma{font-style:italic;font-size:12.5px;opacity:.55}
+  .fechado-banner{background:var(--preto);color:var(--creme);font-size:14px;line-height:1.55;
+    padding:12px 16px;border-radius:12px;margin-top:12px}
+  .ultimo-pedido{display:inline-block;margin-top:10px;margin-left:10px;font-size:13px;color:var(--verde);
+    text-decoration:underline;cursor:pointer}
+  .destaque-badge{position:absolute;top:12px;left:12px;background:var(--creme);color:var(--preto);
+    font-size:12px;letter-spacing:.08em;padding:6px 12px;border-radius:99px;box-shadow:0 2px 8px rgba(26,26,26,.25)}
+  .card{position:relative}
+
+  /* category nav */
+  nav{position:sticky;top:0;background:var(--creme);z-index:20;padding:12px 0;border-bottom:1px solid var(--linha)}
+  .chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 20px;max-width:520px;margin:0 auto}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;font-family:inherit;font-size:13px;letter-spacing:.1em;text-transform:uppercase;
+    padding:10px 16px;border-radius:99px;border:1px solid var(--preto);background:transparent;color:var(--preto);cursor:pointer}
+  .chip.on{background:var(--preto);color:var(--creme)}
+
+  /* sections & cards */
+  section{padding-top:34px}
+  h2{font-size:14px;letter-spacing:.26em;text-transform:uppercase;color:var(--vermelho);
+    display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  h2::after{content:"";flex:1;height:1px;background:var(--linha)}
+  h2 small{font-size:11.5px;letter-spacing:.08em;color:var(--preto);opacity:.55}
+  .card{background:var(--creme-card);border:1px solid var(--linha);border-radius:14px;overflow:hidden;margin-bottom:18px}
+  .card img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block}
+  .card .info{padding:16px 18px 18px;display:flex;gap:14px;align-items:flex-start;justify-content:space-between}
+  .card h3{font-size:17.5px;font-weight:500;line-height:1.35}
+  .card p{font-size:14px;opacity:.62;margin-top:6px;line-height:1.5}
+  .preco{font-size:16.5px;color:var(--vermelho);white-space:nowrap;font-weight:500}
+  .add{display:flex;align-items:center;gap:12px;margin-top:14px}
+  .btn-add,.btn-qty{font-family:inherit;border:1px solid var(--preto);background:var(--preto);color:var(--creme);
+    border-radius:99px;padding:10px 20px;font-size:14px;letter-spacing:.06em;cursor:pointer}
+  .btn-qty{padding:8px 15px;font-size:16px;line-height:1}
+  .qtd{min-width:22px;text-align:center;font-size:16px}
+  .linha-item{display:flex;justify-content:space-between;align-items:center;padding:16px 2px;border-bottom:1px solid var(--linha);gap:12px}
+  .linha-item:last-child{border-bottom:none}
+  .linha-item h3{font-size:15.5px;font-weight:500;line-height:1.4}
+  .linha-item p{font-size:13px;opacity:.58;margin-top:3px}
+  .mini-add{display:flex;align-items:center;gap:8px}
+  .nota{font-size:11.5px;opacity:.55;margin:6px 2px 0}
+  .vinhos{background:var(--preto);color:var(--creme);border-radius:14px;padding:18px;margin-top:14px}
+  .vinhos h3{font-size:15px;margin-bottom:6px}
+  .vinhos p{font-size:12.5px;opacity:.75;line-height:1.5}
+
+  /* cart bar */
+  .cartbar{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:14px 20px calc(14px + env(safe-area-inset-bottom));
+    background:linear-gradient(transparent, var(--creme) 30%)}
+  .cartbar button{width:100%;max-width:480px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;
+    font-family:inherit;background:var(--vermelho);color:#fff;border:none;border-radius:14px;
+    padding:16px 20px;font-size:15px;letter-spacing:.06em;cursor:pointer;box-shadow:0 8px 24px rgba(26,26,26,.25)}
+  .cartbar .hidden-bar{display:none}
+
+  /* sheet (sacola / checkout) */
+  .overlay{position:fixed;inset:0;background:rgba(26,26,26,.5);z-index:40;opacity:0;pointer-events:none;transition:.2s}
+  .overlay.on{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--creme);border-radius:20px 20px 0 0;
+    max-height:88vh;overflow-y:auto;transform:translateY(105%);transition:.25s;padding:22px 20px calc(28px + env(safe-area-inset-bottom))}
+  .sheet.on{transform:translateY(0)}
+  .sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .sheet-head h2{margin:0}.sheet-head h2::after{display:none}
+  .fechar{background:none;border:none;font-size:22px;cursor:pointer;color:var(--preto);font-family:inherit}
+  .total-row{display:flex;justify-content:space-between;font-size:18px;font-weight:500;padding:18px 2px;border-top:2px solid var(--preto);margin-top:10px}
+  label{display:block;font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;margin:20px 0 8px;opacity:.72}
+  input[type=text],input[type=tel],input[type=password],input[type=email],textarea,select{width:100%;font-family:inherit;font-size:16px;padding:12px 14px;
+    border:1px solid var(--preto);border-radius:10px;background:var(--creme-card);color:var(--preto)}
+  .conta-btn{border:none;cursor:pointer;font-family:inherit;margin-left:8px;background:var(--vermelho);color:#fff}
+  .menu-nav{display:flex;flex-direction:column}
+  .menu-nav a{display:flex;flex-direction:column;padding:14px 14px;border-radius:12px;text-decoration:none;color:var(--preto);border:1px solid rgba(26,26,26,.12);margin-bottom:8px;font-family:inherit}
+  .menu-nav a b{font-size:15px;font-weight:500}
+  .menu-nav a span{font-size:12.5px;opacity:.6;margin-top:3px}
+  .menu-nav a:active{background:rgba(26,26,26,.05)}
+  .conta-chip{display:inline-flex;align-items:center;gap:7px;margin-left:8px;margin-top:10px;cursor:pointer;
+    font-family:inherit;border:1px solid var(--linha);background:var(--creme-card);color:var(--preto);
+    border-radius:99px;padding:4px 10px 4px 4px;font-size:12.5px}
+  .conta-chip .av{width:24px;height:24px;border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;
+    justify-content:center;background:var(--preto);color:var(--creme);font-size:12px;font-weight:600}
+  .conta-chip .nm{font-weight:500;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .conta-chip .cpts{background:var(--preto);color:var(--creme);border-radius:99px;padding:2px 8px;font-size:11.5px}
+  .pts-box{background:var(--preto);color:var(--creme);border-radius:14px;padding:18px;text-align:center;margin-top:4px}
+  .pts-box b{font-size:30px;letter-spacing:.02em}
+  .pts-box small{opacity:.72;font-size:12.5px;display:block;margin-top:6px;line-height:1.5}
+  .check-pontos{display:flex;gap:10px;align-items:center;font-size:15px;cursor:pointer;margin:0;text-transform:none;letter-spacing:0;opacity:1}
+  .check-pontos input{width:20px;height:20px;accent-color:var(--verde)}
+  .nudge-conta{font-size:13.5px;color:var(--verde);margin-top:14px;cursor:pointer;text-decoration:underline}
+  .news{background:var(--creme-card);border:1px solid var(--linha);border-left:4px solid var(--vermelho);
+    border-radius:12px;padding:14px 38px 14px 16px;margin-top:12px;font-size:13.5px;line-height:1.6;position:relative}
+  .news b.titulo{color:var(--vermelho);letter-spacing:.1em;font-size:11.5px;text-transform:uppercase}
+  .news .fechar{position:absolute;top:8px;right:10px;font-size:16px;opacity:.6}
+  .lojinha{background:var(--verde);color:#fff;border-radius:12px;padding:13px 16px;margin-top:12px;
+    font-size:14px;line-height:1.5}
+  .lojinha b{font-weight:600}
+  .convite{background:var(--preto);color:var(--creme);border-radius:14px;padding:18px;margin-top:24px}
+  .convite b.titulo{color:#fff;letter-spacing:.08em;font-size:12px;text-transform:uppercase}
+  .convite p{font-size:13px;opacity:.85;line-height:1.55;margin-top:8px}
+  .codigo-box{background:var(--creme);color:var(--preto);border-radius:10px;padding:14px;margin-top:12px;
+    text-align:center;font-size:26px;letter-spacing:.3em;font-weight:500}
+  .cupom-row{display:flex;gap:8px;margin-top:8px}
+  .cupom-row input{flex:1;text-transform:uppercase}
+  .cupom-row button{flex:0 0 auto;font-family:inherit;background:var(--preto);color:var(--creme);
+    border:none;border-radius:10px;padding:0 18px;font-size:14px;cursor:pointer}
+  .cupom-ok{font-size:13px;color:var(--verde);margin-top:6px}
+  .cupom-erro{font-size:13px;color:var(--vermelho);margin-top:6px}
+  .toggle{display:flex;gap:10px;margin-top:8px}
+  .toggle button{flex:1;font-family:inherit;font-size:14px;letter-spacing:.05em;padding:14px 10px;border-radius:10px;
+    border:1px solid var(--preto);background:transparent;color:var(--preto);cursor:pointer}
+  .toggle button.on{background:var(--preto);color:var(--creme)}
+  .pagar{width:100%;margin-top:22px;font-family:inherit;background:var(--vermelho);color:#fff;border:none;
+    border-radius:14px;padding:17px;font-size:15px;letter-spacing:.08em;cursor:pointer}
+  .mp-note{font-size:13px;opacity:.6;text-align:center;margin-top:12px;line-height:1.5}
+  .vazio{text-align:center;opacity:.5;padding:32px 0;font-size:15px}
+
+  /* confirmação */
+  .ok-box{text-align:center;padding:26px 0 10px}
+  .ok-box .osym{width:54px;height:54px;border-width:4px;margin:0 auto 18px;display:block;position:relative;border:4px solid var(--preto);border-radius:4px}
+  .ok-box .osym::before{content:"";position:absolute;left:4px;right:4px;top:38%;height:26%;background:var(--vermelho)}
+  .ok-box h3{font-size:20px;margin-bottom:8px}
+  .ok-box p{font-size:13.5px;opacity:.65;line-height:1.5}
+  footer{margin-top:48px;padding:24px 0 34px;border-top:1px solid var(--linha);font-size:12px;letter-spacing:.14em;opacity:.5;text-transform:uppercase}
+
+  /* desktop */
+  @media(min-width:900px){
+    .wrap{max-width:980px}
+    .chips{max-width:980px}
+    header .wrap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 24px}
+    header .wrap > div:first-child{flex-basis:100%;display:none}
+    section{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+    section h2{grid-column:1/-1}
+    section .linha-item{grid-column:1/-1}
+    .card img{aspect-ratio:16/9}
+    .sheet{max-width:560px;left:50%;transform:translate(-50%,105%);border-radius:20px 20px 0 0}
+    .sheet.on{transform:translate(-50%,0)}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="kana">サンド</div>
+    <div class="wordmark">RI<span class="oq"></span>&nbsp;SAND<span class="osym"></span></div>
+    <div class="tagline">Katsu sando japonês · feito à mão · Botafogo, Rio <span class="alma">· todo sandô tem alma</span></div>
+    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 17h–21h30</div><button class="status conta-btn" id="menu-btn" onclick="abrirMenu()" style="background:var(--preto);color:#fff">☰ menu</button><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
+    <span class="ultimo-pedido" id="ultimo-pedido" style="display:none"></span>
+    <div class="fechado-banner" id="fechado-banner" style="display:none"></div>
+    <div class="news" id="news" style="display:none"></div>
+    <div class="lojinha" id="lojinha" style="display:none"></div>
+  </div>
+</header>
+
+<nav><div class="chips" id="chips"></div></nav>
+
+<main class="wrap" id="menu"></main>
+
+<div class="cartbar"><button id="cartbar" class="hidden-bar" onclick="abrirSacola()">
+  <span id="cart-count">Ver sacola</span><span id="cart-total"></span>
+</button></div>
+
+<div class="overlay" id="overlay" onclick="fecharSheet()"></div>
+<div class="sheet" id="sheet"></div>
+
+<script>
+const MP_PUBLIC_KEY = "APP_USR-55c7ca33-342a-4897-bc77-faf59bdb0d15";
+const IMG = p => `img/${p}.jpg?v=2`; // v=2: fotos Tomas Rangel ago/26
+const ZAP_LOJA = "5521978857339";
+const ENDERECO_LOJA = "Travessa Pepe, 60 — sobreloja, Botafogo";
+const MAPS_LOJA = "https://maps.google.com/?q=Travessa+Pepe+60+Botafogo+Rio+de+Janeiro";
+const MENU = [
+  {cat:"Sandô Quente", itens:[
+    {id:"frango", nome:"Frango Crocante com Molho Teriyaki", preco:49, img:"1_frango", destaque:true, desc:"Empanado na hora, teriyaki da casa e repolho fresquinho no shokupan."},
+    {id:"file", nome:"Filé Mignon Empanado, Queijo & Molho Jack Nicholson", preco:67, img:"2_file_mignon", destaque:true, desc:"O mais pedido de quem gosta de clássico com atitude."},
+    {id:"lombo", nome:"Katsu Sandô — Lombo Suíno, Tonkatsu & Kewpie da Casa", preco:52, img:"3_lombo", desc:"O katsu raiz: lombo crocante, tonkatsu e kewpie."},
+    {id:"tofu", nome:"Tofu Crocante com Spicy Mayo", preco:45, img:"4_tofu", desc:"Vegetariano de verdade — crocância e picância na medida."},
+    {id:"atum", nome:"Atum Empanado com Aioli de Wasabi", preco:65, img:"5_atum_empanado", desc:"Atum selado por fora, rosado por dentro, aioli de wasabi."}
+  ]},
+  {cat:"Sandô Frio", itens:[
+    {id:"tamago", nome:"Tamago Sandô", preco:39, img:"6_tamago", desc:"O clássico de ovo japonês, cremoso e delicado."},
+    {id:"tuna", nome:"Tuna Sandô — Japa Style", preco:49, img:"7_tuna_japa", desc:"Atum temperado no estilo japa, direto da geladeira."}
+  ]},
+  {cat:"Sobremesa", itens:[
+    {id:"matchado", nome:"Pão Perdido e Matchado", preco:39, img:"8_matchado", desc:"Nosso shokupan dourado na manteiga com creme de matchá."}
+  ]},
+  {cat:"Conservas", nota:"preço por quilo · quer meio quilo? escreva na observação do pedido", itens:[
+    {id:"slaw", nome:"Asian Slaw da Batian", preco:45, desc:"por quilo"},
+    {id:"rabanete", nome:"Conservinha de Rabanete", preco:65, desc:"por quilo"},
+    {id:"picles", nome:"Picles de Pepino Japonês", preco:59, desc:"por quilo"}
+  ]},
+  {cat:"Molhos", nota:"potinho de 30g", itens:[
+    {id:"m1", nome:"Teriyaki da Casa", preco:6.9, desc:"30g"},
+    {id:"m2", nome:"Jack Nicholson", preco:6.9, desc:"30g"},
+    {id:"m3", nome:"Tonkatsu", preco:6.9, desc:"30g"},
+    {id:"m4", nome:"Kewpie da Casa", preco:6.9, desc:"30g"},
+    {id:"m5", nome:"Spicy Mayo", preco:6.9, desc:"30g"},
+    {id:"m6", nome:"Aioli de Wasabi", preco:6.9, desc:"30g"}
+  ]},
+  {cat:"Bebidas", itens:[
+    {id:"coca", nome:"Coca-Cola / Zero", preco:9, desc:"lata"},
+    {id:"guarana", nome:"Guaraná / Zero", preco:9, desc:"lata"},
+    {id:"matte", nome:"Matte Leão (natural / limão)", preco:9, desc:""},
+    {id:"agua", nome:"Água mineral (c/ ou s/ gás)", preco:7, desc:""},
+    {id:"corona", nome:"Cerveja Corona long neck", preco:12, desc:""}
+  ]},
+  {cat:"Da Padaria", itens:[
+    {id:"shokupan", nome:"Nosso Shokupan", preco:48, desc:"pão de leite da casa · aprox. 500g"}
+  ]},
+  {cat:"Vinhos", nota:"pra acompanhar o sando 🍷", itens:[
+    {id:"v_finca", nome:"Finca in a Bubble · Espumante", preco:179, desc:"Cava Brut Nature · Espanha"},
+    {id:"v_char25", nome:"Quereu Chardonnay", preco:89, desc:"branco · 2025 · Chile"},
+    {id:"v_char24", nome:"Quereu Chardonnay 375ml", preco:59, desc:"branco · 2024 · Chile · meia garrafa"},
+    {id:"v_lobo_b", nome:"Lobo de Vasconcellos Branco", preco:159, desc:"branco · Alentejo, Portugal"},
+    {id:"v_arenile", nome:"Arenile Pinot Grigio", preco:149, desc:"branco · IGT Terre di Chieti 2024 · Itália"},
+    {id:"v_peres_b", nome:"Perescuma Branco", preco:159, desc:"branco · 2023 · Alentejo, Portugal"},
+    {id:"v_chereau", nome:"Chéreau Carré La Griffe", preco:169, desc:"branco · Muscadet Sèvre et Maine 2023 · França"},
+    {id:"v_rose", nome:"Quereu Rosé", preco:89, desc:"rosé · 2024 · Chile"},
+    {id:"v_cab24", nome:"Quereu Cabernet Sauvignon", preco:89, desc:"tinto · 2024 · Chile"},
+    {id:"v_cab375", nome:"Quereu Cabernet Sauvignon 375ml", preco:59, desc:"tinto · 2024 · Chile · meia garrafa"},
+    {id:"v_carm24", nome:"Quereu Carménère", preco:89, desc:"tinto · 2024 · Chile"},
+    {id:"v_carm375", nome:"Quereu Carménère 375ml", preco:59, desc:"tinto · 2023 · Chile · meia garrafa"},
+    {id:"v_temporada", nome:"Temporada Malbec", preco:99, desc:"tinto · 2025 · Argentina"},
+    {id:"v_pinot", nome:"Quereu Pinot Noir Reserva", preco:129, desc:"tinto · 2023 · Chile"},
+    {id:"v_somontes", nome:"Somontes Colheita Tinto", preco:129, desc:"tinto · 2022 · Portugal"},
+    {id:"v_bauvallon", nome:"Château Bauvallon", preco:149, desc:"tinto · AC Bordeaux 2022 · França"},
+    {id:"v_lobo_t", nome:"Lobo de Vasconcellos Perescuma", preco:159, desc:"tinto · 2021 · Alentejo, Portugal"},
+    {id:"v_dragone", nome:"Podere La Vigna Dragone", preco:154, desc:"tinto · IGT Toscana 2022 · Itália"},
+    {id:"v_fabre24", nome:"Fabre Montmayou Reserva Malbec", preco:169, desc:"tinto · 2024 · Argentina"},
+    {id:"v_fabre375", nome:"Fabre Montmayou Reserva 375ml", preco:99, desc:"tinto · Malbec 2021 · meia garrafa"}
+  ]}
+];
+const BYID = {}; MENU.forEach(c=>c.itens.forEach(i=>BYID[i.id]=i));
+let cart = JSON.parse(localStorage.getItem("rs_cart")||"{}");
+let entrega = "entrega";
+let pgto = "pix";
+let bairro = "";
+let cliente = JSON.parse(localStorage.getItem("rs_cliente")||"{}");
+// frete dinâmico: cotado de verdade no endereço do cliente (via rio-api), com crachá assinado
+let freteCotado = null, freteToken = null, freteFonte = null, freteStatus = "";
+let _freteTimer = null;
+
+// ── conta do cliente (motor GCP: Firebase + rio-api + PostgREST) + fidelidade ──
+const RIO_API = "https://rio-api-517724804994.southamerica-east1.run.app";
+const PGREST  = "https://postgrest-517724804994.southamerica-east1.run.app";
+const FB_KEY  = "AIzaSyChnmo3XFjrFodlnnRq_ZOc2NYqdMgZKDQ";
+let _sess = JSON.parse(localStorage.getItem("rs_gcp_sess") || "null");
+const _cbs = [];
+const _emit = (ev) => _cbs.forEach(cb => { try { cb(ev, _sess ? { user: _sess.user } : null); } catch (e) {} });
+function _save(s) { _sess = s; s ? localStorage.setItem("rs_gcp_sess", JSON.stringify(s)) : localStorage.removeItem("rs_gcp_sess"); }
+async function _fb(action, body) {
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${action}?key=${FB_KEY}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({})); return r.ok ? d : { _err: d.error };
+}
+function _trAuth(e) { const m = (e?.message || "") + "";
+  if (/EMAIL_EXISTS/.test(m)) return { message: "esse e-mail já tem conta — faça login" };
+  if (/INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD|EMAIL_NOT_FOUND/.test(m)) return { message: "e-mail ou senha incorretos" };
+  if (/WEAK_PASSWORD/.test(m)) return { message: "senha muito curta (mín. 6)" };
+  if (/INVALID_EMAIL/.test(m)) return { message: "e-mail inválido" };
+  return { message: "não deu certo — tenta de novo" };
+}
+async function _bridge(idToken) {
+  const r = await fetch(`${RIO_API}/auth/token`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firebase_token: idToken }) });
+  return r.ok ? await r.json() : null;
+}
+async function _establish(fb) {
+  const br = await _bridge(fb.idToken); if (!br) return { error: { message: "falha ao conectar — tenta de novo" } };
+  const s = { token: br.token, refresh: fb.refreshToken, exp: Date.now() + (Number(fb.expiresIn) - 60) * 1000, fb_id: fb.idToken, user: { id: br.uid, email: br.email, nome: br.nome, foto: br.foto } };
+  _save(s); _emit("SIGNED_IN"); return { data: { session: { access_token: s.token, user: s.user }, user: s.user }, error: null };
+}
+async function _refresh() {
+  if (!_sess?.refresh) return false;
+  const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FB_KEY}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: _sess.refresh }) });
+  if (!r.ok) { _save(null); _emit("SIGNED_OUT"); return false; }
+  const d = await r.json(); const br = await _bridge(d.id_token); if (!br) return false;
+  _save({ ..._sess, token: br.token, refresh: d.refresh_token, exp: Date.now() + (Number(d.expires_in) - 60) * 1000, fb_id: d.id_token, user: { id: br.uid, email: br.email, nome: br.nome, foto: br.foto } });
+  return true;
+}
+async function _token() { if (!_sess) return null; if (Date.now() > _sess.exp && !(await _refresh())) return null; return _sess.token; }
+class PgQ {
+  constructor(t){this.t=t;this.op="select";this.cols="*";this.flt=[];this.ord=null;this.lim=null;this.one=null;this.pl=null;}
+  select(c="*"){this.cols=c;return this;} eq(c,v){this.flt.push(`${c}=eq.${encodeURIComponent(v)}`);return this;}
+  order(c,o={}){this.ord=`${c}.${o.ascending===false?"desc":"asc"}`;return this;} limit(n){this.lim=n;return this;}
+  maybeSingle(){this.one="maybe";return this;} single(){this.one="one";return this;}
+  insert(r){this.op="insert";this.pl=r;return this;} upsert(r){this.op="upsert";this.pl=r;return this;} update(r){this.op="update";this.pl=r;return this;}
+  async _run(){
+    const tok=await _token(); const h={"Content-Type":"application/json"}; if(tok)h.Authorization=`Bearer ${tok}`;
+    let url=`${PGREST}/${this.t}`,method="GET",body; const qs=[];
+    if(this.op==="select"){qs.push(`select=${encodeURIComponent(this.cols)}`);this.flt.forEach(f=>qs.push(f));if(this.ord)qs.push(`order=${this.ord}`);if(this.lim)qs.push(`limit=${this.lim}`);}
+    else if(this.op==="insert"){method="POST";body=JSON.stringify(this.pl);h.Prefer="return=representation";}
+    else if(this.op==="upsert"){method="POST";body=JSON.stringify(this.pl);h.Prefer="resolution=merge-duplicates,return=representation";}
+    else if(this.op==="update"){method="PATCH";this.flt.forEach(f=>qs.push(f));body=JSON.stringify(this.pl);h.Prefer="return=representation";}
+    if(this.one==="one")h.Accept="application/vnd.pgrst.object+json";
+    if(qs.length)url+="?"+qs.join("&");
+    try{const r=await fetch(url,{method,headers:h,body});const txt=await r.text();let data=txt?JSON.parse(txt):null;
+      if(!r.ok)return{data:null,error:(data&&(data.message||data.code))?data:{message:`erro ${r.status}`}};
+      if(this.one==="maybe")data=Array.isArray(data)?(data[0]??null):data; return{data,error:null};
+    }catch(e){return{data:null,error:{message:String(e)}};}
+  }
+  then(res,rej){return this._run().then(res,rej);}
+}
+const sb = {
+  auth: {
+    async getSession(){const tok=_sess?await _token():null;return{data:{session:tok?{access_token:tok,user:_sess.user}:null}};},
+    onAuthStateChange(cb){_cbs.push(cb);if(_sess)setTimeout(()=>cb("SIGNED_IN",{user:_sess.user}),0);return{data:{subscription:{unsubscribe(){}}}};},
+    async signInWithPassword({email,password}){const fb=await _fb("signInWithPassword",{email,password,returnSecureToken:true});if(fb._err)return{error:_trAuth(fb._err)};return await _establish(fb);},
+    async signUp({email,password,options}){
+      const fb=await _fb("signUp",{email,password,returnSecureToken:true});if(fb._err)return{error:_trAuth(fb._err)};
+      const d=(options&&options.data)||{}; if(d.nome)await _fb("update",{idToken:fb.idToken,displayName:d.nome,returnSecureToken:false});
+      const res=await _establish(fb); if(res.error)return res;
+      let ip=null; if(d.ref){const a=await new PgQ("afiliados").select("id").eq("codigo",String(d.ref).toUpperCase()).maybeSingle();ip=a.data?.id??null;}
+      await new PgQ("clientes").upsert({id:res.data.user.id,nome:d.nome||null,aceita_promo:!!d.aceita_promo,...(ip?{indicado_por:ip}:{})});
+      return res;
+    },
+    async signInWithOAuth({options}={}){return _googleLogin(options);},
+    async resetPasswordForEmail(email){await _fb("sendOobCode",{requestType:"PASSWORD_RESET",email});return{error:null};},
+    async updateUser({password,data}){
+      if(!_sess)return{error:{message:"sem sessão"}};
+      const upd={idToken:_sess.fb_id,returnSecureToken:true}; if(password)upd.password=password; if(data&&data.nome)upd.displayName=data.nome;
+      const fb=await _fb("update",upd); if(fb._err)return{error:_trAuth(fb._err)};
+      if(fb.idToken)await _establish({idToken:fb.idToken,refreshToken:fb.refreshToken||_sess.refresh,expiresIn:fb.expiresIn||3600});
+      return{error:null};
+    },
+    async signOut(){_save(null);_emit("SIGNED_OUT");return{error:null};},
+  },
+  from(t){return new PgQ(t);},
+};
+// Firebase SDK usado SÓ pro popup do Google (e-mail/senha segue via REST no shim)
+let _fbAuth=null;
+function _initFirebase(){
+  if(_fbAuth) return _fbAuth;
+  if(typeof firebase==="undefined") return null;
+  if(!firebase.apps?.length) firebase.initializeApp({apiKey:FB_KEY, authDomain:"rio-sando.firebaseapp.com", projectId:"rio-sando"});
+  _fbAuth = firebase.auth();
+  return _fbAuth;
+}
+async function _googleLogin(){
+  const auth = _initFirebase();
+  if(!auth) return {data:null, error:{message:"Google indisponível agora — use e-mail e senha."}};
+  const prov = new firebase.auth.GoogleAuthProvider();
+  prov.setCustomParameters({prompt:"select_account"});
+  try{
+    const res = await auth.signInWithPopup(prov);
+    const idToken = await res.user.getIdToken();
+    const rt = res.user.refreshToken;
+    const out = await _establish({idToken, refreshToken:rt, expiresIn:3600});
+    try{ await auth.signOut(); }catch(e){}
+    return out;
+  }catch(e){
+    const c=(e&&e.code)||"";
+    if(/popup-closed-by-user|cancelled-popup-request|popup-blocked/.test(c)) return {data:null, error:{message:""}};
+    return {data:null, error:{message:"não deu pra entrar com Google — tenta de novo"}};
+  }
+}
+const GOOGLE_ON = true; // login com Google ligado (Identity Platform + popup Firebase)
+let sessao = null, perfil = null, extrato = [], saldoPts = 0, usarPontos = false, modoConta = "entrar";
+let meuCodigo = null, meusIndicados = 0; // programa de indicação
+let cupom = "", cupomInfo = null; // cupom de afiliado no checkout
+// captura links de afiliado: ?ref (indicação p/ cadastro) e ?cupom (lojinha, desconto já aplicado)
+(function(){
+  const q = new URLSearchParams(location.search);
+  const ref = q.get("ref"); if(ref) localStorage.setItem("rs_ref", ref.toUpperCase().trim());
+  const cup = q.get("cupom"); if(cup) localStorage.setItem("rs_cupom_url", cup.toUpperCase().trim());
+})();
+
+// horário: ter(2)–sáb(6), 17h–21h30 — fora disso o pedido entra agendado
+function lojaAberta(d=new Date()){
+  const dia=d.getDay(), m=d.getHours()*60+d.getMinutes();
+  return dia>=2 && dia<=6 && m>=17*60 && m<=21*60+30;
+}
+function proximaAbertura(){
+  const d=new Date();
+  for(let i=0;i<8;i++){
+    const c=new Date(d.getFullYear(),d.getMonth(),d.getDate()+i,17,0,0);
+    if(c.getDay()>=2 && c.getDay()<=6 && c.getTime()>d.getTime()) return c;
+  }
+  return d;
+}
+const DIAS=["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
+const esc = s => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function rotuloAbertura(){
+  const p=proximaAbertura(), hoje=new Date();
+  const nome = p.toDateString()===hoje.toDateString() ? "hoje" :
+    p.toDateString()===new Date(hoje.getTime()+86400000).toDateString() ? "amanhã" : DIAS[p.getDay()];
+  return `${nome} às 17h`;
+}
+function FRETES_EXISTE(b){ return Object.prototype.hasOwnProperty.call(FRETES,b); }
+const FRETES = {
+  "Botafogo":9, "Humaitá":9, "Urca":9,
+  "Flamengo":11, "Catete":11, "Glória":11, "Laranjeiras":11, "Cosme Velho":11,
+  "Copacabana":13, "Leme":13, "Lagoa":13, "Jardim Botânico":13,
+  "Ipanema":15, "Leblon":15, "Gávea":15
+};
+// frete cobrado = cotação real no endereço; enquanto não cotou, mostra a tabela do bairro como estimativa
+const freteAtual = () => entrega!=="entrega" ? 0 : (freteCotado!=null ? freteCotado : (FRETES[bairro] ?? 0));
+if(cliente.bairro && FRETES_EXISTE(cliente.bairro)) bairro = cliente.bairro;
+
+// ── CEP automático (ViaCEP) + cotação de frete no endereço real ──
+const normStr = s => (s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
+const BAIRRO_NORM = {}; Object.keys(FRETES).forEach(b=>{ BAIRRO_NORM[normStr(b)] = b; });
+// alvos por contexto: checkout (com cotação de frete) e perfil/cadastro (só preenche)
+const CEP_ALVO = { checkout:{msg:"cep-msg",end:"endereco",bairro:"sel-bairro",cota:true},
+                   perfil:{msg:"pf-cep-msg",end:"pf-endereco",bairro:"pf-bairro",cota:false} };
+function onCep(el, ctx){
+  ctx = ctx||"checkout";
+  let v = el.value.replace(/\D/g,"").slice(0,8);
+  el.value = v.length>5 ? v.slice(0,5)+"-"+v.slice(5) : v;
+  if(v.length===8) buscarCep(v, ctx);
+}
+async function buscarCep(cep, ctx){
+  ctx = ctx||"checkout"; const A = CEP_ALVO[ctx];
+  const msg = document.getElementById(A.msg);
+  const setMsg = (t,cor="") => { if(msg){ msg.textContent=t; msg.style.color=cor; } };
+  setMsg("🔎 buscando o endereço…");
+  try{
+    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const d = await r.json();
+    if(d.erro) return setMsg("CEP não encontrado — pode digitar o endereço à mão. 🙏","var(--vermelho)");
+    if(normStr(d.localidade)!=="rio de janeiro") return setMsg("Esse CEP não é do Rio — por enquanto entregamos só na Zona Sul. 🙈","var(--vermelho)");
+    const b = BAIRRO_NORM[normStr(d.bairro)];
+    const end = document.getElementById(A.end);
+    if(end && d.logradouro) end.value = d.logradouro + ", ";
+    const sel = document.getElementById(A.bairro);
+    if(b){
+      if(sel) sel.value=b;
+      if(ctx==="checkout") bairro = b;
+      setMsg(`📍 ${d.logradouro?d.logradouro+" · ":""}${b}`,"var(--verde)");
+    } else {
+      setMsg(`📍 ${d.bairro||"esse bairro"} — fora da nossa área (Botafogo → Gávea) por enquanto. 🙈`,"var(--vermelho)");
+    }
+    if(A.cota){ freteCotado=null; freteToken=null; atualizarFrete(); }
+    if(end){ end.focus(); const L=end.value.length; try{ end.setSelectionRange(L,L); }catch(e){} }
+    if(A.cota) cotarFrete();
+  }catch{ setMsg("Não deu pra buscar o CEP — digita o endereço à mão. 🙏","var(--vermelho)"); }
+}
+function onEnderecoInput(){ clearTimeout(_freteTimer); _freteTimer=setTimeout(cotarFrete, 800); }
+async function cotarFrete(){
+  const end = (document.getElementById("endereco")?.value||"").trim();
+  if(entrega!=="entrega" || !bairro || !FRETES_EXISTE(bairro) || end.length<6 || !/\d/.test(end)){
+    freteCotado=null; freteToken=null; freteStatus=""; atualizarFrete(); return;   // endereço ainda incompleto
+  }
+  const meu = ++cotarFrete._seq;
+  freteStatus="calculando"; atualizarFrete();
+  try{
+    const r = await fetch(`${RIO_API}/frete-cliente`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({endereco:end, bairro})});
+    const d = await r.json().catch(()=>({}));
+    if(meu!==cotarFrete._seq) return;               // chegou resposta velha, ignora
+    if(r.ok && typeof d.frete==="number"){ freteCotado=d.frete; freteToken=d.token; freteFonte=d.fonte; }
+    else { freteCotado=null; freteToken=null; }
+  }catch{ if(meu===cotarFrete._seq){ freteCotado=null; freteToken=null; } }
+  if(meu===cotarFrete._seq){ freteStatus=""; atualizarFrete(); }
+}
+cotarFrete._seq = 0;
+function entregaLabel(){
+  if(!bairro) return "—";
+  if(freteStatus==="calculando") return "calculando…";
+  if(freteCotado!=null) return fmt(freteCotado);
+  return fmt(FRETES[bairro]);
+}
+// atualiza os números do frete/total SEM re-renderizar a sacola (preserva foco e o que foi digitado)
+function atualizarFrete(){
+  const {t}=totais();
+  const el = document.getElementById("frete-valor"); if(el) el.textContent = entregaLabel();
+  const total = t+freteAtual()-descontoAtual()-descontoCupomAtual();
+  const tv = document.getElementById("total-valor"); if(tv) tv.textContent = fmt(total);
+  const bt = document.getElementById("btn-pagar"); if(bt && !bt.disabled) bt.textContent = `${(entrega==="entrega"||pgto==="online")?"Pagar":"Enviar pedido"} · ${fmt(total)}`;
+}
+
+const fmt = v => "R$ " + v.toFixed(2).replace(".",",").replace(",00","");
+const slug = s => s.toLowerCase().normalize("NFD").replace(/[^a-z ]/g,"").replace(/ /g,"-");
+
+function render(){
+  const menu = document.getElementById("menu");
+  menu.innerHTML = MENU.map(c=>`
+    <section id="${slug(c.cat)}">
+      <h2>${c.cat} ${c.nota?`<small>${c.nota}</small>`:""}</h2>
+      ${c.itens.map(i => i.img ? `
+        <div class="card">
+          <img src="${IMG(i.img)}" alt="${i.nome}" loading="lazy">
+          ${i.destaque?`<span class="destaque-badge">⭐ mais pedido</span>`:""}
+          <div class="info">
+            <div><h3>${i.nome}</h3><p>${i.desc}</p>
+              <div class="add" id="add-${i.id}">${addCtrl(i.id)}</div>
+            </div>
+            <span class="preco">${fmt(i.preco)}</span>
+          </div>
+        </div>` : `
+        <div class="linha-item">
+          <div><h3>${i.nome}</h3>${i.desc?`<p>${i.desc}</p>`:""}</div>
+          <span class="preco">${fmt(i.preco)}</span>
+          <div class="mini-add" id="add-${i.id}">${addCtrl(i.id,true)}</div>
+        </div>`).join("")}
+    </section>`).join("") + `
+    <footer><a href="pontos.html" style="color:inherit">⭐ Pontos & indicação</a> · <a href="afiliados.html" style="color:inherit">🤝 Seja divulgador</a><br><span style="opacity:.7">@riosando_rj · coletivo.app</span></footer>`;
+  document.getElementById("chips").innerHTML = MENU.map((c,ix)=>
+    `<button class="chip ${ix===0?"on":""}" onclick="irPara('${slug(c.cat)}',this)">${c.cat}</button>`).join("");
+  syncBar();
+}
+function addCtrl(id, mini){
+  const q = cart[id]||0;
+  if(!q) return `<button class="btn-add" onclick="mudar('${id}',1)">${mini?"+":"Adicionar"}</button>`;
+  return `<button class="btn-qty" onclick="mudar('${id}',-1)">−</button><span class="qtd">${q}</span><button class="btn-qty" onclick="mudar('${id}',1)">+</button>`;
+}
+function mudar(id,d){
+  cart[id]=(cart[id]||0)+d; if(cart[id]<=0) delete cart[id];
+  localStorage.setItem("rs_cart",JSON.stringify(cart));
+  document.querySelectorAll(`#add-${id}`).forEach(el=>{
+    el.innerHTML = addCtrl(id, el.classList.contains("mini-add"));
+  });
+  syncBar();
+  if(document.getElementById("sheet").classList.contains("on")) reabrirSacola();
+}
+function totais(){
+  let n=0,t=0;
+  for(const id in cart){ n+=cart[id]; t+=cart[id]*BYID[id].preco; }
+  return {n,t};
+}
+function syncBar(){
+  const {n,t}=totais(), bar=document.getElementById("cartbar");
+  bar.classList.toggle("hidden-bar",!n);
+  document.getElementById("cart-count").textContent=`Ver sacola · ${n} ${n>1?"itens":"item"}`;
+  document.getElementById("cart-total").textContent=fmt(t);
+}
+function irPara(id,btn){
+  document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
+  btn.classList.add("on");
+  document.getElementById(id).scrollIntoView({behavior:"smooth",block:"start"});
+}
+function abrirSacola(){
+  const {n,t}=totais(), sheet=document.getElementById("sheet");
+  sheet.innerHTML = `
+    <div class="sheet-head"><h2>Sua sacola</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    ${!n?`<div class="vazio">Sua sacola está vazia — todo sandô tem alma, escolhe um. 🥪</div>`:`
+    ${Object.keys(cart).map(id=>`
+      <div class="linha-item">
+        <div><h3>${BYID[id].nome}</h3><p>${fmt(BYID[id].preco)} cada</p></div>
+        <div class="mini-add" id="add-${id}">${addCtrl(id,true)}</div>
+        <span class="preco">${fmt(cart[id]*BYID[id].preco)}</span>
+      </div>`).join("")}
+    ${entrega==="entrega"?`<div class="linha-item"><div><h3 style="font-weight:400">Entrega${bairro?` · ${bairro}`:""}</h3></div><span class="preco" id="frete-valor">${entregaLabel()}</span></div>`:""}
+    ${maxDesconto()>0?`<div class="linha-item"><label class="check-pontos"><input type="checkbox" ${usarPontos?"checked":""} onchange="setUsarPontos(this.checked)"><span style="text-transform:none;letter-spacing:0">Usar ${maxDesconto()*20} dos meus ⭐ ${saldoPts} pontos</span></label><span class="preco" style="color:var(--verde)">−${fmt(maxDesconto())}</span></div>`:""}
+    ${cupomInfo?`<div class="linha-item"><div><h3 style="font-weight:400">Cupom ${esc(cupom)}${cupomInfo.nome&&cupomInfo.nome!==cupom?` · ${esc(cupomInfo.nome)}`:""}</h3><p style="cursor:pointer;color:var(--vermelho)" onclick="removerCupom()">remover</p></div><span class="preco" style="color:var(--verde)">−${fmt(descontoCupomAtual())}</span></div>`:""}
+    <div class="total-row"><span>Total</span><span id="total-valor">${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</span></div>
+    ${!usarPontos && !cupomInfo?`<div class="cupom-row"><input type="text" id="cupom-input" placeholder="Cupom de desconto" value="${esc(cupom)}"><button onclick="aplicarCupom()">Aplicar</button></div><div id="cupom-msg"></div>`:""}
+    ${!sessao?`<div class="nudge-conta" onclick="abrirConta()">✨ Entre na sua conta e ganhe ${Math.floor(t)} pontos com este pedido</div>`:""}
+
+    <label>Receber como</label>
+    <div class="toggle">
+      <button class="${entrega==="entrega"?"on":""}" onclick="setEntrega('entrega')">🛵 Entrega</button>
+      <button class="${entrega==="retirada"?"on":""}" onclick="setEntrega('retirada')">🏠 Retirada em Botafogo</button>
+    </div>
+    ${entrega==="retirada"?`<div class="mp-note" style="text-align:left;opacity:.8">🏠 Retirada: <a href="${MAPS_LOJA}" target="_blank" style="color:var(--verde)">${ENDERECO_LOJA}</a></div>`:""}
+    ${!lojaAberta()?`<div class="fechado-banner">🕐 Estamos fechados agora — seu pedido entra <b>agendado pra ${rotuloAbertura()}</b>. A cozinha prepara assim que abrir.</div>`:""}
+    <div id="campo-endereco" style="display:${entrega==="entrega"?"block":"none"}">
+      <label>CEP</label>
+      <input type="tel" id="cep" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${(cliente.cep||"").replace(/"/g,"&quot;")}" oninput="onCep(this)" autocomplete="postal-code">
+      <div id="cep-msg" class="mp-note" style="text-align:left;margin:2px 0 0;min-height:0"></div>
+      <label>Endereço de entrega</label>
+      <input type="text" id="endereco" placeholder="Rua e número" value="${(cliente.endereco||"").replace(/"/g,"&quot;")}" oninput="onEnderecoInput()">
+      <label>Complemento</label>
+      <input type="text" id="complemento" placeholder="Apto, bloco, casa, referência" value="${(cliente.complemento||"").replace(/"/g,"&quot;")}">
+      <label>Bairro</label>
+      <select id="sel-bairro" onchange="setBairro(this.value)">
+        <option value="">Escolhe o bairro...</option>
+        ${Object.keys(FRETES).map(b=>`<option ${b===bairro?"selected":""} value="${b}">${b}</option>`).join("")}
+      </select>
+      <div class="mp-note" style="text-align:left;opacity:.7;margin-top:4px">🛵 O frete é calculado de verdade no seu endereço — pode variar alguns reais.</div>
+    </div>
+    <label>Seu nome</label>
+    <input type="text" id="nome" placeholder="Como te chamamos?" value="${(cliente.nome||"").replace(/"/g,"&quot;")}">
+    <label>WhatsApp</label>
+    <input type="tel" id="zap" placeholder="(21) 9 9999-9999" value="${(cliente.zap||"").replace(/"/g,"&quot;")}">
+    <label>Observações</label>
+    <textarea id="obs" rows="2" placeholder="Sem repolho? Meio quilo de conserva? Conta aqui."></textarea>
+
+    <label>Pagamento</label>
+    ${entrega==="entrega"?`
+    <div class="toggle"><button class="on" style="flex:1">⚡ Pagar agora · Pix ou cartão</button></div>
+    <div class="mp-note" style="text-align:left;opacity:.75">🛵 Entrega é paga no app — o motoboy não passa maquininha nem recebe. Pra pagar na hora, escolha <b>retirada</b>.</div>`
+    :`
+    <div class="toggle">
+      <button class="${pgto==="online"?"on":""}" onclick="setPgto('online')">⚡ Pagar agora</button>
+      <button class="${pgto==="pix"?"on":""}" onclick="setPgto('pix')">Pix na retirada</button>
+      <button class="${pgto==="cartao"?"on":""}" onclick="setPgto('cartao')">💳 na retirada</button>
+    </div>`}
+
+    <button class="pagar" id="btn-pagar" onclick="pagar(this)">${(entrega==="entrega"||pgto==="online")?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</button>
+    <div class="mp-note">${(entrega==="entrega"||pgto==="online")?"Pix ou cartão, seguro via Mercado Pago":"Você paga na hora de retirar"}</div>
+    <div class="mp-note" id="erro-envio" style="color:var(--vermelho)"></div>`}`;
+  sheet.classList.add("on");
+  document.getElementById("overlay").classList.add("on");
+  if(entrega==="entrega" && bairro && freteCotado==null) setTimeout(cotarFrete, 60); // já cota se voltou com endereço salvo
+}
+// re-render da sacola preservando o que o cliente já digitou
+function lerForm(){
+  const v = id => document.getElementById(id)?.value ?? null;
+  return {nome:v("nome"), zap:v("zap"), cep:v("cep"), endereco:v("endereco"), complemento:v("complemento"), obs:v("obs"), "cupom-input":v("cupom-input")};
+}
+function restaurarForm(f){
+  if(!f) return;
+  for(const [id,val] of Object.entries(f)){
+    const el = document.getElementById(id);
+    if(el && val!==null) el.value = val;
+  }
+}
+function reabrirSacola(){ const f=lerForm(); abrirSacola(); restaurarForm(f); }
+function setEntrega(v){ entrega=v; if(v==="entrega") pgto="online"; else { freteCotado=null; freteToken=null; freteStatus=""; } reabrirSacola(); }
+function setPgto(v){ pgto=v; reabrirSacola(); }
+function setBairro(v){ bairro=v; freteCotado=null; freteToken=null; freteStatus=""; reabrirSacola(); cotarFrete(); }
+function setUsarPontos(v){ usarPontos=v; if(v){ cupom=""; cupomInfo=null; } reabrirSacola(); }
+// resgate em blocos de R$5 (100 pts), limitado ao valor da comida
+function maxDesconto(){
+  if(!sessao || saldoPts<100 || cupomInfo) return 0;
+  const {t}=totais();
+  return Math.min(Math.floor(saldoPts/100), Math.floor(t/5))*5;
+}
+const descontoAtual = () => usarPontos && !cupomInfo ? maxDesconto() : 0;
+// cupom de valor fixo (promo) desconta o valor direto (limitado à comida); cupom % desconta o percentual
+const descontoCupomAtual = () => { if(!cupomInfo) return 0;
+  if(cupomInfo.valor!=null) return Math.min(cupomInfo.valor, totais().t);
+  return Math.round(totais().t * (cupomInfo.pct||0))/100; };
+async function aplicarCupom(){
+  const el = document.getElementById("cupom-input");
+  const cod = (el?.value||"").trim().toUpperCase();
+  const msg = document.getElementById("cupom-msg");
+  if(!cod){ cupom=""; cupomInfo=null; reabrirSacola(); return; }
+  msg.className="mp-note"; msg.textContent="conferindo...";
+  try{
+    const r = await fetch(`${RIO_API}/validar-cupom`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({cupom:cod, subtotal:totais().t})});
+    const d = await r.json();
+    if(d.ok){ cupom=cod; cupomInfo={pct:d.desconto_pct, valor:(d.promo && !d.desconto_pct)?d.desconto:null, nome:d.nome, primeiro:!!d.primeiro_pedido}; usarPontos=false; reabrirSacola();
+      if(d.primeiro_pedido && !sessao){ const m2=document.getElementById("cupom-msg"); if(m2){ m2.className="mp-note"; m2.textContent="✨ esse cupom é pra quem tem conta — entra ali em cima pra valer no pagamento."; } } }
+    else { cupom=""; cupomInfo=null; reabrirSacola();
+      const m=document.getElementById("cupom-msg"); if(m){ m.className="cupom-erro"; m.textContent=d.motivo||"cupom inválido"; } }
+  }catch(e){ const m=document.getElementById("cupom-msg"); if(m){ m.className="cupom-erro"; m.textContent="não deu pra conferir agora"; } }
+}
+function removerCupom(){ cupom=""; cupomInfo=null; localStorage.removeItem("rs_cupom_url"); document.getElementById("lojinha").style.display="none"; reabrirSacola(); }
+// lojinha do afiliado: chegou por link (?cupom= ou /handle reescrito) → desconto já entra + banner pessoal
+async function aplicarCupomURL(){
+  const cod = (localStorage.getItem("rs_cupom_url")||"").trim().toUpperCase();
+  if(!cod || cupomInfo) return;
+  try{
+    const r = await fetch(`${RIO_API}/validar-cupom`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({cupom:cod, subtotal:totais().t})});
+    const d = await r.json();
+    if(d.ok){
+      cupom=cod; cupomInfo={pct:d.desconto_pct, valor:(d.promo && !d.desconto_pct)?d.desconto:null, nome:d.nome, primeiro:!!d.primeiro_pedido}; usarPontos=false;
+      const el=document.getElementById("lojinha");
+      if(el){ el.style.display="block";
+        const off = d.promo ? `R$ ${fmt(d.desconto).replace("R$ ","")} de desconto` : `${d.desconto_pct}% de desconto`;
+        el.innerHTML=`🎁 Você chegou pela <b>${esc(d.nome)}</b> — <b>${off}</b> já entra no seu pedido!`; }
+      if(document.getElementById("sheet")?.classList.contains("on")) reabrirSacola();
+    } else { localStorage.removeItem("rs_cupom_url"); }
+  }catch(e){}
+}
+async function pagar(btn){
+  const val = id => (document.getElementById(id)?.value||"").trim();
+  const erro = document.getElementById("erro-envio");
+  const nome=val("nome"), zap=val("zap"), endereco=val("endereco"), complemento=val("complemento"), obs=val("obs"), cep=val("cep");
+  if(!nome || !zap){ erro.textContent="Precisamos do seu nome e WhatsApp. 🙏"; return; }
+  if(entrega==="entrega") pgto="online"; // entrega é sempre paga no app (motoboy não recebe)
+  if(entrega==="entrega" && !bairro){ erro.textContent="Escolhe o bairro da entrega. 🙏"; return; }
+  if(entrega==="entrega" && !endereco){ erro.textContent="Cadê o endereço de entrega? 🙏"; return; }
+  if(entrega==="entrega" && freteStatus==="calculando"){ erro.textContent="Só um segundo, calculando o frete… 🛵"; return; }
+  const {t}=totais();
+  const frete = freteAtual();
+  const desconto = descontoAtual();
+  const descCupom = descontoCupomAtual();
+  const itens = Object.keys(cart).map(id=>({id, item:BYID[id].nome, qtd:cart[id], preco:BYID[id].preco}));
+  btn.disabled=true; btn.textContent="Enviando...";
+  const codigo = Array.from({length:6},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
+  const agendadoPara = lojaAberta() ? null : proximaAbertura().toISOString();
+  cliente = {nome, zap, endereco, complemento, bairro, cep};
+  localStorage.setItem("rs_cliente", JSON.stringify(cliente));
+  if(pgto==="online"){
+    const pedido = {codigo, itens, frete, frete_token:freteToken||null, desconto, cupom:cupom||null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
+      endereco:entrega==="entrega"?`${endereco}${complemento?", "+complemento:""} — ${bairro}`:null, obs:obs||null, agendado_para:agendadoPara};
+    try{ await abrirPagamento(pedido, t+frete-desconto-descCupom); }
+    catch(e){
+      btn.disabled=false; btn.textContent="Pagar";
+      erro.textContent="Pagamento online indisponível agora — escolha pagar na entrega. 🙏";
+    }
+    return;
+  }
+  try{
+    const {error} = await sb.from("pedidos").insert({codigo, itens, total:t+frete-desconto-descCupom, frete, desconto,
+      cupom:cupom||null, user_id:sessao?.user?.id ?? null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
+      endereco:entrega==="entrega"?`${endereco}${complemento?", "+complemento:""} — ${bairro}`:null, obs:obs||null, pagamento:pgto, agendado_para:agendadoPara});
+    if(error) throw new Error(error.message);
+    localStorage.setItem("rs_ultimo", JSON.stringify({codigo, quando:Date.now()}));
+    const ped = {codigo};
+    const sheet=document.getElementById("sheet");
+    sheet.innerHTML = `
+      <div class="sheet-head"><h2>Pedido enviado</h2><button class="fechar" onclick="fecharTudo()">✕</button></div>
+      <div class="ok-box">
+        <span class="osym"></span>
+        <h3>Arigatô, ${esc(nome.split(" ")[0])}! 🙏</h3>
+        <p>Seu pedido <strong>#${ped.codigo}</strong> ${agendadoPara?`ficou <b>agendado pra ${rotuloAbertura()}</b> — a cozinha prepara assim que abrir.`:"chegou na cozinha."}<br>
+        ${entrega==="entrega"?"Pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na porta.":`Retirada: <a href="${MAPS_LOJA}" target="_blank" style="color:var(--verde)">${ENDERECO_LOJA}</a> — pagamento com ${pgto==="pix"?"Pix":"cartão"} na hora.`}<br><br>
+        Qualquer coisa, <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">chama a gente no WhatsApp</a>.</p>
+        <button class="pagar" style="margin-top:18px" onclick="location.href='?pedido=${ped.codigo}'">Acompanhar meu pedido 🛵</button>
+      </div>`;
+    cart={}; localStorage.removeItem("rs_cart"); localStorage.removeItem("rs_cupom_url"); usarPontos=false; cupom=""; cupomInfo=null; render();
+    if(sessao) carregarConta();
+  }catch(e){
+    btn.disabled=false; btn.textContent="Enviar pedido";
+    const m = String(e);
+    erro.textContent = /pontos insuficientes/i.test(m) ? "Seus pontos mudaram — desmarca o desconto e tenta de novo. 🙏"
+      : /cupom|código de indicação|próprio código/i.test(m) ? m.replace(/^Error:\s*/,"")
+      : "Ops, não conseguimos enviar. Tenta de novo?";
+  }
+}
+function fecharSheet(){
+  document.getElementById("sheet").classList.remove("on");
+  document.getElementById("overlay").classList.remove("on");
+}
+function abrirMenu(){
+  const sheet=document.getElementById("sheet");
+  sheet.innerHTML=`
+    <div class="sheet-head"><h2>Menu</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div class="menu-nav">
+      <a href="/riosando/">🥪 <b>Cardápio</b><span>peça seu sando</span></a>
+      <a href="pontos.html">⭐ <b>Programa de pontos</b><span>como funciona · ganhe e troque</span></a>
+      <a href="afiliados.html">🤝 <b>Divulgue e ganhe</b><span>vire divulgador do Rio Sandô</span></a>
+      <a href="afiliado.html">📣 <b>Já sou divulgador</b><span>minha lojinha e material</span></a>
+      <a href="privacidade.html">🔒 <b>Privacidade</b><span>como cuidamos dos seus dados</span></a>
+    </div>
+    <div style="text-align:center;font-size:12px;opacity:.5;margin-top:18px;letter-spacing:.1em;text-transform:uppercase">Rio Sandô · Botafogo · todo sandô tem alma</div>`;
+  sheet.classList.add("on");
+  document.getElementById("overlay").classList.add("on");
+}
+
+// ── conta: sessão, perfil, pontos ──
+async function carregarConta(){
+  const {data:{session}} = await sb.auth.getSession();
+  sessao = session;
+  if(!sessao){ perfil=null; extrato=[]; saldoPts=0; usarPontos=false; syncConta(); return; }
+  const uid = sessao.user.id;
+  const [{data:p},{data:e},{data:af}] = await Promise.all([
+    sb.from("clientes").select("*").eq("id",uid).maybeSingle(),
+    sb.from("pontos").select("delta,motivo,created_at").eq("cliente_id",uid).order("created_at",{ascending:false}),
+    sb.from("afiliados").select("codigo").eq("cliente_id",uid).eq("tipo","cliente").maybeSingle(),
+  ]);
+  perfil = p||null; extrato = e||[];
+  saldoPts = extrato.reduce((s,x)=>s+x.delta,0);
+  meuCodigo = af?.codigo || null;
+  meusIndicados = extrato.filter(x=>x.motivo==="indicação de amigo 🎉").length;
+  if(perfil){
+    cliente = {nome:perfil.nome||cliente.nome||"", zap:perfil.whatsapp||cliente.zap||"",
+      endereco:perfil.endereco||cliente.endereco||"", bairro:perfil.bairro||cliente.bairro||""};
+    if(cliente.bairro && FRETES_EXISTE(cliente.bairro)) bairro = cliente.bairro;
+    localStorage.setItem("rs_cliente", JSON.stringify(cliente));
+  }
+  syncConta();
+}
+function syncConta(){
+  const chip = document.getElementById("conta-chip");
+  if(!sessao){ chip.className = "status conta-btn"; chip.innerHTML = "👤 entrar"; return; }
+  const md = sessao.user.user_metadata || {};
+  const nome = (perfil?.nome || md.full_name || md.name || "").trim();
+  const primeiro = (nome ? nome.split(" ")[0] : (sessao.user.email||"").split("@")[0]) || "conta";
+  const foto = md.avatar_url || md.picture || "";
+  const ini = (primeiro[0]||"?").toUpperCase();
+  const av = foto
+    ? `<img class="av" src="${esc(foto)}" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'av ini',textContent:'${ini}'}))">`
+    : `<span class="av ini">${ini}</span>`;
+  chip.className = "conta-chip logado";
+  chip.innerHTML = `${av}<span class="nm">${esc(primeiro)}</span><span class="cpts">⭐ ${saldoPts}</span>`;
+}
+function abrirConta(){
+  const sheet=document.getElementById("sheet");
+  if(!sessao){
+    sheet.innerHTML = `
+      <div class="sheet-head"><h2>Sua conta</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+      <div class="pts-box"><b>🎁 100 pontos</b><small>de boas-vindas ao criar sua conta (= R$ 5).<br>Depois, cada R$ 1 em sando vira 1 ponto — 100 pontos = R$ 5 de desconto.</small></div>
+      <div class="toggle" style="margin-top:18px">
+        <button class="${modoConta==="entrar"?"on":""}" onclick="setModoConta('entrar')">Entrar</button>
+        <button class="${modoConta==="criar"?"on":""}" onclick="setModoConta('criar')">Criar conta</button>
+      </div>
+      ${modoConta==="criar"?`<label>Seu nome</label><input type="text" id="ac-nome" placeholder="Como te chamamos?">`:""}
+      <label>E-mail</label><input type="email" id="ac-email" inputmode="email" autocomplete="email" placeholder="voce@email.com">
+      <label>Senha</label><input type="password" id="ac-senha" autocomplete="${modoConta==="criar"?"new-password":"current-password"}" placeholder="${modoConta==="criar"?"mínimo 6 caracteres":"sua senha"}">
+      ${modoConta==="criar"?`<label>Código de indicação <span style="opacity:.5;text-transform:none;letter-spacing:0">(opcional)</span></label><input type="text" id="ac-ref" placeholder="ganhe 50 pts de bônus" value="${esc(localStorage.getItem("rs_ref")||"")}" style="text-transform:uppercase">
+      <label class="check-pontos" style="margin-top:16px"><input type="checkbox" id="ac-promo"><span style="text-transform:none;letter-spacing:0;font-size:13.5px">Quero receber promoções e novidades do Rio Sandô no WhatsApp/e-mail</span></label>`:""}
+      <button class="pagar" onclick="contaSubmit(this)">${modoConta==="criar"?"Criar conta · ganhar 100 pts 🎁":"Entrar"}</button>
+      ${GOOGLE_ON?`<button class="pagar" style="background:var(--preto);margin-top:10px" onclick="loginGoogle()">Entrar com Google</button>`:""}
+      <div class="mp-note"><a onclick="esqueciSenha()" style="color:var(--verde);cursor:pointer">Esqueci minha senha</a></div>
+      <div class="mp-note" id="ac-erro" style="color:var(--vermelho)"></div>`;
+  }else{
+    const nome1 = (perfil?.nome||cliente.nome||"").split(" ")[0];
+    sheet.innerHTML = `
+      <div class="sheet-head"><div><h2 style="margin:0">${nome1?`Olá, ${nome1}`:"Sua conta"}</h2><div style="font-size:12.5px;opacity:.6;margin-top:2px">${esc(sessao?.user?.email||"")}</div></div><button class="fechar" onclick="fecharSheet()">✕</button></div>
+      <div class="pts-box"><b>⭐ ${saldoPts}</b><small>pontos ${saldoPts>=100?`= ${fmt(Math.floor(saldoPts/100)*5)} de desconto — usa na sacola!`:`· faltam ${100-saldoPts} pra ganhar R$ 5`}<br>cada R$ 1 em sando vira 1 ponto quando o pedido chega</small></div>
+      <label>Seu nome</label><input type="text" id="pf-nome" value="${(perfil?.nome||"").replace(/"/g,"&quot;")}">
+      <label>WhatsApp</label><input type="tel" id="pf-zap" value="${(perfil?.whatsapp||cliente.zap||"").replace(/"/g,"&quot;")}">
+      <label>CEP</label><input type="tel" id="pf-cep" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${(perfil?.cep||cliente.cep||"").replace(/"/g,"&quot;")}" oninput="onCep(this,'perfil')" autocomplete="postal-code">
+      <div id="pf-cep-msg" class="mp-note" style="text-align:left;margin:2px 0 0;min-height:0"></div>
+      <label>Endereço</label><input type="text" id="pf-endereco" placeholder="Rua e número" value="${(perfil?.endereco||cliente.endereco||"").replace(/"/g,"&quot;")}">
+      <label>Complemento</label><input type="text" id="pf-complemento" placeholder="Apto, bloco, casa" value="${(perfil?.complemento||cliente.complemento||"").replace(/"/g,"&quot;")}">
+      <label>Bairro</label>
+      <select id="pf-bairro"><option value="">Escolhe...</option>${Object.keys(FRETES).map(b=>`<option ${b===(perfil?.bairro||cliente.bairro)?"selected":""} value="${b}">${b}</option>`).join("")}</select>
+      <label class="check-pontos" style="margin-top:16px"><input type="checkbox" id="pf-promo" ${perfil?.aceita_promo?"checked":""}><span style="text-transform:none;letter-spacing:0;font-size:13.5px">Receber promoções e novidades no WhatsApp/e-mail</span></label>
+      <button class="pagar" onclick="salvarPerfil(this)">Salvar meus dados</button>
+      <div class="mp-note" id="pf-ok"></div>
+
+      ${meuCodigo?`<div class="convite">
+        <b class="titulo">🤝 Convide amigos</b>
+        <p>Cada amigo que pedir pela 1ª vez com seu código te dá <b>100 pontos (R$ 5)</b> — e ele já entra com <b>50 pontos</b> de bônus.${meusIndicados?` Você já indicou <b>${meusIndicados}</b> ${meusIndicados>1?"amigos":"amigo"}! 🎉`:""}</p>
+        <div class="codigo-box"><span id="meu-codigo">${esc(meuCodigo)}</span></div>
+        <button class="pagar" style="margin-top:10px" onclick="compartilharConvite(this)">📲 Compartilhar meu convite</button>
+        <div style="text-align:center;margin-top:10px"><a href="pontos.html" style="color:var(--creme);font-size:12.5px;opacity:.75">como funciona os pontos →</a></div>
+      </div>`:""}
+
+      <label style="margin-top:26px">Meus pedidos</label><div id="hist" class="mp-note" style="text-align:left">carregando...</div>
+      ${extrato.length?`<label style="margin-top:26px">Extrato de pontos</label>
+      ${extrato.slice(0,6).map(x=>`<div style="display:flex;justify-content:space-between;font-size:13.5px;padding:7px 2px;border-bottom:1px solid var(--linha)"><span style="opacity:.75">${x.motivo}</span><b style="color:${x.delta>0?"var(--verde)":"var(--vermelho)"}">${x.delta>0?"+":""}${x.delta}</b></div>`).join("")}`:""}
+      <div class="mp-note" style="margin-top:20px"><a onclick="sairConta()" style="cursor:pointer;text-decoration:underline">Sair da conta</a></div>`;
+    carregarHistorico();
+  }
+  sheet.classList.add("on");
+  document.getElementById("overlay").classList.add("on");
+}
+function setModoConta(m){
+  const v=id=>document.getElementById(id)?.value??"";
+  const email=v("ac-email"), senha=v("ac-senha");
+  modoConta=m; abrirConta();
+  if(email) document.getElementById("ac-email").value=email;
+  if(senha) document.getElementById("ac-senha").value=senha;
+}
+async function contaSubmit(btn){
+  const v=id=>(document.getElementById(id)?.value||"").trim();
+  const email=v("ac-email"), senha=v("ac-senha"), nome=v("ac-nome"), ref=v("ac-ref").toUpperCase();
+  const promo=document.getElementById("ac-promo")?.checked||false;
+  const erro=document.getElementById("ac-erro");
+  if(!email||!senha){ erro.textContent="Preencha e-mail e senha. 🙏"; return; }
+  if(modoConta==="criar" && senha.length<6){ erro.textContent="A senha precisa de pelo menos 6 caracteres."; return; }
+  btn.disabled=true; btn.textContent="Um segundo...";
+  const r = modoConta==="criar"
+    ? await sb.auth.signUp({email, password:senha, options:{data:{nome, aceita_promo:promo, ...(ref?{ref}:{})}}})
+    : await sb.auth.signInWithPassword({email, password:senha});
+  if(!r.error && modoConta==="criar") localStorage.removeItem("rs_ref");
+  if(r.error){
+    btn.disabled=false; btn.textContent = modoConta==="criar"?"Criar conta · ganhar 100 pts 🎁":"Entrar";
+    erro.textContent = /already|registered/i.test(r.error.message) ? "Esse e-mail já tem conta — troca pra Entrar."
+      : /invalid/i.test(r.error.message) ? "E-mail ou senha não conferem. 🤔"
+      : "Não rolou: "+r.error.message;
+    return;
+  }
+  await carregarConta();
+  abrirConta();
+}
+async function loginGoogle(){
+  const erro=document.getElementById("ac-erro");
+  const r = await sb.auth.signInWithOAuth({provider:"google"});
+  if(r.error){ if(r.error.message&&erro) erro.textContent="Não rolou o Google: "+r.error.message; return; }
+  await carregarConta();
+  abrirConta();
+}
+async function esqueciSenha(){
+  const email=(document.getElementById("ac-email")?.value||"").trim();
+  const erro=document.getElementById("ac-erro");
+  if(!email){ erro.textContent="Escreve seu e-mail aí em cima que a gente manda o link. ☝️"; return; }
+  erro.style.color="var(--verde)"; erro.textContent="Enviando...";
+  const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo:"https://coletivo.app/riosando/"});
+  if(error){
+    erro.style.color="var(--vermelho)";
+    erro.textContent = /rate|seconds/i.test(error.message) ? "Calma, já enviamos — espera 1 minuto e olha o e-mail. 📬" : "Não conseguimos enviar agora — tenta de novo em instantes.";
+    return;
+  }
+  erro.textContent=`📬 Link enviado pra ${email} — abre o e-mail (olha o spam) e clica pra criar uma senha nova.`;
+}
+// cliente clicou no link do e-mail → tela de nova senha
+function abrirNovaSenha(){
+  const sheet=document.getElementById("sheet");
+  sheet.innerHTML = `
+    <div class="sheet-head"><h2>Nova senha</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <label>Escolhe a senha nova</label>
+    <input type="password" id="ns-1" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+    <label>Repete ela</label>
+    <input type="password" id="ns-2" autocomplete="new-password">
+    <button class="pagar" onclick="salvarNovaSenha(this)">Salvar senha nova</button>
+    <div class="mp-note" id="ns-erro" style="color:var(--vermelho)"></div>`;
+  sheet.classList.add("on");
+  document.getElementById("overlay").classList.add("on");
+}
+async function salvarNovaSenha(btn){
+  const s1=document.getElementById("ns-1").value, s2=document.getElementById("ns-2").value;
+  const erro=document.getElementById("ns-erro");
+  if(s1.length<6){ erro.textContent="Mínimo 6 caracteres. 🙏"; return; }
+  if(s1!==s2){ erro.textContent="As duas não bateram — confere?"; return; }
+  btn.disabled=true; btn.textContent="Salvando...";
+  const {error} = await sb.auth.updateUser({password:s1});
+  if(error){ btn.disabled=false; btn.textContent="Salvar senha nova"; erro.textContent="Não rolou: "+error.message; return; }
+  await carregarConta();
+  abrirConta();
+}
+async function salvarPerfil(btn){
+  const v=id=>(document.getElementById(id)?.value||"").trim();
+  const dados={id:sessao.user.id, nome:v("pf-nome"), whatsapp:v("pf-zap"), endereco:v("pf-endereco"), bairro:v("pf-bairro")||null, aceita_promo:document.getElementById("pf-promo")?.checked||false};
+  btn.disabled=true;
+  const {error} = await sb.from("clientes").upsert(dados);
+  btn.disabled=false;
+  document.getElementById("pf-ok").textContent = error ? "Não salvou — tenta de novo?" : "✓ Salvo! Seus pedidos já vêm preenchidos.";
+  if(!error){
+    perfil={...(perfil||{}), ...dados};
+    cliente={nome:dados.nome, zap:dados.whatsapp, endereco:dados.endereco, complemento:v("pf-complemento"), bairro:dados.bairro||"", cep:v("pf-cep")};
+    if(cliente.bairro && FRETES_EXISTE(cliente.bairro)) bairro=cliente.bairro;
+    localStorage.setItem("rs_cliente", JSON.stringify(cliente));
+    const n1=(dados.nome||"").split(" ")[0];
+    if(n1) document.querySelector(".sheet-head h2").textContent=`Olá, ${n1}`;
+  }
+}
+async function carregarHistorico(){
+  const {data} = await sb.from("pedidos").select("codigo,status,total,created_at")
+    .eq("user_id", sessao.user.id).order("created_at",{ascending:false}).limit(5);
+  const el=document.getElementById("hist");
+  if(!el) return;
+  if(!data?.length){ el.textContent="Nenhum pedido ainda — bora estrear? 🥪"; return; }
+  const ROTULO={novo:"recebido",em_preparo:"no fogo",pronto:"pronto",saiu:"a caminho",entregue:"entregue ✅",cancelado:"cancelado"};
+  el.innerHTML = data.map(p=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:7px 2px;border-bottom:1px solid var(--linha)">
+    <a href="?pedido=${p.codigo}" style="color:var(--verde)">#${p.codigo}</a>
+    <span style="opacity:.7">${new Date(p.created_at).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})} · ${ROTULO[p.status]||p.status}</span>
+    <b>${fmt(Number(p.total))}</b></div>`).join("");
+}
+async function sairConta(){
+  await sb.auth.signOut();
+  fecharSheet();
+}
+async function compartilharConvite(btn){
+  if(!meuCodigo) return;
+  const link = `https://coletivo.app/riosando/?ref=${meuCodigo}`;
+  const msg = `Pede um katsu sando do Rio Sandô com meu código ${meuCodigo} e ganha 50 pontos (R$ 2,50) de bônus 🥪⛩️\n${link}`;
+  try{
+    if(navigator.share){ await navigator.share({title:"Rio Sandô", text:msg, url:link}); return; }
+  }catch(e){ if(e.name==="AbortError") return; }
+  try{ await navigator.clipboard.writeText(msg); btn.textContent="✓ Convite copiado — cola no WhatsApp"; }
+  catch(e){ window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,"_blank"); }
+}
+sb.auth.onAuthStateChange((ev)=>{
+  if(ev==="PASSWORD_RECOVERY"){ carregarConta().then(abrirNovaSenha); return; }
+  if(ev==="SIGNED_IN"||ev==="SIGNED_OUT"||ev==="INITIAL_SESSION") carregarConta();
+});
+function fecharTudo(){ cart={}; localStorage.removeItem("rs_cart"); render(); fecharSheet(); }
+
+// ── pagamento embutido (Mercado Pago Payment Brick) ──
+let brickAtivo = null;
+async function abrirPagamento(pedido, valor){
+  const sheet=document.getElementById("sheet");
+  sheet.innerHTML = `
+    <div class="sheet-head"><h2>Pagamento · ${fmt(valor)}</h2><button class="fechar" onclick="abrirSacola()">←</button></div>
+    <div id="pay-erro"></div>
+    <div id="pay-brick"><div class="vazio">carregando pagamento seguro...</div></div>
+    <div class="mp-note">Pagamento processado pelo Mercado Pago 🔒</div>`;
+  const mp = new MercadoPago(MP_PUBLIC_KEY, {locale:"pt-BR"});
+  if(brickAtivo){ try{ brickAtivo.unmount(); }catch(e){} }
+  brickAtivo = await mp.bricks().create("payment","pay-brick",{
+    initialization:{ amount: valor },
+    customization:{
+      paymentMethods:{ pix:"all", creditCard:"all", debitCard:"all" },
+      visual:{ style:{ theme:"default", customVariables:{
+        baseColor:"#C0392B", borderRadiusMedium:"12px",
+      }}},
+    },
+    callbacks:{
+      onReady: ()=>{ document.querySelector("#pay-brick .vazio")?.remove(); },
+      onError: (e)=>{ console.error(e); },
+      onSubmit: async ({formData})=>{
+        limparPagamentoErro();
+        const user_token = (await sb.auth.getSession()).data.session?.access_token ?? null;
+        const r = await fetch(`${RIO_API}/mp-processar-pagamento`,{
+          method:"POST", headers:{"Content-Type":"application/json", ...(user_token?{Authorization:`Bearer ${user_token}`}:{})},
+          body:JSON.stringify({pedido, formData})});
+        const d = await r.json();
+        // erro do servidor (não conseguiu nem criar o pagamento) — NÃO limpa a sacola
+        if(!r.ok){ mostrarPagamentoErro(traduzErroMP(d.detalhe||d.erro)); throw new Error(d.erro||"falhou"); }
+        // cartão RECUSADO — mantém a sacola pra tentar de novo, mostra erro claro
+        if(d.status==="rejected" || d.status==="cancelled"){ mostrarPagamentoErro(traduzErroMP(d.status_detail)); throw new Error("recusado"); }
+        // daqui pra baixo = pedido colocado (aprovado ou Pix pendente): aí sim limpa
+        cart={}; localStorage.removeItem("rs_cart"); localStorage.removeItem("rs_cupom_url"); usarPontos=false; cupom=""; cupomInfo=null; render();
+        if(sessao) carregarConta();
+        localStorage.setItem("rs_ultimo", JSON.stringify({codigo:pedido.codigo, quando:Date.now()}));
+        if(d.status==="approved"){ location.href=`?pedido=${pedido.codigo}`; }
+        else if(d.pix){ mostrarPix(pedido.codigo, d.pix, valor); }
+        else { location.href=`?pedido=${pedido.codigo}`; }
+      },
+    },
+  });
+}
+// traduz o código de recusa do Mercado Pago pra algo que o cliente entende
+function traduzErroMP(codigo){
+  const m = {
+    cc_rejected_bad_filled_security_code: "o código de segurança (CVV) do cartão está errado.",
+    cc_rejected_bad_filled_date: "a data de validade do cartão está errada.",
+    cc_rejected_bad_filled_card_number: "o número do cartão está errado.",
+    cc_rejected_bad_filled_other: "algum dado do cartão está errado — confere e tenta de novo.",
+    cc_rejected_insufficient_amount: "saldo ou limite insuficiente nesse cartão.",
+    cc_rejected_call_for_authorize: "seu banco pediu pra autorizar esta compra — ligue no banco e tente de novo, ou use Pix.",
+    cc_rejected_card_disabled: "esse cartão está desabilitado — fale com o banco ou use outro.",
+    cc_rejected_high_risk: "o pagamento foi recusado por segurança — tente outro cartão ou pague com Pix.",
+    cc_rejected_max_attempts: "muitas tentativas nesse cartão — tente outro ou pague com Pix.",
+    cc_rejected_duplicated_payment: "esse pagamento parece duplicado — confere se já não pagou.",
+    cc_rejected_card_type_not_allowed: "esse tipo de cartão não é aceito — tente outro ou Pix.",
+    cc_rejected_blacklist: "o pagamento foi recusado — tente outro cartão ou Pix.",
+  };
+  return m[codigo] || "o cartão foi recusado. Confere os dados e tenta de novo, ou pague com Pix. 🙏";
+}
+function limparPagamentoErro(){ const el=document.getElementById("pay-erro"); if(el) el.innerHTML=""; }
+function mostrarPagamentoErro(msg){
+  const el=document.getElementById("pay-erro");
+  if(!el) return;
+  el.innerHTML = `<div style="background:rgba(192,57,43,.1);border:1px solid var(--vermelho);border-radius:12px;padding:14px 16px;margin-bottom:14px;color:var(--vermelho);font-size:14px;line-height:1.5">
+    <b>Cartão não aprovado</b> — nada foi cobrado.<br>${msg}<br>
+    <span style="opacity:.85">Você pode tentar outro cartão abaixo, ou trocar pra <b>Pix</b> na opção do formulário.</span></div>`;
+  el.scrollIntoView({behavior:"smooth",block:"center"});
+}
+function mostrarPix(codigo, pix, valor){
+  const sheet=document.getElementById("sheet");
+  sheet.innerHTML = `
+    <div class="sheet-head"><h2>Pix · ${fmt(valor)}</h2><button class="fechar" onclick="location.href='?pedido=${codigo}'">✕</button></div>
+    <div class="ok-box" style="padding-top:8px">
+      <img src="data:image/png;base64,${pix.qr_code_base64}" alt="QR Pix" style="width:200px;height:200px;border-radius:12px;border:1px solid var(--linha)">
+      <p style="margin-top:10px">Escaneia o QR no app do banco,<br>ou copia o código:</p>
+      <textarea id="pix-copia" readonly rows="3" style="margin-top:10px;font-size:12px">${pix.qr_code}</textarea>
+      <button class="pagar" style="margin-top:10px" onclick="navigator.clipboard.writeText(document.getElementById('pix-copia').value).then(()=>{this.textContent='✓ Copiado — cola no app do banco'})">📋 Copiar código Pix</button>
+      <div class="mp-note" id="pix-aguardando">aguardando pagamento...</div>
+    </div>`;
+  (async function poll(){
+    try{
+      const r = await fetch(`${RIO_API}/pedido-status`,{method:"POST",
+        headers:{"Content-Type":"application/json"},body:JSON.stringify({codigo})});
+      const p = await r.json();
+      if(p.pagamento_status==="pago"){ location.href=`?pedido=${codigo}`; return; }
+    }catch(e){}
+    setTimeout(poll, 5000);
+  })();
+}
+render();
+aplicarCupomURL();
+
+// novidades do app (subir o id a cada atualização — quem já viu não vê de novo)
+const NOVIDADES = {id:2, itens:[
+  "⭐ <b>Chegou o programa de pontos!</b> Crie sua conta, ganhe 100 pontos de presente (= R$ 5) e troque pontos por desconto direto na sacola.",
+]};
+function fecharNews(){
+  localStorage.setItem("rs_news_visto", NOVIDADES.id);
+  document.getElementById("news").style.display="none";
+}
+(function(){
+  if(Number(localStorage.getItem("rs_news_visto")||0) >= NOVIDADES.id) return;
+  if(new URLSearchParams(location.search).has("pedido")) return;
+  const el=document.getElementById("news");
+  el.style.display="block";
+  el.innerHTML=`<b class="titulo">🆕 Novidades no app</b><button class="fechar" onclick="fecharNews()">✕</button>`
+    + NOVIDADES.itens.map(i=>`<div style="margin-top:7px">${i}</div>`).join("");
+})();
+
+// header: status aberto/fechado + atalho pro último pedido
+(function(){
+  if(!lojaAberta()){
+    document.getElementById("status-dot").classList.add("off");
+    const b=document.getElementById("fechado-banner");
+    b.style.display="block";
+    b.innerHTML=`🕐 Fechados agora — mas pode pedir: entra <b>agendado pra ${rotuloAbertura()}</b>.`;
+  }
+  const u=JSON.parse(localStorage.getItem("rs_ultimo")||"null");
+  if(u && Date.now()-u.quando < 24*3600*1000 && !new URLSearchParams(location.search).has("pedido")){
+    const el=document.getElementById("ultimo-pedido");
+    el.style.display="inline-block";
+    el.textContent=`🛵 acompanhar meu pedido #${u.codigo}`;
+    el.onclick=()=>location.href=`?pedido=${u.codigo}`;
+  }
+})();
+
+// página de status do pedido (?pedido=CODIGO) — atualiza sozinha a cada 15s
+(function(){
+  const q = new URLSearchParams(location.search);
+  const codigo = q.get("pedido");
+  if(!codigo) return;
+  const ETAPAS = [
+    ["novo","Pedido recebido","A cozinha já sabe de você"],
+    ["em_preparo","No fogo 🔪","Seu sando está sendo montado"],
+    ["pronto","Prontinho 📦","Embalado, esperando o entregador"],
+    ["saiu","Saiu pra entrega 🛵","O sando está a caminho"],
+    ["entregue","Entregue ✅","Bom apetite! Arigatô 🙏"],
+  ];
+  async function atualizar(){
+    try{
+      const r = await fetch(`${RIO_API}/pedido-status`,{
+        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codigo})});
+      const p = await r.json();
+      const sheet=document.getElementById("sheet");
+      if(!r.ok){ sheet.innerHTML=`<div class="sheet-head"><h2>Pedido #${codigo}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div><div class="vazio">Não achamos esse pedido. 🤔</div>`; return; }
+      const etapas = p.modo==="retirada" ? ETAPAS.filter(e=>e[0]!=="saiu").map(e=>e[0]==="pronto"?["pronto","Prontinho 📦","Pode vir buscar em Botafogo!"]:e) : ETAPAS;
+      const idx = Math.max(0, etapas.findIndex(e=>e[0]===p.status));
+      const cancelado = p.status==="cancelado";
+      sheet.innerHTML = `
+        <div class="sheet-head"><h2>Pedido #${p.codigo}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div>
+        ${cancelado?`<div class="vazio">Esse pedido foi cancelado. <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">Chama a gente no WhatsApp</a> se precisar. 🙏</div>`:`
+        ${p.pagamento_status==="pendente"?`<div class="mp-note" style="color:var(--vermelho)">aguardando confirmação do pagamento...</div>`:""}
+        <div style="padding:8px 2px">
+        ${etapas.map((e,i)=>`
+          <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;opacity:${i<=idx?1:.35}">
+            <span style="font-size:18px">${i<idx?"✅":i===idx?"🔴":"⚪️"}</span>
+            <div><b style="font-size:15px">${e[1]}</b><br><small style="opacity:.6">${e[2]}</small></div>
+          </div>`).join("")}
+        </div>
+        ${p.entrega_tracking_url && /^https:\/\//.test(p.entrega_tracking_url)?`<button class="pagar" onclick="window.open('${esc(p.entrega_tracking_url)}','_blank')">Ver o entregador no mapa 🗺️</button>`:""}
+        <div class="mp-note">atualiza sozinho · ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</div>`}`;
+      sheet.classList.add("on");
+      document.getElementById("overlay").classList.add("on");
+      if(!cancelado && p.status!=="entregue") setTimeout(atualizar, 15000);
+    }catch(e){ setTimeout(atualizar, 20000); }
+  }
+  atualizar();
+})();
+
+// retorno do Checkout Pro (?pago=1|0|pendente&codigo=XXXX)
+(function(){
+  const q = new URLSearchParams(location.search);
+  if(!q.has("pago")) return;
+  const codigo = q.get("codigo")||"", ok = q.get("pago");
+  history.replaceState(null,"",location.pathname);
+  const sheet=document.getElementById("sheet");
+  sheet.innerHTML = ok==="1" ? `
+    <div class="sheet-head"><h2>Pagamento confirmado</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div class="ok-box"><span class="osym"></span>
+      <h3>Arigatô! 🙏</h3>
+      <p>Pedido <strong>#${codigo}</strong> pago e já na fila da cozinha.</p>
+      <button class="pagar" style="margin-top:18px" onclick="location.href='?pedido=${codigo}'">Acompanhar meu pedido 🛵</button></div>`
+  : ok==="pendente" ? `
+    <div class="sheet-head"><h2>Quase lá</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div class="ok-box"><span class="osym"></span>
+      <h3>Pagamento em processamento</h3>
+      <p>Assim que o Mercado Pago confirmar, o pedido <strong>#${codigo}</strong> entra na fila da cozinha.</p></div>`
+  : `
+    <div class="sheet-head"><h2>Não rolou 😕</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div class="ok-box"><span class="osym"></span>
+      <h3>Pagamento não aprovado</h3>
+      <p>Nenhum valor foi cobrado. Tenta de novo, ou escolhe pagar na entrega.</p></div>`;
+  sheet.classList.add("on");
+  document.getElementById("overlay").classList.add("on");
+})();
+</script>
+</body>
+</html>

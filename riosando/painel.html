@@ -342,8 +342,8 @@ async function chamarEnvio(provedor, quoteId, btn){
 }
 // ── Pedido manual (equipe monta + gera Pix pro WhatsApp) ──
 let mProdutos=[], mFretes={}, mCart={}, mModo="retirada", mResultado=null;
-let mF={nome:"",zap:"",end:"",obs:"",bairro:""};
-function abrirPedidoManual(){ view="manual"; mCart={}; mResultado=null; mModo="retirada"; mF={nome:"",zap:"",end:"",obs:"",bairro:""}; render(); carregarCatalogoManual(); }
+let mF={nome:"",zap:"",end:"",comp:"",obs:"",bairro:""};
+function abrirPedidoManual(){ view="manual"; mCart={}; mResultado=null; mModo="retirada"; mF={nome:"",zap:"",end:"",comp:"",obs:"",bairro:""}; render(); carregarCatalogoManual(); }
 async function carregarCatalogoManual(){
   const [rp,rf]=await Promise.all([api("produtos?ativo=eq.true&select=id,nome,preco&order=nome"), api("fretes?select=bairro,valor&order=bairro")]);
   if(rp&&rp.ok) mProdutos=await rp.json();
@@ -379,7 +379,7 @@ function renderManual(){
         <button type="button" class="off" style="flex:1${mModo==="entrega"?";background:var(--vermelho);color:#fff":""}" onclick="mSetModo('entrega')">🛵 Entrega</button>
       </div>
       ${mModo==="entrega"?`<label>Bairro</label><select id="m-bairro" onchange="mF.bairro=this.value;renderManual()"><option value="">Escolhe...</option>${Object.keys(mFretes).map(b=>`<option ${b===mF.bairro?"selected":""} value="${b}">${b} · ${fmt(mFretes[b])}</option>`).join("")}</select>
-        <label>Endereço</label><input id="m-end" value="${esc(mF.end)}" oninput="mF.end=this.value" placeholder="Rua, número, complemento">`:""}
+        <label>Endereço</label><input id="m-end" value="${esc(mF.end)}" oninput="mF.end=this.value" placeholder="Rua e número"><label>Complemento</label><input id="m-comp" value="${esc(mF.comp)}" oninput="mF.comp=this.value" placeholder="Apto, bloco, casa">`:""}
       <label>Observações (opcional)</label><input id="m-obs" value="${esc(mF.obs)}" oninput="mF.obs=this.value" placeholder="Ex: sem cebola; deixar na portaria">
       <div class="mp-note" id="m-erro" style="color:var(--vermelho);font-size:12px;min-height:14px;margin-top:8px"></div>
       <button onclick="gerarPixManual(this)" ${Object.keys(mCart).length?"":"disabled style='opacity:.5'"}>Gerar Pix · ${fmt(total)}</button>
@@ -395,7 +395,7 @@ async function gerarPixManual(btn){
     if(Date.now()>sess.exp && !(await renovar())) return;
     const r=await fetch(`${RIO_API}/pedido-manual`,{method:"POST",
       headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},
-      body:JSON.stringify({itens, nome:mF.nome.trim(), whatsapp:mF.zap.trim(), modo:mModo, endereco:mF.end.trim(), bairro:mF.bairro, obs:mF.obs.trim()})});
+      body:JSON.stringify({itens, nome:mF.nome.trim(), whatsapp:mF.zap.trim(), modo:mModo, endereco:mF.end.trim()+((mF.comp||"").trim()?", "+mF.comp.trim():""), bairro:mF.bairro, obs:mF.obs.trim()})});
     const d=await r.json();
     if(!r.ok||!d.pix){ btn.disabled=false; btn.textContent="Gerar Pix"; erro.textContent=(d.erro||"não deu")+(d.detalhe?": "+d.detalhe:""); return; }
     mResultado=d; renderManualPix();
