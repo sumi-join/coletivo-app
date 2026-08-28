@@ -397,6 +397,7 @@ async function _googleLogin(){
 }
 const GOOGLE_ON = true; // login com Google ligado (Identity Platform + popup Firebase)
 let sessao = null, perfil = null, extrato = [], saldoPts = 0, usarPontos = false, modoConta = "entrar";
+let jaComprou = null, estreiaRemovida = false;   // auto-aplicar ESTREIA10 no 1º pedido de quem tem conta
 let meuCodigo = null, meusIndicados = 0; // programa de indicação
 let cupom = "", cupomInfo = null; // cupom de afiliado no checkout
 // captura links de afiliado: ?ref (indicação p/ cadastro) e ?cupom (lojinha, desconto já aplicado)
@@ -634,6 +635,7 @@ function abrirSacola(){
   sheet.classList.add("on");
   document.getElementById("overlay").classList.add("on");
   if(entrega==="entrega" && bairro && freteCotado==null) setTimeout(cotarFrete, 60); // já cota se voltou com endereço salvo
+  if(sessao && jaComprou===false && !cupom && !cupomInfo && !usarPontos && !estreiaRemovida) setTimeout(autoAplicarEstreia, 80); // 10% de estreia sem digitar cupom
 }
 // re-render da sacola preservando o que o cliente já digitou
 function lerForm(){
@@ -663,6 +665,16 @@ const descontoAtual = () => usarPontos && !cupomInfo ? maxDesconto() : 0;
 const descontoCupomAtual = () => { if(!cupomInfo) return 0;
   if(cupomInfo.valor!=null) return Math.min(cupomInfo.valor, totais().t);
   return Math.round(totais().t * (cupomInfo.pct||0))/100; };
+// auto-aplica o ESTREIA10 (10% de estreia) pra quem tem conta e está no 1º pedido — sem digitar cupom
+async function autoAplicarEstreia(){
+  if(!sessao || jaComprou!==false || cupom || cupomInfo || usarPontos || estreiaRemovida) return;
+  const {t}=totais(); if(t<25) return;   // abaixo do mínimo do cupom
+  try{
+    const r = await fetch(`${RIO_API}/validar-cupom`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cupom:"ESTREIA10",subtotal:t})});
+    const d = await r.json();
+    if(d.ok){ cupom="ESTREIA10"; cupomInfo={pct:d.desconto_pct, valor:(d.promo&&!d.desconto_pct)?d.desconto:null, nome:d.nome, primeiro:!!d.primeiro_pedido, auto:true}; usarPontos=false; reabrirSacola(); }
+  }catch(e){}
+}
 async function aplicarCupom(){
   const el = document.getElementById("cupom-input");
   const cod = (el?.value||"").trim().toUpperCase();
@@ -680,7 +692,7 @@ async function aplicarCupom(){
       const m=document.getElementById("cupom-msg"); if(m){ m.className="cupom-erro"; m.textContent=d.motivo||"cupom inválido"; } }
   }catch(e){ const m=document.getElementById("cupom-msg"); if(m){ m.className="cupom-erro"; m.textContent="não deu pra conferir agora"; } }
 }
-function removerCupom(){ cupom=""; cupomInfo=null; localStorage.removeItem("rs_cupom_url"); document.getElementById("lojinha").style.display="none"; reabrirSacola(); }
+function removerCupom(){ if(cupomInfo?.auto) estreiaRemovida=true; cupom=""; cupomInfo=null; localStorage.removeItem("rs_cupom_url"); document.getElementById("lojinha").style.display="none"; reabrirSacola(); }
 // lojinha do afiliado: chegou por link (?cupom= ou /handle reescrito) → desconto já entra + banner pessoal
 async function aplicarCupomURL(){
   const cod = (localStorage.getItem("rs_cupom_url")||"").trim().toUpperCase();
@@ -783,11 +795,13 @@ async function carregarConta(){
   sessao = session;
   if(!sessao){ perfil=null; extrato=[]; saldoPts=0; usarPontos=false; syncConta(); return; }
   const uid = sessao.user.id;
-  const [{data:p},{data:e},{data:af}] = await Promise.all([
+  const [{data:p},{data:e},{data:af},{data:pgs}] = await Promise.all([
     sb.from("clientes").select("*").eq("id",uid).maybeSingle(),
     sb.from("pontos").select("delta,motivo,created_at").eq("cliente_id",uid).order("created_at",{ascending:false}),
     sb.from("afiliados").select("codigo").eq("cliente_id",uid).eq("tipo","cliente").maybeSingle(),
+    sb.from("pedidos").select("id").eq("user_id",uid).eq("pagamento_status","pago").limit(1),
   ]);
+  jaComprou = (pgs?.length||0) > 0;   // já tem pedido pago? então não é 1º pedido
   perfil = p||null; extrato = e||[];
   saldoPts = extrato.reduce((s,x)=>s+x.delta,0);
   meuCodigo = af?.codigo || null;
