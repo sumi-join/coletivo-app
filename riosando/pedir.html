@@ -279,6 +279,8 @@ const BYID = {}; MENU.forEach(c=>c.itens.forEach(i=>BYID[i.id]=i));
 function lsJSON(k, fb){ try { return JSON.parse(localStorage.getItem(k) ?? JSON.stringify(fb)) ?? fb; } catch(e){ try{ localStorage.removeItem(k); }catch(_){} return fb; } }
 let cart = lsJSON("rs_cart", {});
 if(typeof cart!=="object"||Array.isArray(cart)||!cart) cart={};
+// item que saiu do cardápio não pode derrubar a sacola de quem tem carrinho salvo
+for(const id of Object.keys(cart)){ if(!BYID[id] || !(Number(cart[id])>0)) delete cart[id]; }
 let entrega = "entrega";
 let pgto = "pix";
 let quando = "asap";   // "asap" (assim que possível) | "agendar"
