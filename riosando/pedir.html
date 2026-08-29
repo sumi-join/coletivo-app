@@ -226,10 +226,10 @@ const MENU = [
   {cat:"Sobremesa", itens:[
     {id:"matchado", nome:"Pão Perdido e Matchado", preco:39, img:"8_matchado", desc:"Nosso shokupan dourado na manteiga com creme de matchá."}
   ]},
-  {cat:"Conservas", nota:"preço por quilo · quer meio quilo? escreva na observação do pedido", itens:[
-    {id:"slaw", nome:"Asian Slaw da Batian", preco:45, desc:"por quilo"},
-    {id:"rabanete", nome:"Conservinha de Rabanete", preco:65, desc:"por quilo"},
-    {id:"picles", nome:"Picles de Pepino Japonês", preco:59, desc:"por quilo"}
+  {cat:"Conservas", nota:"potinho de 30g", itens:[
+    {id:"slaw", nome:"Asian Slaw da Batian", preco:6.9, desc:"30g"},
+    {id:"rabanete", nome:"Conservinha de Rabanete", preco:6.9, desc:"30g"},
+    {id:"picles", nome:"Picles de Pepino Japonês", preco:6.9, desc:"30g"}
   ]},
   {cat:"Molhos", nota:"potinho de 30g", itens:[
     {id:"m1", nome:"Teriyaki da Casa", preco:6.9, desc:"30g"},
@@ -240,11 +240,13 @@ const MENU = [
     {id:"m6", nome:"Aioli de Wasabi", preco:6.9, desc:"30g"}
   ]},
   {cat:"Bebidas", itens:[
-    {id:"coca", nome:"Coca-Cola / Zero", preco:9, desc:"lata"},
-    {id:"guarana", nome:"Guaraná / Zero", preco:9, desc:"lata"},
-    {id:"matte", nome:"Matte Leão (natural / limão)", preco:9, desc:""},
-    {id:"agua", nome:"Água mineral (c/ ou s/ gás)", preco:7, desc:""},
-    {id:"corona", nome:"Cerveja Corona long neck", preco:12, desc:""}
+    {id:"coca", nome:"Coca-Cola", preco:9, desc:"lata"},
+    {id:"coca_zero", nome:"Coca-Cola Zero", preco:9, desc:"lata"},
+    {id:"guarana", nome:"Guaraná", preco:9, desc:"lata"},
+    {id:"guarana_zero", nome:"Guaraná Zero", preco:9, desc:"lata"},
+    {id:"agua", nome:"Água mineral sem gás", preco:7, desc:""},
+    {id:"agua_gas", nome:"Água mineral com gás", preco:7, desc:""},
+    {id:"corona", nome:"Cerveja Corona long neck", preco:16, desc:""}
   ]},
   {cat:"Da Padaria", itens:[
     {id:"shokupan", nome:"Nosso Shokupan", preco:48, desc:"pão de leite da casa · aprox. 500g"}
@@ -681,7 +683,7 @@ function abrirSacola(){
     <label>WhatsApp</label>
     <input type="tel" id="zap" placeholder="(21) 9 9999-9999" value="${(cliente.zap||"").replace(/"/g,"&quot;")}" oninput="maskTel(this)">
     <label>Observações</label>
-    <textarea id="obs" rows="2" placeholder="Sem repolho? Meio quilo de conserva? Conta aqui."></textarea>
+    <textarea id="obs" rows="2" placeholder="Sem repolho? Molho à parte? Conta aqui."></textarea>
 
     <label>Pagamento</label>
     ${entrega==="entrega"?`
