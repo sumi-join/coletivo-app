@@ -720,7 +720,7 @@ function card(p){
     ${chamarEntrega?`<span class="badge-entrega pulsa">🛵 CHAMAR ENTREGA</span>`:""}
     ${p.agendado_para && new Date(p.agendado_para).getTime()>Date.now() ? `<span class="badge" style="background:var(--verde);right:auto;left:12px">⏰ AGENDADO ${new Date(p.agendado_para).toLocaleString("pt-BR",{weekday:"short",hour:"2-digit",minute:"2-digit"})}</span>`:""}
     <div class="ped-head"><span class="codigo">#${esc(p.codigo)}</span>
-      <span class="hora">${new Date(p.created_at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</span></div>
+      <span class="hora">${(d=>{const h=d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});return d.toDateString()===new Date().toDateString()?h:`<b style="color:var(--vermelho)">⚠️ ${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</b> ${h}`;})(new Date(p.created_at))}</span></div>
     <div class="cliente">${esc(p.nome)} · <a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank">${esc(p.whatsapp)}</a><br>
       ${p.modo==="entrega"?"🛵 "+esc(p.endereco||""):"🏠 Retirada"} · ${p.pagamento_status==="pago"?"✅ PAGO online":"pgto na entrega: "+esc(p.pagamento)}</div>
     <div class="itens">${p.itens.map(i=>`<b>${Number(i.qtd)||"?"}×</b> ${esc(i.item)}`).join("<br>")}</div>
@@ -778,11 +778,11 @@ async function api(path, opts={}){
 async function carregar(){
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const amanha = new Date(hoje.getTime()+864e5);
-  const H = hoje.toISOString();
-  const r = await api(`pedidos?status=not.in.(entregue,cancelado)&pagamento_status=not.in.(pendente,falhou,estornado)&or=(created_at.gte.${H},agendado_para.gte.${H})&order=created_at.asc`);
+  // TODO pedido ativo (pago e não finalizado) aparece, não importa a idade — pedido antigo esquecido não pode sumir (caso Sophia 26/08)
+  const r = await api(`pedidos?status=not.in.(entregue,cancelado)&pagamento_status=not.in.(pendente,falhou,estornado)&order=created_at.asc`);
   if(!r || !r.ok) return;
   const todos = await r.json();
-  // board de hoje = não-agendados de hoje + agendados cujo horário é hoje (ou já passou). Agendados pra outro dia ficam na aba ⏰ Agendados.
+  // board = tudo ativo, menos agendados de dias FUTUROS (esses ficam na aba ⏰ Agendados até o dia)
   const dados = todos.filter(p=>!p.agendado_para || new Date(p.agendado_para).getTime() < amanha.getTime());
   const novos = dados.filter(p=>p.status==="novo" && !vistos.has(p.id));
   if(novos.length && pedidos.length !== undefined && document.hasFocus()!==null){
