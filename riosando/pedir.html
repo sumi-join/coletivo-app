@@ -424,6 +424,15 @@ function proximaAbertura(){
 }
 const DIAS=["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
 const esc = s => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function fmtTelBR(v){
+  const d=String(v||"").replace(/\D/g,"").slice(0,11); if(!d) return "";
+  const ddd=d.slice(0,2); if(d.length<=2) return "("+ddd;
+  const r=d.slice(2);
+  if(d.length<=6) return `(${ddd}) ${r}`;
+  if(d.length<=10) return `(${ddd}) ${r.slice(0,r.length-4)}-${r.slice(-4)}`;
+  return `(${ddd}) ${r.slice(0,1)} ${r.slice(1,5)}-${r.slice(5)}`;
+}
+function maskTel(el){ el.value=fmtTelBR(el.value); }
 function rotuloAbertura(){
   const p=proximaAbertura(), hoje=new Date();
   const nome = p.toDateString()===hoje.toDateString() ? "hoje" :
@@ -655,7 +664,7 @@ function abrirSacola(){
     <label>Seu nome</label>
     <input type="text" id="nome" placeholder="Como te chamamos?" value="${(cliente.nome||"").replace(/"/g,"&quot;")}">
     <label>WhatsApp</label>
-    <input type="tel" id="zap" placeholder="(21) 9 9999-9999" value="${(cliente.zap||"").replace(/"/g,"&quot;")}">
+    <input type="tel" id="zap" placeholder="(21) 9 9999-9999" value="${(cliente.zap||"").replace(/"/g,"&quot;")}" oninput="maskTel(this)">
     <label>Observações</label>
     <textarea id="obs" rows="2" placeholder="Sem repolho? Meio quilo de conserva? Conta aqui."></textarea>
 

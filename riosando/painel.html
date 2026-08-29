@@ -108,6 +108,16 @@ const $ = id => document.getElementById(id);
 // todo dado digitado pelo cliente passa por aqui antes de virar HTML (anti-XSS)
 const esc = s => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const urlSegura = u => typeof u==="string" && /^https:\/\/[\w.-]+\//.test(u) ? esc(u) : null;
+// máscara de telefone BR: (21) 9 6899-9763 (cel) / (21) 6899-9763 (fixo)
+function fmtTelBR(v){
+  const d=String(v||"").replace(/\D/g,"").slice(0,11); if(!d) return "";
+  const ddd=d.slice(0,2); if(d.length<=2) return "("+ddd;
+  const r=d.slice(2);
+  if(d.length<=6) return `(${ddd}) ${r}`;
+  if(d.length<=10) return `(${ddd}) ${r.slice(0,r.length-4)}-${r.slice(-4)}`;
+  return `(${ddd}) ${r.slice(0,1)} ${r.slice(1,5)}-${r.slice(5)}`;
+}
+function maskTel(el, store){ const p=el.selectionStart; el.value=fmtTelBR(el.value); if(store) store(el.value); }
 
 function render(){
   const app=$("app");
@@ -337,7 +347,7 @@ function renderEnvioAvulso(){
       <label>Complemento</label><input id="e-comp" value="${esc(eF.comp)}" oninput="eF.comp=this.value" placeholder="Apto, bloco, casa, referência">
       <label>Bairro / cidade</label><input id="e-bairro" value="${esc(eF.bairro)}" oninput="eF.bairro=this.value" placeholder="Bairro (preenche pelo CEP)">
       <label>Quem recebe</label><input id="e-nome" value="${esc(eF.nome)}" oninput="eF.nome=this.value" placeholder="Nome do destinatário">
-      <label>WhatsApp de quem recebe (opcional)</label><input id="e-zap" type="tel" value="${esc(eF.zap)}" oninput="eF.zap=this.value" placeholder="21 9 9999-9999">
+      <label>WhatsApp de quem recebe (opcional)</label><input id="e-zap" type="tel" value="${esc(eF.zap)}" oninput="maskTel(this, v=>eF.zap=v)" placeholder="(21) 9 9999-9999">
       <label>Observações (opcional)</label><input id="e-obs" value="${esc(eF.obs)}" oninput="eF.obs=this.value" placeholder="Ex: entregar na portaria, apto 302">
       <div class="mp-note" id="e-erro" style="color:var(--vermelho);font-size:12px;min-height:14px;margin-top:8px"></div>
       <button class="enviar-btn" onclick="cotarEnvio(this)">🔎 Cotar entregadores</button>
@@ -414,7 +424,7 @@ function renderManual(){
       </div>
       <div style="text-align:right;font-size:15px;margin-bottom:4px">${Object.keys(mCart).length?`Comida ${fmt(comida)}${frete?` + entrega ${fmt(frete)}`:""} = <b>${fmt(total)}</b>`:"<span style='opacity:.5'>escolhe os itens acima</span>"}</div>
       <label>Nome do cliente</label><input id="m-nome" value="${esc(mF.nome)}" oninput="mF.nome=this.value" placeholder="Nome">
-      <label>WhatsApp do cliente</label><input id="m-zap" type="tel" value="${esc(mF.zap)}" oninput="mF.zap=this.value" placeholder="21 9 9999-9999">
+      <label>WhatsApp do cliente</label><input id="m-zap" type="tel" value="${esc(mF.zap)}" oninput="maskTel(this, v=>mF.zap=v)" placeholder="(21) 9 9999-9999">
       <label>Entrega ou retirada</label>
       <div style="display:flex;gap:8px;margin-top:6px">
         <button type="button" class="off" style="flex:1${mModo==="retirada"?";background:var(--vermelho);color:#fff":""}" onclick="mSetModo('retirada')">🏠 Retirada</button>
