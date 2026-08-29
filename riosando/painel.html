@@ -255,7 +255,7 @@ function histCard(p){
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <h3>#${esc(p.codigo)}</h3><span style="font-size:12px;opacity:.6">${new Date(p.created_at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span></div>
     <div class="linha"><span>${esc(p.nome)} · ${p.modo==="entrega"?"🛵 "+esc(p.bairro||"entrega"):"🏠 retirada"}</span><b>${fmt(p.total)}</b></div>
-    <div class="linha" style="opacity:.9"><a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank" style="color:var(--verde)">📱 ${esc(p.whatsapp||"—")}</a>${p.modo==="entrega"&&p.endereco?` · 📍 ${esc(p.endereco)}`:""}</div>
+    <div class="linha" style="opacity:.9">${(p.whatsapp||"").replace(/\D/g,"").length>=10?`<a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank" style="color:var(--verde)">📱 ${esc(p.whatsapp)}</a>`:`📱 ${esc(p.whatsapp||"—")}`}${p.modo==="entrega"&&p.endereco?` · 📍 ${esc(p.endereco)}`:""}</div>
     <div class="linha" style="opacity:.8">${(p.itens||[]).map(i=>`${Number(i.qtd)||"?"}× ${esc(i.item)}`).join(", ")}</div>
     <div class="linha"><span style="opacity:.7">${ROTH[p.status]||esc(p.status)} · ${p.pagamento_status==="pago"?"pago online":"pgto "+esc(p.pagamento)}</span></div>
   </div>`;
@@ -299,7 +299,7 @@ function agendCard(p){
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <h3>⏰ ${horaLabel(p.agendado_para)} · #${esc(p.codigo)}</h3><b>${fmt(p.total)}</b></div>
     <div class="linha"><span>${esc(p.nome)} · ${p.modo==="entrega"?"🛵 entrega":"🏠 retirada"}</span></div>
-    <div class="linha" style="opacity:.9"><a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank" style="color:var(--verde)">📱 ${esc(p.whatsapp||"—")}</a>${p.modo==="entrega"&&p.endereco?` · 📍 ${esc(p.endereco)}`:""}</div>
+    <div class="linha" style="opacity:.9">${(p.whatsapp||"").replace(/\D/g,"").length>=10?`<a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank" style="color:var(--verde)">📱 ${esc(p.whatsapp)}</a>`:`📱 ${esc(p.whatsapp||"—")}`}${p.modo==="entrega"&&p.endereco?` · 📍 ${esc(p.endereco)}`:""}</div>
     <div class="linha" style="opacity:.8">${(p.itens||[]).map(i=>`${Number(i.qtd)||"?"}× ${esc(i.item)}`).join(", ")}</div>
     <div class="linha"><span style="opacity:.7">${p.pagamento_status==="pago"?"✅ pago online":"pgto "+esc(p.pagamento||"—")} · ${ROTH[p.status]||esc(p.status)}</span></div>
   </div>`;
@@ -726,7 +726,7 @@ function card(p){
     ${p.agendado_para && new Date(p.agendado_para).getTime()>Date.now() ? `<span class="badge" style="background:var(--verde);right:auto;left:12px">⏰ AGENDADO ${new Date(p.agendado_para).toLocaleString("pt-BR",{weekday:"short",hour:"2-digit",minute:"2-digit"})}</span>`:""}
     <div class="ped-head"><span class="codigo">#${esc(p.codigo)}</span>
       <span class="hora">${(d=>{const h=d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});return d.toDateString()===new Date().toDateString()?h:`<b style="color:var(--vermelho)">⚠️ ${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</b> ${h}`;})(new Date(p.created_at))}</span></div>
-    <div class="cliente">${esc(p.nome)} · <a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank">${esc(p.whatsapp)}</a><br>
+    <div class="cliente">${esc(p.nome)} · ${(p.whatsapp||"").replace(/\D/g,"").length>=10?`<a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank">${esc(p.whatsapp)}</a>`:esc(p.whatsapp||"—")}<br>
       ${p.modo==="entrega"?"🛵 "+esc(p.endereco||""):"🏠 Retirada"} · ${p.pagamento_status==="pago"?"✅ PAGO online":"pgto na entrega: "+esc(p.pagamento)}</div>
     <div class="itens">${p.itens.map(i=>`<b>${Number(i.qtd)||"?"}×</b> ${esc(i.item)}`).join("<br>")}</div>
     ${p.obs?`<div class="meta">📝 ${esc(p.obs)}</div>`:""}
