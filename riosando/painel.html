@@ -135,6 +135,7 @@ function render(){
   if(view==="envio"){ renderEnvioAvulso(); return; }
   if(view==="cupons"){ renderCupons(); return; }
   if(view==="agendados"){ renderAgendados(); return; }
+  if(view==="lanc"){ renderLanc(); return; }
   app.innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
@@ -144,6 +145,7 @@ function render(){
         <button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button>
         <button class="topbtn" onclick="abrirCupons()">🎟️ Cupons</button>
         <button class="topbtn" onclick="abrirAgendados()">⏰ Agendados</button>
+        <button class="topbtn" onclick="abrirLancamentos()">🧾 Lançamentos</button>
         <button class="sair" onclick="sair()">Sair</button></div>
     </header>
     <div class="cols">${COLS.map(([st,titulo])=>{
@@ -394,8 +396,28 @@ async function chamarEnvio(provedor, quoteId, btn){
 }
 // ── Pedido manual (equipe monta + gera Pix pro WhatsApp) ──
 let mProdutos=[], mFretes={}, mCart={}, mModo="retirada", mResultado=null;
-let mF={nome:"",zap:"",end:"",comp:"",obs:"",bairro:""};
-function abrirPedidoManual(){ view="manual"; mCart={}; mResultado=null; mModo="retirada"; mF={nome:"",zap:"",end:"",comp:"",obs:"",bairro:""}; render(); carregarCatalogoManual(); }
+let mF={nome:"",zap:"",end:"",comp:"",obs:"",bairro:"",motivo:"",influ:"",slot:""};
+let mTipo="pago"; // pago | cortesia | influencer
+function abrirPedidoManual(){ view="manual"; mCart={}; mResultado=null; mModo="retirada"; mTipo="pago"; mF={nome:"",zap:"",end:"",comp:"",obs:"",bairro:"",motivo:"",influ:"",slot:""}; render(); carregarCatalogoManual(); }
+function mSetTipo(v){ mTipo=v; renderManual(); }
+// slots de agendamento pra equipe: ter–sáb 17:00–21:30, 30min, próx 7 dias
+function mSlots(){
+  const now=new Date(), out=[];
+  for(let i=0;i<=7;i++){
+    const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+i), dia=d.getDay();
+    if(dia<2||dia>6) continue;
+    for(let m=17*60;m<=21*60+30;m+=30){
+      const s=new Date(d.getFullYear(),d.getMonth(),d.getDate(),Math.floor(m/60),m%60,0);
+      if(s.getTime()>now.getTime()) out.push(s);
+    }
+  }
+  return out;
+}
+const mSlotLabel = s => {
+  const hoje=new Date(), am=new Date(hoje.getTime()+864e5);
+  const dia = s.toDateString()===hoje.toDateString()?"hoje":s.toDateString()===am.toDateString()?"amanhã":s.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit"});
+  return `${dia} ${String(s.getHours()).padStart(2,"0")}:${String(s.getMinutes()).padStart(2,"0")}`;
+};
 async function carregarCatalogoManual(){
   const [rp,rf]=await Promise.all([api("produtos?ativo=eq.true&select=id,nome,preco&order=nome"), api("fretes?select=bairro,valor&order=bairro")]);
   if(rp&&rp.ok) mProdutos=await rp.json();
@@ -411,10 +433,16 @@ function renderManual(){
   if(mResultado){ renderManualPix(); return; }
   const comida=mComida(), frete=mFrete(), total=comida+frete;
   $("app").innerHTML=`<header>
-      <div><h1>RIO SAND<span>Ô</span> · PEDIDO MANUAL</h1><div class="sub">monta o pedido e gera o Pix pro cliente</div></div>
+      <div><h1>RIO SAND<span>Ô</span> · ${mTipo==="pago"?"PEDIDO MANUAL":mTipo==="cortesia"?"CORTESIA":"AÇÃO INFLU"}</h1><div class="sub">${mTipo==="pago"?"monta o pedido e gera o Pix pro cliente":"pedido grátis — a casa banca; entra na cozinha como os outros"}</div></div>
       <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
     </header>
     <div class="afform">
+      <label>Tipo de lançamento</label>
+      <div style="display:flex;gap:8px;margin:6px 0 10px">
+        <button type="button" class="off" style="flex:1${mTipo==="pago"?";background:var(--vermelho);color:#fff":""}" onclick="mSetTipo('pago')">💰 Pedido pago</button>
+        <button type="button" class="off" style="flex:1${mTipo==="cortesia"?";background:var(--vermelho);color:#fff":""}" onclick="mSetTipo('cortesia')">🎁 Cortesia</button>
+        <button type="button" class="off" style="flex:1${mTipo==="influencer"?";background:var(--vermelho);color:#fff":""}" onclick="mSetTipo('influencer')">🤳 Influ</button>
+      </div>
       <h3 style="font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--vermelho)">Itens</h3>
       <div style="max-height:240px;overflow:auto;margin:8px 0;border:1px solid var(--linha);border-radius:10px">
         ${mProdutos.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-bottom:1px solid var(--linha)">
@@ -433,8 +461,18 @@ function renderManual(){
       ${mModo==="entrega"?`<label>Bairro</label><select id="m-bairro" onchange="mF.bairro=this.value;renderManual()"><option value="">Escolhe...</option>${Object.keys(mFretes).map(b=>`<option ${b===mF.bairro?"selected":""} value="${b}">${b} · ${fmt(mFretes[b])}</option>`).join("")}</select>
         <label>Endereço</label><input id="m-end" value="${esc(mF.end)}" oninput="mF.end=this.value" placeholder="Rua e número"><label>Complemento</label><input id="m-comp" value="${esc(mF.comp)}" oninput="mF.comp=this.value" placeholder="Apto, bloco, casa">`:""}
       <label>Observações (opcional)</label><input id="m-obs" value="${esc(mF.obs)}" oninput="mF.obs=this.value" placeholder="Ex: sem cebola; deixar na portaria">
+      ${mTipo!=="pago"?`
+      ${mTipo==="influencer"?`<label>@ do influenciador</label><input id="m-influ" value="${esc(mF.influ)}" oninput="mF.influ=this.value" placeholder="@perfil">`:""}
+      <label>Motivo (interno)</label><input id="m-motivo" value="${esc(mF.motivo)}" oninput="mF.motivo=this.value" placeholder="${mTipo==="cortesia"?"Ex: compensação pedido ZTZ7XR; brinde de estreia":"Ex: permuta stories; seeding lançamento"}">
+      <label>Para quando?</label>
+      <select id="m-slot" onchange="mF.slot=this.value">
+        <option value="">Agora (entra direto na cozinha)</option>
+        ${mSlots().map(s=>`<option value="${s.toISOString()}"${s.toISOString()===mF.slot?" selected":""}>⏰ ${mSlotLabel(s)}</option>`).join("")}
+      </select>`:""}
       <div class="mp-note" id="m-erro" style="color:var(--vermelho);font-size:12px;min-height:14px;margin-top:8px"></div>
-      <button onclick="gerarPixManual(this)" ${Object.keys(mCart).length?"":"disabled style='opacity:.5'"}>Gerar Pix · ${fmt(total)}</button>
+      ${mTipo==="pago"
+        ?`<button onclick="gerarPixManual(this)" ${Object.keys(mCart).length?"":"disabled style='opacity:.5'"}>Gerar Pix · ${fmt(total)}</button>`
+        :`<button onclick="lancarGratis(this)" ${Object.keys(mCart).length?"":"disabled style='opacity:.5'"}>${mTipo==="cortesia"?"🎁 Lançar cortesia":"🤳 Lançar ação influ"} · custo ${fmt(comida)}</button>`}
     </div>`;
 }
 async function gerarPixManual(btn){
@@ -452,6 +490,87 @@ async function gerarPixManual(btn){
     if(!r.ok||!d.pix){ btn.disabled=false; btn.textContent="Gerar Pix"; erro.textContent=(d.erro||"não deu")+(d.detalhe?": "+d.detalhe:""); return; }
     mResultado=d; renderManualPix();
   }catch(e){ btn.disabled=false; btn.textContent="Gerar Pix"; erro.textContent="erro ao gerar o Pix"; }
+}
+async function lancarGratis(btn){
+  const erro=$("m-erro");
+  if(!mF.nome.trim()){ erro.textContent="Nome de quem recebe."; return; }
+  if(mModo==="entrega"&&(!mF.bairro||!mF.end.trim())){ erro.textContent="Bairro e endereço da entrega."; return; }
+  if(mTipo==="influencer"&&!mF.influ.trim()){ erro.textContent="@ do influenciador."; return; }
+  const itens=Object.keys(mCart).map(id=>({id, item:mById(id).nome, qtd:mCart[id], preco:Number(mById(id).preco)}));
+  btn.disabled=true; btn.textContent="Lançando...";
+  try{
+    if(Date.now()>sess.exp && !(await renovar())) return;
+    const r=await fetch(`${RIO_API}/lancamento`,{method:"POST",
+      headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},
+      body:JSON.stringify({tipo:mTipo, itens, nome:mF.nome.trim(), whatsapp:mF.zap.trim()||null, modo:mModo,
+        endereco:mF.end.trim()+((mF.comp||"").trim()?", "+mF.comp.trim():""), bairro:mF.bairro,
+        obs:mF.obs.trim(), motivo:mF.motivo.trim(), influ:mF.influ.trim(), agendado_para:mF.slot||null})});
+    const d=await r.json();
+    if(!r.ok||!d.ok){ btn.disabled=false; btn.textContent="Lançar"; erro.textContent=(d.erro||"não deu")+(d.detalhe?": "+d.detalhe:""); return; }
+    alert(`✅ ${mTipo==="cortesia"?"Cortesia":"Ação influ"} lançada!\nPedido #${d.codigo} · custo ${fmt(d.valor)}${mF.slot?"\n⏰ agendado":"\nJá está na cozinha."}`);
+    voltarBoard(); carregar();
+  }catch(e){ btn.disabled=false; btn.textContent="Lançar"; erro.textContent="erro ao lançar"; }
+}
+// ── 🧾 Lançamentos (ressarcimento / crédito + histórico do ledger) ──
+let lcs=[], lF={tipo:"ressarcimento",ref:"",valor:"",motivo:"",nome:"",zap:""};
+function abrirLancamentos(){ view="lanc"; lcs=[]; lF={tipo:"ressarcimento",ref:"",valor:"",motivo:"",nome:"",zap:""}; render(); carregarLanc(); }
+async function carregarLanc(){
+  const r=await api("lancamentos?select=*&order=criado_em.desc&limit=100");
+  if(r&&r.ok){ lcs=await r.json(); if(view==="lanc") renderLanc(); }
+}
+const L_ICON={cortesia:"🎁",influencer:"🤳",ressarcimento:"↩️",credito:"💳"};
+function lSetTipo(v){ lF.tipo=v; renderLanc(); }
+function renderLanc(){
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · LANÇAMENTOS</h1><div class="sub">ressarcimento devolve o dinheiro no Mercado Pago · crédito fica anotado pro cliente</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    <div class="afform">
+      <label>Tipo</label>
+      <div style="display:flex;gap:8px;margin:6px 0 10px">
+        <button type="button" class="off" style="flex:1${lF.tipo==="ressarcimento"?";background:var(--vermelho);color:#fff":""}" onclick="lSetTipo('ressarcimento')">↩️ Ressarcimento</button>
+        <button type="button" class="off" style="flex:1${lF.tipo==="credito"?";background:var(--vermelho);color:#fff":""}" onclick="lSetTipo('credito')">💳 Crédito</button>
+      </div>
+      <label>Código do pedido ${lF.tipo==="credito"?"(opcional — referência)":"(obrigatório — o estorno vai nesse pagamento)"}</label>
+      <input id="l-ref" value="${esc(lF.ref)}" oninput="lF.ref=this.value" placeholder="Ex: ZTZ7XR" style="text-transform:uppercase">
+      ${lF.tipo==="credito"?`<label>Nome do cliente (se não tiver pedido)</label><input id="l-nome" value="${esc(lF.nome)}" oninput="lF.nome=this.value" placeholder="Nome">`:""}
+      <label>Valor (R$) ${lF.tipo==="ressarcimento"?"— vazio = estorno TOTAL":""}</label>
+      <input id="l-valor" type="number" inputmode="decimal" value="${esc(lF.valor)}" oninput="lF.valor=this.value" placeholder="${lF.tipo==="ressarcimento"?"vazio = total do pedido":"25"}">
+      <label>Motivo (obrigatório)</label>
+      <input id="l-motivo" value="${esc(lF.motivo)}" oninput="lF.motivo=this.value" placeholder="Ex: pedido não entregue dia 26">
+      <div class="mp-note" id="l-erro" style="color:var(--vermelho);font-size:12px;min-height:14px;margin-top:8px"></div>
+      <button onclick="executarLanc(this)">${lF.tipo==="ressarcimento"?"↩️ Estornar no Mercado Pago":"💳 Registrar crédito"}</button>
+      ${lF.tipo==="ressarcimento"?`<div class="mp-note" style="opacity:.7;margin-top:6px">⚠️ O estorno é REAL e irreversível — o dinheiro volta pro cartão/Pix do cliente.</div>`:""}
+    </div>
+    <h3 style="margin:6px 0 10px;font-size:15px">Histórico (${lcs.length})</h3>
+    ${!lcs.length?`<div class="vazio">nenhum lançamento ainda</div>`:lcs.map(l=>`<div class="afcard">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h3>${L_ICON[l.tipo]||"🧾"} ${esc(l.tipo)}${l.pedido_ref?` · #${esc(l.pedido_ref)}`:""}</h3>
+        <b style="color:var(--vermelho)">${fmt(l.valor)}</b></div>
+      <div class="linha"><span>${esc(l.nome||"—")}${l.whatsapp?` · 📱 ${esc(l.whatsapp)}`:""}</span><span style="opacity:.6">${new Date(l.criado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span></div>
+      ${l.motivo?`<div class="linha" style="opacity:.8">${esc(l.motivo)}</div>`:""}
+      ${l.mp_refund_id?`<div class="linha" style="opacity:.6">refund MP ${esc(l.mp_refund_id)}</div>`:""}
+    </div>`).join("")}`;
+}
+async function executarLanc(btn){
+  const erro=$("l-erro"); erro.textContent="";
+  const ref=(lF.ref||"").trim().toUpperCase(), valor=Number(lF.valor)||0, motivo=(lF.motivo||"").trim();
+  if(lF.tipo==="ressarcimento"&&!ref){ erro.textContent="Código do pedido é obrigatório no ressarcimento."; return; }
+  if(lF.tipo==="credito"&&!(valor>0)){ erro.textContent="Valor do crédito."; return; }
+  if(!motivo){ erro.textContent="Motivo é obrigatório."; return; }
+  if(lF.tipo==="ressarcimento" && !confirm(`⚠️ ESTORNO REAL no Mercado Pago\n\nPedido: ${ref}\nValor: ${valor>0?fmt(valor):"TOTAL do pedido"}\n\nO dinheiro volta pro cliente. Confirmar?`)) return;
+  btn.disabled=true; btn.textContent="Executando...";
+  try{
+    if(Date.now()>sess.exp && !(await renovar())) return;
+    const r=await fetch(`${RIO_API}/lancamento`,{method:"POST",
+      headers:{"Content-Type":"application/json",Authorization:`Bearer ${sess.token}`},
+      body:JSON.stringify({tipo:lF.tipo, pedido_ref:ref||null, valor:valor||null, motivo, nome:(lF.nome||"").trim()||null})});
+    const d=await r.json();
+    btn.disabled=false; btn.textContent=lF.tipo==="ressarcimento"?"↩️ Estornar no Mercado Pago":"💳 Registrar crédito";
+    if(!r.ok||!d.ok){ erro.textContent=(d.erro||"não deu")+(d.detalhe?": "+d.detalhe:""); return; }
+    alert(lF.tipo==="ressarcimento"?`✅ Estorno feito: ${fmt(d.valor)}${d.parcial?" (parcial)":" (total)"} — refund ${d.refund_id}`:`✅ Crédito registrado: ${fmt(d.valor)}`);
+    lF.ref="";lF.valor="";lF.motivo="";lF.nome=""; carregarLanc();
+  }catch(e){ btn.disabled=false; erro.textContent="erro ao executar"; }
 }
 function renderManualPix(){
   const d=mResultado, zap=("55"+mF.zap.replace(/\D/g,""));
