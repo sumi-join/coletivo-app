@@ -124,6 +124,7 @@ function render(){
   if(view==="manual"){ renderManual(); return; }
   if(view==="envio"){ renderEnvioAvulso(); return; }
   if(view==="cupons"){ renderCupons(); return; }
+  if(view==="agendados"){ renderAgendados(); return; }
   app.innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
@@ -132,6 +133,7 @@ function render(){
         <button class="topbtn" onclick="abrirHistorico()">📋 Histórico</button>
         <button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button>
         <button class="topbtn" onclick="abrirCupons()">🎟️ Cupons</button>
+        <button class="topbtn" onclick="abrirAgendados()">⏰ Agendados</button>
         <button class="sair" onclick="sair()">Sair</button></div>
     </header>
     <div class="cols">${COLS.map(([st,titulo])=>{
@@ -266,6 +268,37 @@ function renderHistorico(){
     <input class="login" style="margin:0 0 16px;max-width:none;padding:12px 14px;border:1px solid var(--creme);background:var(--card);color:var(--preto);border-radius:10px;width:100%;font-family:inherit;font-size:15px" id="hist-busca" placeholder="🔎 buscar por código ou nome" oninput="filtrarHist()">
     <div id="hist-lista"></div>`;
   filtrarHist();
+}
+// ── ⏰ Agendados (pedidos com horário marcado pra frente) ──
+let agendados=[];
+function abrirAgendados(){ view="agendados"; agendados=[]; render(); carregarAgendados(); }
+async function carregarAgendados(){
+  const agora=new Date().toISOString();
+  const r=await api(`pedidos?agendado_para=gte.${agora}&status=not.in.(entregue,cancelado)&pagamento_status=not.in.(falhou,estornado)&select=codigo,nome,whatsapp,endereco,bairro,modo,total,status,pagamento,pagamento_status,itens,agendado_para&order=agendado_para.asc`);
+  if(r&&r.ok){ agendados=await r.json(); if(view==="agendados") renderAgendados(); }
+}
+const diaLabel = iso => { const d=new Date(iso), h=new Date(); h.setHours(0,0,0,0); const am=new Date(h.getTime()+864e5); const dd=new Date(d); dd.setHours(0,0,0,0);
+  if(dd.getTime()===h.getTime()) return "HOJE"; if(dd.getTime()===am.getTime()) return "AMANHÃ";
+  return d.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"2-digit"}).toUpperCase(); };
+const horaLabel = iso => new Date(iso).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+function agendCard(p){
+  return `<div class="afcard">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <h3>⏰ ${horaLabel(p.agendado_para)} · #${esc(p.codigo)}</h3><b>${fmt(p.total)}</b></div>
+    <div class="linha"><span>${esc(p.nome)} · ${p.modo==="entrega"?"🛵 entrega":"🏠 retirada"}</span></div>
+    <div class="linha" style="opacity:.9"><a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank" style="color:var(--verde)">📱 ${esc(p.whatsapp||"—")}</a>${p.modo==="entrega"&&p.endereco?` · 📍 ${esc(p.endereco)}`:""}</div>
+    <div class="linha" style="opacity:.8">${(p.itens||[]).map(i=>`${Number(i.qtd)||"?"}× ${esc(i.item)}`).join(", ")}</div>
+    <div class="linha"><span style="opacity:.7">${p.pagamento_status==="pago"?"✅ pago online":"pgto "+esc(p.pagamento||"—")} · ${ROTH[p.status]||esc(p.status)}</span></div>
+  </div>`;
+}
+function renderAgendados(){
+  const grupos={}, ordem=[];
+  for(const p of agendados){ const k=diaLabel(p.agendado_para); if(!grupos[k]){grupos[k]=[];ordem.push(k);} grupos[k].push(p); }
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · AGENDADOS</h1><div class="sub">${agendados.length} pedido(s) com horário marcado</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    ${!agendados.length?`<div class="vazio">nenhum pedido agendado pra frente</div>`:ordem.map(k=>`<h3 style="margin:14px 0 8px;font-size:13px;letter-spacing:.06em;opacity:.7">${esc(k)}</h3>${grupos[k].map(agendCard).join("")}`).join("")}`;
 }
 // ── Envio avulso (só a entrega, sem pedido de comida — coleta na cozinha) ──
 let eF={destino:"",comp:"",cep:"",bairro:"",nome:"",zap:"",obs:""};
@@ -615,9 +648,13 @@ async function api(path, opts={}){
 }
 async function carregar(){
   const hoje = new Date(); hoje.setHours(0,0,0,0);
-  const r = await api(`pedidos?created_at=gte.${hoje.toISOString()}&status=not.in.(entregue,cancelado)&pagamento_status=not.in.(pendente,falhou,estornado)&order=created_at.asc`);
+  const amanha = new Date(hoje.getTime()+864e5);
+  const H = hoje.toISOString();
+  const r = await api(`pedidos?status=not.in.(entregue,cancelado)&pagamento_status=not.in.(pendente,falhou,estornado)&or=(created_at.gte.${H},agendado_para.gte.${H})&order=created_at.asc`);
   if(!r || !r.ok) return;
-  const dados = await r.json();
+  const todos = await r.json();
+  // board de hoje = não-agendados de hoje + agendados cujo horário é hoje (ou já passou). Agendados pra outro dia ficam na aba ⏰ Agendados.
+  const dados = todos.filter(p=>!p.agendado_para || new Date(p.agendado_para).getTime() < amanha.getTime());
   const novos = dados.filter(p=>p.status==="novo" && !vistos.has(p.id));
   if(novos.length && pedidos.length !== undefined && document.hasFocus()!==null){
     if(carregar.ja) bip();

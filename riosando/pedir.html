@@ -276,6 +276,8 @@ const BYID = {}; MENU.forEach(c=>c.itens.forEach(i=>BYID[i.id]=i));
 let cart = JSON.parse(localStorage.getItem("rs_cart")||"{}");
 let entrega = "entrega";
 let pgto = "pix";
+let quando = "asap";   // "asap" (assim que possível) | "agendar"
+let slotAg = "";       // ISO do horário escolhido quando agendar
 let bairro = "";
 let cliente = JSON.parse(localStorage.getItem("rs_cliente")||"{}");
 // frete dinâmico: cotado de verdade no endereço do cliente (via rio-api), com crachá assinado
@@ -427,6 +429,36 @@ function rotuloAbertura(){
   const nome = p.toDateString()===hoje.toDateString() ? "hoje" :
     p.toDateString()===new Date(hoje.getTime()+86400000).toDateString() ? "amanhã" : DIAS[p.getDay()];
   return `${nome} às 17h`;
+}
+const _2 = n => String(n).padStart(2,"0");
+// slots de agendamento: ter–sáb, 17:00–21:30 de 30 em 30, ≥60min de antecedência, até 7 dias à frente
+function slotsAgendamento(){
+  const now=new Date(), min=now.getTime()+60*60000;
+  const b0=new Date(now.getFullYear(),now.getMonth(),now.getDate()), out=[];
+  for(let i=0;i<=7;i++){
+    const d=new Date(b0.getFullYear(),b0.getMonth(),b0.getDate()+i), dia=d.getDay();
+    if(dia<2||dia>6) continue;
+    for(let m=17*60;m<=21*60+30;m+=30){
+      const s=new Date(d.getFullYear(),d.getMonth(),d.getDate(),Math.floor(m/60),m%60,0);
+      if(s.getTime()>=min) out.push(s);
+    }
+  }
+  return out;
+}
+function rotuloDia(s){
+  const hoje=new Date(), amanha=new Date(hoje.getTime()+864e5);
+  if(s.toDateString()===hoje.toDateString()) return "hoje";
+  if(s.toDateString()===amanha.toDateString()) return "amanhã";
+  return `${DIAS[s.getDay()]} ${_2(s.getDate())}/${_2(s.getMonth()+1)}`;
+}
+function slotsPorDia(){
+  const map=new Map();
+  for(const s of slotsAgendamento()){
+    const k=s.toDateString();
+    if(!map.has(k)) map.set(k,{label:rotuloDia(s),slots:[]});
+    map.get(k).slots.push(s);
+  }
+  return [...map.values()];
 }
 function FRETES_EXISTE(b){ return Object.prototype.hasOwnProperty.call(FRETES,b); }
 const FRETES = {
@@ -595,7 +627,16 @@ function abrirSacola(){
       <button class="${entrega==="retirada"?"on":""}" onclick="setEntrega('retirada')">🏠 Retirada em Botafogo</button>
     </div>
     ${entrega==="retirada"?`<div class="mp-note" style="text-align:left;opacity:.8">🏠 Retirada: <a href="${MAPS_LOJA}" target="_blank" style="color:var(--verde)">${ENDERECO_LOJA}</a></div>`:""}
-    ${!lojaAberta()?`<div class="fechado-banner">🕐 Estamos fechados agora — seu pedido entra <b>agendado pra ${rotuloAbertura()}</b>. A cozinha prepara assim que abrir.</div>`:""}
+    ${!lojaAberta() && quando!=="agendar"?`<div class="fechado-banner">🕐 Estamos fechados agora — seu pedido entra <b>agendado pra ${rotuloAbertura()}</b>. A cozinha prepara assim que abrir.</div>`:""}
+    <label>Para quando?</label>
+    <div class="toggle">
+      <button class="${quando==="asap"?"on":""}" onclick="setQuando('asap')">⚡ Assim que possível</button>
+      <button class="${quando==="agendar"?"on":""}" onclick="setQuando('agendar')">📅 Agendar</button>
+    </div>
+    ${quando==="agendar"?(slotsAgendamento().length?`<select id="slot" onchange="slotAg=this.value">
+      <option value="">Escolhe dia e horário…</option>
+      ${slotsPorDia().map(g=>`<optgroup label="${esc(g.label)}">${g.slots.map(s=>{const v=s.toISOString();return `<option value="${v}"${v===slotAg?" selected":""}>${_2(s.getHours())}:${_2(s.getMinutes())}</option>`;}).join("")}</optgroup>`).join("")}
+    </select>`:`<div class="fechado-banner">Sem horário disponível nos próximos dias.</div>`):""}
     <div id="campo-endereco" style="display:${entrega==="entrega"?"block":"none"}">
       <label>CEP</label>
       <input type="tel" id="cep" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${(cliente.cep||"").replace(/"/g,"&quot;")}" oninput="onCep(this)" autocomplete="postal-code">
@@ -653,6 +694,7 @@ function reabrirSacola(){ const f=lerForm(); abrirSacola(); restaurarForm(f); }
 function setEntrega(v){ entrega=v; if(v==="entrega") pgto="online"; else { freteCotado=null; freteToken=null; freteStatus=""; } reabrirSacola(); }
 function setPgto(v){ pgto=v; reabrirSacola(); }
 function setBairro(v){ bairro=v; freteCotado=null; freteToken=null; freteStatus=""; reabrirSacola(); cotarFrete(); }
+function setQuando(v){ quando=v; if(v==="asap") slotAg=""; reabrirSacola(); }
 function setUsarPontos(v){ usarPontos=v; if(v){ cupom=""; cupomInfo=null; } reabrirSacola(); }
 // resgate em blocos de R$5 (100 pts), limitado ao valor da comida
 function maxDesconto(){
@@ -729,10 +771,16 @@ async function pagar(btn){
   const _btnTxt=btn.textContent;
   btn.disabled=true; btn.textContent="Enviando...";
   const codigo = Array.from({length:6},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
-  const agendadoPara = lojaAberta() ? null : proximaAbertura().toISOString();
-  if(agendadoPara){
-    const ok = confirm(`⚠️ A COZINHA ESTÁ FECHADA AGORA.\n\nSeu pedido NÃO sai hoje — ele fica AGENDADO pra ${rotuloAbertura()}, e a cozinha começa a preparar assim que abrir.\n\nQuer agendar mesmo assim?`);
-    if(!ok){ btn.disabled=false; btn.textContent=_btnTxt; erro.textContent=""; return; }
+  let agendadoPara;
+  if(quando==="agendar"){
+    if(!slotAg){ erro.textContent="Escolhe o dia e o horário do agendamento 🙏"; btn.disabled=false; btn.textContent=_btnTxt; return; }
+    agendadoPara = slotAg;
+  } else {
+    agendadoPara = lojaAberta() ? null : proximaAbertura().toISOString();
+    if(agendadoPara){
+      const ok = confirm(`⚠️ A COZINHA ESTÁ FECHADA AGORA.\n\nSeu pedido NÃO sai hoje — ele fica AGENDADO pra ${rotuloAbertura()}, e a cozinha começa a preparar assim que abrir.\n\nQuer agendar mesmo assim?`);
+      if(!ok){ btn.disabled=false; btn.textContent=_btnTxt; erro.textContent=""; return; }
+    }
   }
   cliente = {nome, zap, endereco, complemento, bairro, cep};
   localStorage.setItem("rs_cliente", JSON.stringify(cliente));
@@ -759,7 +807,7 @@ async function pagar(btn){
       <div class="ok-box">
         <span class="osym"></span>
         <h3>Arigatô, ${esc(nome.split(" ")[0])}! 🙏</h3>
-        <p>Seu pedido <strong>#${ped.codigo}</strong> ${agendadoPara?`ficou <b>agendado pra ${rotuloAbertura()}</b> — a cozinha prepara assim que abrir.`:"chegou na cozinha."}<br>
+        <p>Seu pedido <strong>#${ped.codigo}</strong> ${agendadoPara?`ficou <b>agendado pra ${rotuloDia(new Date(agendadoPara))} às ${_2(new Date(agendadoPara).getHours())}:${_2(new Date(agendadoPara).getMinutes())}</b> — a cozinha prepara na hora certa.`:"chegou na cozinha."}<br>
         ${entrega==="entrega"?"Pagamento com "+(pgto==="pix"?"Pix":"cartão")+" na porta.":`Retirada: <a href="${MAPS_LOJA}" target="_blank" style="color:var(--verde)">${ENDERECO_LOJA}</a> — pagamento com ${pgto==="pix"?"Pix":"cartão"} na hora.`}<br><br>
         Qualquer coisa, <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">chama a gente no WhatsApp</a>.</p>
         <button class="pagar" style="margin-top:18px" onclick="location.href='?pedido=${ped.codigo}'">Acompanhar meu pedido 🛵</button>
