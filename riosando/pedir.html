@@ -530,6 +530,7 @@ async function buscarCep(cep, ctx){
       if(ctx==="checkout") bairro = b;
       setMsg(`📍 ${d.logradouro?d.logradouro+" · ":""}${b}`,"var(--verde)");
     } else {
+      if(ctx==="checkout"){ bairro=""; if(sel) sel.value=""; freteCotado=null; freteToken=null; }
       setMsg(`📍 ${d.bairro||"esse bairro"} — fora da nossa área (Botafogo → Gávea) por enquanto. 🙈`,"var(--vermelho)");
     }
     if(A.cota){ freteCotado=null; freteToken=null; atualizarFrete(); }
@@ -545,14 +546,17 @@ async function cotarFrete(){
   }
   const meu = ++cotarFrete._seq;
   freteStatus="calculando"; atualizarFrete();
+  const ctrl = new AbortController();
+  const kill = setTimeout(()=>ctrl.abort(), 12000);   // teto de 12s: nunca prende o "calculando" pra sempre
   try{
     const r = await fetch(`${RIO_API}/frete-cliente`,{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({endereco:end, bairro})});
+      body:JSON.stringify({endereco:end, bairro}), signal:ctrl.signal});
     const d = await r.json().catch(()=>({}));
     if(meu!==cotarFrete._seq) return;               // chegou resposta velha, ignora
     if(r.ok && typeof d.frete==="number"){ freteCotado=d.frete; freteToken=d.token; freteFonte=d.fonte; }
     else { freteCotado=null; freteToken=null; }
   }catch{ if(meu===cotarFrete._seq){ freteCotado=null; freteToken=null; } }
+  finally{ clearTimeout(kill); }
   if(meu===cotarFrete._seq){ freteStatus=""; atualizarFrete(); }
 }
 cotarFrete._seq = 0;
@@ -685,7 +689,7 @@ function abrirSacola(){
     <label>WhatsApp</label>
     <input type="tel" id="zap" placeholder="(21) 9 9999-9999" value="${(cliente.zap||"").replace(/"/g,"&quot;")}" oninput="maskTel(this)">
     <label>Observações</label>
-    <textarea id="obs" rows="2" placeholder="Sem repolho? Molho à parte? Conta aqui."></textarea>
+    <textarea id="obs" rows="2" placeholder="Sem repolho? Molho à parte? Conta aqui.">${(cliente.obs||"").replace(/</g,"&lt;")}</textarea>
 
     <label>Pagamento</label>
     ${entrega==="entrega"?`
@@ -742,7 +746,7 @@ async function autoAplicarEstreia(){
   try{
     const r = await fetch(`${RIO_API}/validar-cupom`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cupom:"ESTREIA10",subtotal:t})});
     const d = await r.json();
-    if(d.ok){ cupom="ESTREIA10"; cupomInfo={pct:d.desconto_pct, valor:(d.promo&&!d.desconto_pct)?d.desconto:null, nome:d.nome, primeiro:!!d.primeiro_pedido, auto:true}; usarPontos=false; reabrirSacola(); }
+    if(d.ok){ cupom="ESTREIA10"; cupomInfo={pct:d.desconto_pct, valor:(d.promo&&!d.desconto_pct)?d.desconto:null, nome:d.nome, primeiro:!!d.primeiro_pedido, auto:true}; usarPontos=false; const sh=document.getElementById("sheet"); if(sh?.classList.contains("on") && !document.getElementById("pay-brick")) reabrirSacola(); }
   }catch(e){}
 }
 async function aplicarCupom(){
@@ -818,7 +822,7 @@ async function pagar(btn){
       if(!ok){ btn.disabled=false; btn.textContent=_btnTxt; erro.textContent=""; return; }
     }
   }
-  cliente = {nome, zap, endereco, complemento, bairro, cep};
+  cliente = {nome, zap, endereco, complemento, bairro, cep, obs};
   localStorage.setItem("rs_cliente", JSON.stringify(cliente));
   if(pgto==="online"){
     const pedido = {codigo, itens, frete, frete_token:freteToken||null, desconto, cupom:cupom||null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
@@ -859,6 +863,7 @@ async function pagar(btn){
   }
 }
 function fecharSheet(){
+  if(document.getElementById("pay-brick")) return; // pagamento aberto: não fecha sem querer e joga fora o cartão digitado
   document.getElementById("sheet").classList.remove("on");
   document.getElementById("overlay").classList.remove("on");
 }
@@ -1101,8 +1106,19 @@ async function abrirPagamento(pedido, valor){
     <div id="pay-erro"></div>
     <div id="pay-brick"><div class="vazio">carregando pagamento seguro...</div></div>
     <div class="mp-note">Pagamento processado pelo Mercado Pago 🔒</div>`;
+  // o SDK é um script externo — se não carregou (adblock/rede), não deixa o cliente preso
+  if(typeof MercadoPago==="undefined"){
+    document.getElementById("pay-brick").innerHTML =
+      `<div style="background:rgba(192,57,43,.1);border:1px solid var(--vermelho);border-radius:12px;padding:16px;color:var(--vermelho);font-size:14px;line-height:1.5">
+        Não deu pra carregar o pagamento (pode ser bloqueador de anúncios ou conexão).<br>
+        <button class="pagar" style="margin-top:12px" onclick="location.reload()">Recarregar e tentar de novo</button>
+        <div style="margin-top:8px;opacity:.85">Se persistir, chama a gente no <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">WhatsApp</a> que a gente resolve.</div>
+      </div>`;
+    return; // sacola preservada; não lança (o catch do pagar mostraria mensagem errada)
+  }
   const mp = new MercadoPago(MP_PUBLIC_KEY, {locale:"pt-BR"});
   if(brickAtivo){ try{ brickAtivo.unmount(); }catch(e){} }
+  try{
   brickAtivo = await mp.bricks().create("payment","pay-brick",{
     initialization:{ amount: valor },
     customization:{
@@ -1122,7 +1138,7 @@ async function abrirPagamento(pedido, valor){
           body:JSON.stringify({pedido, formData})});
         const d = await r.json();
         // erro do servidor (não conseguiu nem criar o pagamento) — NÃO limpa a sacola
-        if(!r.ok){ mostrarPagamentoErro(traduzErroMP(d.detalhe||d.erro)); throw new Error(d.erro||"falhou"); }
+        if(!r.ok){ mostrarPagamentoErro(d.erro||traduzErroMP(d.detalhe), "Não deu pra concluir"); throw new Error(d.erro||"falhou"); }
         // cartão RECUSADO — mantém a sacola pra tentar de novo, mostra erro claro
         if(d.status==="rejected" || d.status==="cancelled"){ mostrarPagamentoErro(traduzErroMP(d.status_detail)); throw new Error("recusado"); }
         // daqui pra baixo = pedido colocado (aprovado ou Pix pendente): aí sim limpa
@@ -1135,6 +1151,13 @@ async function abrirPagamento(pedido, valor){
       },
     },
   });
+  }catch(e){
+    console.error(e);
+    const pb=document.getElementById("pay-brick");
+    if(pb) pb.innerHTML = `<div style="background:rgba(192,57,43,.1);border:1px solid var(--vermelho);border-radius:12px;padding:16px;color:var(--vermelho);font-size:14px;line-height:1.5">
+      Não deu pra abrir o pagamento agora.<br>
+      <button class="pagar" style="margin-top:12px" onclick="location.reload()">Recarregar e tentar de novo</button></div>`;
+  }
 }
 // traduz o código de recusa do Mercado Pago pra algo que o cliente entende
 function traduzErroMP(codigo){
@@ -1155,12 +1178,12 @@ function traduzErroMP(codigo){
   return m[codigo] || "o cartão foi recusado. Confere os dados e tenta de novo, ou pague com Pix. 🙏";
 }
 function limparPagamentoErro(){ const el=document.getElementById("pay-erro"); if(el) el.innerHTML=""; }
-function mostrarPagamentoErro(msg){
+function mostrarPagamentoErro(msg, titulo){
   const el=document.getElementById("pay-erro");
   if(!el) return;
   el.innerHTML = `<div style="background:rgba(192,57,43,.1);border:1px solid var(--vermelho);border-radius:12px;padding:14px 16px;margin-bottom:14px;color:var(--vermelho);font-size:14px;line-height:1.5">
-    <b>Cartão não aprovado</b> — nada foi cobrado.<br>${msg}<br>
-    <span style="opacity:.85">Você pode tentar outro cartão abaixo, ou trocar pra <b>Pix</b> na opção do formulário.</span></div>`;
+    <b>${titulo||"Cartão não aprovado"}</b> — nada foi cobrado.<br>${msg}<br>
+    <span style="opacity:.85">Você pode tentar de novo, ou trocar pra <b>Pix</b> na opção do formulário.</span></div>`;
   el.scrollIntoView({behavior:"smooth",block:"center"});
 }
 function mostrarPix(codigo, pix, valor){
@@ -1234,17 +1257,20 @@ function fecharNews(){
     ["entregue","Entregue ✅","Bom apetite! Arigatô 🙏"],
   ];
   async function atualizar(){
+    const sheet=document.getElementById("sheet");
+    // se o cliente já fechou o status (ou abriu a sacola/conta pra montar OUTRO pedido), para de sequestrar a tela
+    if(atualizar._abriu && (!sheet.classList.contains("on") || !document.getElementById("status-view"))) return;
     try{
       const r = await fetch(`${RIO_API}/pedido-status`,{
         method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codigo})});
       const p = await r.json();
-      const sheet=document.getElementById("sheet");
-      if(!r.ok){ sheet.innerHTML=`<div class="sheet-head"><h2>Pedido #${codigo}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div><div class="vazio">Não achamos esse pedido. 🤔</div>`; return; }
+      if(atualizar._abriu && (!sheet.classList.contains("on") || !document.getElementById("status-view"))) return;
+      if(!r.ok){ sheet.innerHTML=`<div id="status-view"><div class="sheet-head"><h2>Pedido #${esc(codigo)}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div><div class="vazio">Não achamos esse pedido. 🤔</div></div>`; sheet.classList.add("on"); document.getElementById("overlay").classList.add("on"); atualizar._abriu=true; return; }
       const etapas = p.modo==="retirada" ? ETAPAS.filter(e=>e[0]!=="saiu").map(e=>e[0]==="pronto"?["pronto","Prontinho 📦","Pode vir buscar em Botafogo!"]:e) : ETAPAS;
       const idx = Math.max(0, etapas.findIndex(e=>e[0]===p.status));
       const cancelado = p.status==="cancelado";
-      sheet.innerHTML = `
-        <div class="sheet-head"><h2>Pedido #${p.codigo}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div>
+      sheet.innerHTML = `<div id="status-view">
+        <div class="sheet-head"><h2>Pedido #${esc(p.codigo)}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div>
         ${cancelado?`<div class="vazio">Esse pedido foi cancelado. <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">Chama a gente no WhatsApp</a> se precisar. 🙏</div>`:`
         ${p.pagamento_status==="pendente"?`<div class="mp-note" style="color:var(--vermelho)">aguardando confirmação do pagamento...</div>`:""}
         <div style="padding:8px 2px">
@@ -1255,11 +1281,12 @@ function fecharNews(){
           </div>`).join("")}
         </div>
         ${p.entrega_tracking_url && /^https:\/\//.test(p.entrega_tracking_url)?`<button class="pagar" onclick="window.open('${esc(p.entrega_tracking_url)}','_blank')">Ver o entregador no mapa 🗺️</button>`:""}
-        <div class="mp-note">atualiza sozinho · ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</div>`}`;
+        <div class="mp-note">atualiza sozinho · ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</div>`}</div>`;
       sheet.classList.add("on");
       document.getElementById("overlay").classList.add("on");
+      atualizar._abriu=true;
       if(!cancelado && p.status!=="entregue") setTimeout(atualizar, 15000);
-    }catch(e){ setTimeout(atualizar, 20000); }
+    }catch(e){ if(!atualizar._abriu || (sheet.classList.contains("on") && document.getElementById("status-view"))) setTimeout(atualizar, 20000); }
   }
   atualizar();
 })();
