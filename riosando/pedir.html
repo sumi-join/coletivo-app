@@ -1104,7 +1104,7 @@ async function abrirPagamento(pedido, valor){
   brickAtivo = await mp.bricks().create("payment","pay-brick",{
     initialization:{ amount: valor },
     customization:{
-      paymentMethods:{ pix:"all", creditCard:"all", debitCard:"all" },
+      paymentMethods:{ bankTransfer:"all", creditCard:"all", debitCard:"all" },
       visual:{ style:{ theme:"default", customVariables:{
         baseColor:"#C0392B", borderRadiusMedium:"12px",
       }}},
