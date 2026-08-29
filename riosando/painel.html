@@ -230,7 +230,7 @@ async function toggleCupom(cod,ativo){
 let historico=[];
 function abrirHistorico(){ view="historico"; render(); carregarHist(); }
 async function carregarHist(){
-  const r=await api("pedidos?select=codigo,nome,bairro,modo,total,status,pagamento,pagamento_status,itens,created_at&order=created_at.desc&limit=150");
+  const r=await api("pedidos?select=codigo,nome,whatsapp,endereco,bairro,modo,total,status,pagamento,pagamento_status,itens,created_at&order=created_at.desc&limit=150");
   if(r&&r.ok) historico=await r.json();
   if(view==="historico") filtrarHist();
 }
@@ -240,13 +240,22 @@ function histCard(p){
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <h3>#${esc(p.codigo)}</h3><span style="font-size:12px;opacity:.6">${new Date(p.created_at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span></div>
     <div class="linha"><span>${esc(p.nome)} · ${p.modo==="entrega"?"🛵 "+esc(p.bairro||"entrega"):"🏠 retirada"}</span><b>${fmt(p.total)}</b></div>
+    <div class="linha" style="opacity:.9"><a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank" style="color:var(--verde)">📱 ${esc(p.whatsapp||"—")}</a>${p.modo==="entrega"&&p.endereco?` · 📍 ${esc(p.endereco)}`:""}</div>
     <div class="linha" style="opacity:.8">${(p.itens||[]).map(i=>`${Number(i.qtd)||"?"}× ${esc(i.item)}`).join(", ")}</div>
     <div class="linha"><span style="opacity:.7">${ROTH[p.status]||esc(p.status)} · ${p.pagamento_status==="pago"?"pago online":"pgto "+esc(p.pagamento)}</span></div>
   </div>`;
 }
 function filtrarHist(){
   const q=($("hist-busca")?.value||"").toLowerCase().trim();
-  const list=historico.filter(p=>!q || p.codigo.toLowerCase().includes(q) || (p.nome||"").toLowerCase().includes(q));
+  const qd=q.replace(/\D/g,"");
+  const list=historico.filter(p=>{
+    if(!q) return true;
+    if(p.codigo.toLowerCase().includes(q)) return true;
+    if((p.nome||"").toLowerCase().includes(q)) return true;
+    if((p.endereco||"").toLowerCase().includes(q)) return true;
+    if(qd && (p.whatsapp||"").replace(/\D/g,"").includes(qd)) return true;
+    return false;
+  });
   const el=$("hist-lista"); if(el) el.innerHTML = list.length? list.map(histCard).join("") : `<div class="vazio">nenhum pedido encontrado</div>`;
 }
 function renderHistorico(){
@@ -556,7 +565,7 @@ function card(p){
     ${p.obs?`<div class="meta">📝 ${esc(p.obs)}</div>`:""}
     <div class="total">${fmt(p.total)}</div>
     <div class="acoes">
-      ${nx?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${rot}</button>`:""}
+      ${nx && !(p.status==="pronto" && p.modo==="entrega" && !p.entrega_id)?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${rot}</button>`:""}
       <button class="imprimir" onclick="imprimir(${p.id})">🖨️</button>
       ${p.status==="novo"?`<button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕</button>`:""}
     </div>
