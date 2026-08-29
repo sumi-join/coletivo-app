@@ -247,7 +247,7 @@ async function toggleCupom(cod,ativo){
 let historico=[];
 function abrirHistorico(){ view="historico"; render(); carregarHist(); }
 async function carregarHist(){
-  const r=await api("pedidos?select=codigo,nome,whatsapp,endereco,bairro,modo,total,status,pagamento,pagamento_status,itens,created_at&order=created_at.desc&limit=150");
+  const r=await api("pedidos?select=codigo,id,nome,whatsapp,endereco,bairro,modo,total,status,pagamento,pagamento_status,itens,created_at,entrega_provedor,entrega_id,entrega_tracking_url&order=created_at.desc&limit=150");
   if(r&&r.ok) historico=await r.json();
   if(view==="historico") filtrarHist();
 }
@@ -260,6 +260,10 @@ function histCard(p){
     <div class="linha" style="opacity:.9">${(p.whatsapp||"").replace(/\D/g,"").length>=10?`<a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank" style="color:var(--verde)">📱 ${esc(p.whatsapp)}</a>`:`📱 ${esc(p.whatsapp||"—")}`}${p.modo==="entrega"&&p.endereco?` · 📍 ${esc(p.endereco)}`:""}</div>
     <div class="linha" style="opacity:.8">${(p.itens||[]).map(i=>`${Number(i.qtd)||"?"}× ${esc(i.item)}`).join(", ")}</div>
     <div class="linha"><span style="opacity:.7">${ROTH[p.status]||esc(p.status)} · ${p.pagamento_status==="pago"?"pago · "+formaPgto(p):(p.pagamento_status==="estornado"?"estornado":"pgto "+formaPgto(p))}</span></div>
+    ${(urlSegura(p.entrega_tracking_url)||(p.status==="entregue"||p.status==="cancelado"))?`<div class="acoes" style="margin-top:8px">
+      ${urlSegura(p.entrega_tracking_url)?`<button class="off" onclick="window.open('${urlSegura(p.entrega_tracking_url)}','_blank')">🛵 acompanhar entrega</button>`:""}
+      ${(p.status==="entregue"||p.status==="cancelado")?`<button class="off" onclick="voltarProBoard(${p.id||"null"},${p.entrega_id?"true":"false"})">↩ voltar pro board</button>`:""}
+    </div>`:""}
   </div>`;
 }
 function filtrarHist(){
@@ -735,11 +739,12 @@ function card(p){
     <div class="total">${fmt(p.total)}</div>
     <div class="acoes">
       ${nx && !(p.status==="pronto" && p.modo==="entrega" && !p.entrega_id)?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${rot}</button>`:""}
+      ${p.status!=="novo"?`<button class="off" onclick="voltarStatus(${p.id})" title="desfazer">↩</button>`:""}
       <button class="imprimir" onclick="imprimir(${p.id})">🖨️</button>
       ${p.status==="novo"?`<button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕</button>`:""}
     </div>
     ${p.entrega_id ? `
-    <div class="meta">🛵 ${esc(p.entrega_provedor)} ${p.status==="saiu"?"a caminho do cliente":"acionado (indo buscar)"}${urlSegura(p.entrega_tracking_url)?` · <a href="${urlSegura(p.entrega_tracking_url)}" target="_blank" style="color:var(--verde)">rastrear 🗺️</a>`:""}</div>
+    <div class="meta">🛵 ${esc(p.entrega_provedor)} ${p.status==="saiu"?"a caminho do cliente":"acionado (indo buscar)"}${urlSegura(p.entrega_tracking_url)?` · <a href="${urlSegura(p.entrega_tracking_url)}" target="_blank" style="color:var(--verde)">🛵 acompanhar / falar com o motoboy</a>`:""}</div>
     ${p.status!=="saiu"?`<div class="acoes"><button class="cancelar" onclick="cancelarEntrega(${p.id}, this)">✕ cancelar entrega</button></div>`:""}
     <div class="meta" id="cotacao-${p.id}"></div>`
     : p.status==="pronto" && p.modo==="entrega" ? `
@@ -812,6 +817,24 @@ async function carregar(){
   }
   setTimeout(()=>{ dados.forEach(p=>vistos.add(p.id));
     localStorage.setItem("rs_vistos",JSON.stringify([...vistos].slice(-200))); }, 8000);
+}
+const PREV = {em_preparo:"novo", pronto:"em_preparo", saiu:"pronto", entregue:"saiu", cancelado:"novo"};
+async function voltarStatus(id){
+  const p=pedidos.find(x=>x.id===id); const prev=PREV[p?.status];
+  if(!prev) return;
+  if(!confirm(`Voltar o pedido${p?" #"+p.codigo:""} pra "${ROTH[prev]||prev}"?`)) return;
+  const r=await api(`pedidos?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({status:prev})});
+  if(!r||!r.ok) alert("Não deu pra voltar — tenta de novo.");
+  carregar();
+}
+async function voltarProBoard(id, temEntrega){
+  if(id===null){ alert("Recarrega o histórico e tenta de novo."); return; }
+  const destino = temEntrega ? "saiu" : "pronto";
+  if(!confirm(`Trazer esse pedido de volta pro board (como "${ROTH[destino]}")?`)) return;
+  const r=await api(`pedidos?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({status:destino})});
+  if(!r||!r.ok){ alert("Não deu pra voltar — tenta de novo."); return; }
+  carregarHist();
+  alert("Voltou pro board 👍");
 }
 async function mudarStatus(id, st){
   if(st==="cancelado"){
