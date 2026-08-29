@@ -726,9 +726,14 @@ async function pagar(btn){
   const desconto = descontoAtual();
   const descCupom = descontoCupomAtual();
   const itens = Object.keys(cart).map(id=>({id, item:BYID[id].nome, qtd:cart[id], preco:BYID[id].preco}));
+  const _btnTxt=btn.textContent;
   btn.disabled=true; btn.textContent="Enviando...";
   const codigo = Array.from({length:6},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
   const agendadoPara = lojaAberta() ? null : proximaAbertura().toISOString();
+  if(agendadoPara){
+    const ok = confirm(`⚠️ A COZINHA ESTÁ FECHADA AGORA.\n\nSeu pedido NÃO sai hoje — ele fica AGENDADO pra ${rotuloAbertura()}, e a cozinha começa a preparar assim que abrir.\n\nQuer agendar mesmo assim?`);
+    if(!ok){ btn.disabled=false; btn.textContent=_btnTxt; erro.textContent=""; return; }
+  }
   cliente = {nome, zap, endereco, complemento, bairro, cep};
   localStorage.setItem("rs_cliente", JSON.stringify(cliente));
   if(pgto==="online"){
