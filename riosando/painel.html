@@ -744,11 +744,14 @@ function card(p){
       ${p.status==="novo"?`<button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕</button>`:""}
     </div>
     ${p.entrega_id ? `
-    <div class="meta">🛵 ${esc(p.entrega_provedor)} ${p.status==="saiu"?"a caminho do cliente":"acionado (indo buscar)"}${urlSegura(p.entrega_tracking_url)?` · <a href="${urlSegura(p.entrega_tracking_url)}" target="_blank" style="color:var(--verde)">🛵 acompanhar / falar com o motoboy</a>`:""}</div>
+    <div class="meta">🛵 ${esc(p.entrega_provedor)} ${p.status==="saiu"?"a caminho do cliente (baixa automática ao entregar)":"acionado (indo buscar)"}${urlSegura(p.entrega_tracking_url)?` · <a href="${urlSegura(p.entrega_tracking_url)}" target="_blank" style="color:var(--verde)">🛵 acompanhar / falar com o motoboy</a>`:""}</div>
     ${p.status!=="saiu"?`<div class="acoes"><button class="cancelar" onclick="cancelarEntrega(${p.id}, this)">✕ cancelar entrega</button></div>`:""}
     <div class="meta" id="cotacao-${p.id}"></div>`
+    : p.entrega_provedor==="manual" ? `
+    <div class="meta">🛵 <b>motoboy próprio / na mão</b> — marque <b>✅ Entregue</b> quando chegar no cliente.</div>`
     : p.status==="pronto" && p.modo==="entrega" ? `
     <button class="enviar-btn pulsa" onclick="cotarEntrega(${p.id})">🛵 Cotar e enviar entrega</button>
+    <div style="text-align:center;margin-top:6px"><button class="off" onclick="saiuManual(${p.id})">🛵 Saiu com motoboy próprio / na mão</button></div>
     <div style="text-align:center;margin-top:6px"><button class="off" onclick="copiarEndereco(${p.id}, this)">📋 copiar endereço do cliente</button></div>
     <div id="cotacao-${p.id}"></div>`:""}
     </div>`;
@@ -819,6 +822,13 @@ async function carregar(){
     localStorage.setItem("rs_vistos",JSON.stringify([...vistos].slice(-200))); }, 8000);
 }
 const PREV = {em_preparo:"novo", pronto:"em_preparo", saiu:"pronto", entregue:"saiu", cancelado:"novo"};
+async function saiuManual(id){
+  const p=pedidos.find(x=>x.id===id);
+  if(!confirm(`Sair com motoboy PRÓPRIO (fora de Lalamove/Uber)?\n\nO pedido${p?" #"+p.codigo:""} vai pra "Saiu" e você marca "✅ Entregue" na mão quando chegar (não tem baixa automática nem mapa).`)) return;
+  const r=await api(`pedidos?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({status:"saiu", entrega_provedor:"manual"})});
+  if(!r||!r.ok) alert("Não deu pra marcar — tenta de novo.");
+  carregar();
+}
 async function voltarStatus(id){
   const p=pedidos.find(x=>x.id===id); const prev=PREV[p?.status];
   if(!prev) return;
