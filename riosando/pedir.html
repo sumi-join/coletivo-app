@@ -599,10 +599,10 @@ async function abrirReserva(){
   sheet.classList.add("on"); document.getElementById("overlay").classList.add("on");
   const hoje=new Date().toISOString().slice(0,10);
   const [rs,rr]=await Promise.all([
-    sb.from("reserva_slots").select("*").gte("data",hoje).order("data").order("hora"),
-    sb.from("reservas").select("slot_id,mesas").eq("status","confirmada")
+    fetch(`${PGREST}/reserva_slots?ativo=eq.true&order=data,hora`).then(r=>r.json()).catch(()=>[]),
+    fetch(`${PGREST}/reservas?status=eq.confirmada&select=slot_id,mesas`).then(r=>r.json()).catch(()=>[])
   ]);
-  rSlots=(rs.data||[]).filter(s=>s.ativo); rResv=rr.data||[]; rSlotSel=null;
+  rSlots=(Array.isArray(rs)?rs:[]).filter(s=>s.data>=hoje); rResv=Array.isArray(rr)?rr:[]; rSlotSel=null;
   await carregarClima(rSlots.map(s=>s.data));
   renderReserva();
 }
