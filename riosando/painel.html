@@ -137,6 +137,7 @@ function render(){
   if(view==="cupons"){ renderCupons(); return; }
   if(view==="agendados"){ renderAgendados(); return; }
   if(view==="novidades"){ renderNovidades(); return; }
+  if(view==="reservas"){ renderReservas(); return; }
   if(view==="lanc"){ renderLanc(); return; }
   app.innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
@@ -147,6 +148,7 @@ function render(){
         <button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button>
         <button class="topbtn" onclick="abrirCupons()">🎟️ Cupons</button>
         <button class="topbtn" onclick="abrirAgendados()">⏰ Agendados</button>
+        <button class="topbtn" onclick="abrirReservas()">🍽️ Reservas</button>
         <button class="topbtn" onclick="abrirNovidades()">🔔 Novidades<span id="nov-badge" style="display:none;background:var(--vermelho);color:#fff;border-radius:9px;padding:0 6px;margin-left:5px;font-size:11px"></span></button>
         <button class="topbtn" onclick="testarAviso()">🔊 Testar som</button>
         <button class="topbtn" onclick="abrirLancamentos()">🧾 Lançamentos</button>
@@ -959,6 +961,89 @@ async function cancelarEntrega(id, btn){
     btn.disabled=false; btn.textContent="✕ cancelar entrega";
     alert("Não cancelou: "+e.message+"\nSe o motoboy já retirou, cancele direto no app do provedor.");
   }
+}
+// ── 🍽️ RESERVAS (comer no Rio Sandô) ──
+let rSlots=[], rReservas=[];
+const DIAS_SEM=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+function abrirReservas(){ view="reservas"; render(); carregarReservas(); }
+async function carregarReservas(){
+  const hoje=new Date(); hoje.setHours(0,0,0,0); const H=hoje.toISOString().slice(0,10);
+  const [rs,rr]=await Promise.all([
+    api(`reserva_slots?data=gte.${H}&order=data,hora`),
+    api(`reservas?status=eq.confirmada&data=gte.${H}&select=*&order=data,hora`)
+  ]);
+  if(rs&&rs.ok) rSlots=await rs.json();
+  if(rr&&rr.ok) rReservas=await rr.json();
+  if(view==="reservas") renderReservas();
+}
+function fmtDataBR(d){ const [y,m,dd]=d.split("-"); const dt=new Date(+y,+m-1,+dd); return `${DIAS_SEM[dt.getDay()]} ${dd}/${m}`; }
+async function criarSlot(btn){
+  const data=$("rs-data").value, hora=$("rs-hora").value, mesas=Number($("rs-mesas").value)||3;
+  const msg=$("rs-msg"); if(!data||!hora){ msg.textContent="Escolhe data e horário."; return; }
+  btn.disabled=true;
+  const r=await api("reserva_slots",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({data,hora,mesas})});
+  btn.disabled=false;
+  if(!r||!r.ok){ msg.textContent = r&&r.status===409?"Esse horário já existe.":"Não deu pra abrir."; return; }
+  msg.textContent="Horário aberto ✅"; carregarReservas();
+}
+async function gerarRecorrencia(btn){
+  const dias=[...document.querySelectorAll(".rec-dia:checked")].map(x=>+x.value);
+  const horas=($("rec-horas").value||"").split(",").map(s=>s.trim()).filter(Boolean);
+  const semanas=Number($("rec-semanas").value)||4;
+  const mesas=Number($("rs-mesas").value)||3;
+  const msg=$("rec-msg");
+  if(!dias.length||!horas.length){ msg.textContent="Escolhe os dias e os horários (ex: 19:00, 20:30)."; return; }
+  const hoje=new Date(); hoje.setHours(0,0,0,0); const slots=[];
+  for(let i=0;i<semanas*7;i++){ const d=new Date(hoje.getTime()+i*864e5); if(dias.includes(d.getDay())){ const ds=d.toISOString().slice(0,10); for(const hh of horas) slots.push({data:ds,hora:hh.length===5?hh+":00":hh,mesas}); } }
+  if(!slots.length){ msg.textContent="Nenhuma data gerada."; return; }
+  btn.disabled=true; msg.textContent=`Abrindo ${slots.length} horários...`;
+  const r=await api("reserva_slots",{method:"POST",headers:{Prefer:"return=minimal,resolution=ignore-duplicates"},body:JSON.stringify(slots)});
+  btn.disabled=false;
+  msg.textContent = (r&&r.ok)?`✅ ${slots.length} horários abertos (recorrência ${semanas} semanas)`:"Não deu pra gerar.";
+  carregarReservas();
+}
+async function cancelarReserva(id){
+  if(!confirm("Cancelar essa reserva?")) return;
+  const r=await api(`reservas?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({status:"cancelada"})});
+  if(!r||!r.ok) alert("Não deu pra cancelar."); carregarReservas();
+}
+async function fecharSlot(id){
+  if(!confirm("Fechar/apagar esse horário? (some pro cliente)")) return;
+  const r=await api(`reserva_slots?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({ativo:false})});
+  if(!r||!r.ok) alert("Não deu."); carregarReservas();
+}
+function renderReservas(){
+  const porSlot={};
+  rReservas.forEach(r=>{ (porSlot[r.slot_id]=porSlot[r.slot_id]||[]).push(r); });
+  const hojeISO=new Date().toISOString().slice(0,10);
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · RESERVAS</h1><div class="sub">comer no Rio Sandô · 3 mesas de 4 lugares por horário</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    <div class="afform">
+      <h3 style="margin:0 0 8px">Abrir um horário</h3>
+      <div class="grid"><div><label>Data</label><input id="rs-data" type="date" min="${hojeISO}"></div><div><label>Horário</label><input id="rs-hora" type="time" value="19:00"></div></div>
+      <div class="grid"><div><label>Mesas (de 4 lugares)</label><input id="rs-mesas" type="number" value="3" min="1" max="20"></div><div style="display:flex;align-items:flex-end"><button onclick="criarSlot(this)" style="width:100%">Abrir horário</button></div></div>
+      <div class="mp-note" id="rs-msg" style="margin-top:6px"></div>
+      <hr style="border:none;border-top:1px solid rgba(0,0,0,.1);margin:14px 0">
+      <h3 style="margin:0 0 8px">Ou por recorrência</h3>
+      <label>Dias da semana</label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:4px 0">${DIAS_SEM.map((d,i)=>`<label style="display:flex;align-items:center;gap:4px;text-transform:none;letter-spacing:0;font-size:14px"><input type="checkbox" class="rec-dia" value="${i}" style="width:auto" ${i>=2&&i<=6?"checked":""}>${d}</label>`).join("")}</div>
+      <div class="grid"><div><label>Horários (vírgula)</label><input id="rec-horas" placeholder="19:00, 20:30" value="19:00, 20:30"></div><div><label>Semanas à frente</label><input id="rec-semanas" type="number" value="4" min="1" max="12"></div></div>
+      <button onclick="gerarRecorrencia(this)">Gerar recorrência</button>
+      <div class="mp-note" id="rec-msg" style="margin-top:6px"></div>
+    </div>
+    <h3 style="margin:6px 0 10px;font-size:15px">Próximos horários (${rSlots.length})</h3>
+    ${!rSlots.length?`<div class="vazio">nenhum horário aberto — abre um acima</div>`:rSlots.map(s=>{
+      const rv=porSlot[s.id]||[]; const usadas=rv.reduce((a,r)=>a+(r.mesas||1),0);
+      return `<div class="afcard">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <h3>${fmtDataBR(s.data)} · ${String(s.hora).slice(0,5)}</h3>
+          <b style="color:${usadas>=s.mesas?'var(--vermelho)':'var(--verde)'}">${usadas}/${s.mesas} mesas</b></div>
+        ${rv.length?rv.map(r=>`<div class="linha" style="opacity:.9"><span>${esc(r.nome)} · ${r.pessoas}p (${r.mesas} mesa${r.mesas>1?'s':''}) · <a href="https://wa.me/55${(r.whatsapp||'').replace(/\D/g,'')}" target="_blank" style="color:var(--verde)">${esc(r.whatsapp)}</a>${r.obs?' · '+esc(r.obs):''}</span><button class="off" style="padding:2px 8px" onclick="cancelarReserva(${r.id})">✕</button></div>`).join(''):`<div class="linha" style="opacity:.6">sem reservas ainda</div>`}
+        <div class="acoes" style="margin-top:8px"><button class="off" onclick="fecharSlot(${s.id})">fechar horário</button></div>
+      </div>`;
+    }).join("")}`;
 }
 // ── 🔔 NOVIDADES (changelog do sistema) ──
 const NOVIDADES = [
