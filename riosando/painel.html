@@ -966,7 +966,20 @@ const NOVIDADES = [
 ];
 let novVistas = Number(localStorage.getItem("rs_nov_vistas")||0);
 function atualizarBadgeNov(){ const b=document.getElementById("nov-badge"); if(!b) return; const n=NOVIDADES.length-novVistas; if(n>0){ b.textContent=n; b.style.display="inline"; } else b.style.display="none"; }
-function abrirNovidades(){ view="novidades"; novVistas=NOVIDADES.length; localStorage.setItem("rs_nov_vistas",String(novVistas)); render(); atualizarBadgeNov(); }
+let fbNota=0, feedbacks=[];
+function abrirNovidades(){ view="novidades"; novVistas=NOVIDADES.length; localStorage.setItem("rs_nov_vistas",String(novVistas)); render(); atualizarBadgeNov(); carregarFeedback(); }
+async function carregarFeedback(){ const r=await api("feedback?select=*&order=criado_em.desc&limit=50"); if(r&&r.ok){ feedbacks=await r.json(); const el=document.getElementById("fb-lista"); if(el) el.innerHTML = feedbacks.length? feedbacks.map(f=>`<div class="afcard"><div style="display:flex;justify-content:space-between"><b>${"⭐".repeat(f.nota||0)||"—"} · ${esc(f.tipo||"")}</b><span style="font-size:11px;opacity:.6">${new Date(f.criado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span></div><div class="linha" style="display:block;opacity:.85">${esc(f.comentario||"")}</div>${f.quem?`<div class="linha" style="opacity:.6">— ${esc(f.quem)}</div>`:""}</div>`).join("") : `<div class="vazio">nenhum feedback ainda</div>`; } }
+function setNota(n){ fbNota=n; document.querySelectorAll(".fb-star").forEach((s,i)=>s.textContent=i<n?"⭐":"☆"); }
+async function enviarFeedback(btn){
+  const tipo=document.getElementById("fb-tipo").value, com=document.getElementById("fb-com").value.trim(), quem=document.getElementById("fb-quem").value.trim();
+  const msg=document.getElementById("fb-msg");
+  if(!fbNota && !com){ msg.textContent="Dá uma nota ou escreve algo 🙏"; return; }
+  btn.disabled=true; btn.textContent="Enviando...";
+  const r=await api("feedback",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify({nota:fbNota||null,tipo,comentario:com||null,quem:quem||null,contexto:"delivery-direto"})});
+  btn.disabled=false; btn.textContent="Enviar feedback";
+  if(!r||!r.ok){ msg.textContent="Não deu pra enviar — tenta de novo."; return; }
+  msg.textContent="Valeu! Feedback registrado ✅"; fbNota=0; document.getElementById("fb-com").value=""; setNota(0); carregarFeedback();
+}
 function renderNovidades(){
   $("app").innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · NOVIDADES</h1><div class="sub">o que mudou no sistema · mais recente primeiro</div></div>
@@ -977,7 +990,17 @@ function renderNovidades(){
         <h3>${esc(n[1])}</h3><span style="font-size:12px;opacity:.6">${esc(n[0])}</span></div>
       <div class="linha" style="opacity:.85;display:block">${esc(n[2])}</div>
     </div>`).join("")}
-    <div class="vazio" style="margin-top:14px">💬 Feedback e pedidos de melhoria: em breve aqui no painel (depende de reativar o banco). Por ora, manda no grupo.</div>`;
+    <div class="afform" style="margin-top:16px">
+      <h3 style="margin:0 0 10px">💬 Avaliar o sistema de delivery direto</h3>
+      <div style="font-size:26px;letter-spacing:4px;cursor:pointer">${[1,2,3,4,5].map(n=>`<span class="fb-star" onclick="setNota(${n})">☆</span>`).join("")}</div>
+      <label>Tipo</label><select id="fb-tipo"><option value="melhoria">💡 Pedido de melhoria</option><option value="bug">🐞 Algo com problema</option><option value="elogio">❤️ Elogio</option></select>
+      <label>Comentário</label><textarea id="fb-com" rows="3" placeholder="O que funcionou, o que travou, o que melhorar..." style="width:100%;font-family:inherit;font-size:15px;padding:10px;border:1px solid var(--preto);border-radius:8px;background:#fff"></textarea>
+      <label>Seu nome (opcional)</label><input id="fb-quem" placeholder="quem está avaliando">
+      <button onclick="enviarFeedback(this)">Enviar feedback</button>
+      <div class="mp-note" id="fb-msg" style="margin-top:8px"></div>
+    </div>
+    <h3 style="margin:18px 0 10px;font-size:15px">Feedbacks recebidos</h3>
+    <div id="fb-lista"><div class="vazio">carregando...</div></div>`;
 }
 // ── AVISO DE PEDIDO NOVO (notificação nativa + título piscando + beep) ──
 let _tituloBase = document.title || "Rio Sandô · Cozinha", _flash=null, _pend=0;
