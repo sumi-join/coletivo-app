@@ -136,6 +136,7 @@ function render(){
   if(view==="envio"){ renderEnvioAvulso(); return; }
   if(view==="cupons"){ renderCupons(); return; }
   if(view==="agendados"){ renderAgendados(); return; }
+  if(view==="novidades"){ renderNovidades(); return; }
   if(view==="lanc"){ renderLanc(); return; }
   app.innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
@@ -146,7 +147,8 @@ function render(){
         <button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button>
         <button class="topbtn" onclick="abrirCupons()">🎟️ Cupons</button>
         <button class="topbtn" onclick="abrirAgendados()">⏰ Agendados</button>
-        <button class="topbtn" onclick="testarAviso()">🔔 Testar aviso</button>
+        <button class="topbtn" onclick="abrirNovidades()">🔔 Novidades<span id="nov-badge" style="display:none;background:var(--vermelho);color:#fff;border-radius:9px;padding:0 6px;margin-left:5px;font-size:11px"></span></button>
+        <button class="topbtn" onclick="testarAviso()">🔊 Testar som</button>
         <button class="topbtn" onclick="abrirLancamentos()">🧾 Lançamentos</button>
         <button class="sair" onclick="sair()">Sair</button></div>
     </header>
@@ -811,6 +813,7 @@ async function carregar(){
   carregar.ja = true;
   pedidos = dados;
   if(view==="board") render();
+  atualizarBadgeNov();
   // modo quiosque (?autoprint=1 + Chrome --kiosk-printing): comanda sai sozinha na térmica
   for(const p of paraImprimir){
     impressos.add(p.id);
@@ -947,6 +950,34 @@ async function cancelarEntrega(id, btn){
     btn.disabled=false; btn.textContent="✕ cancelar entrega";
     alert("Não cancelou: "+e.message+"\nSe o motoboy já retirou, cancele direto no app do provedor.");
   }
+}
+// ── 🔔 NOVIDADES (changelog do sistema) ──
+const NOVIDADES = [
+  ["30/08","Entrega inteligente","O card sabe se a entrega foi pelo cotador (Lalamove/Uber) ou por motoboy próprio. Botão novo: \"Saiu com motoboy próprio / na mão\" pra quem entrega fora do app."],
+  ["30/08","Aviso de pedido novo","Quando entra pedido, o título da aba pisca \"🔴 PEDIDO NOVO\" + notificação do navegador + som — mesmo com a aba do iFood na frente. Clica 🔔 pra permitir a notificação."],
+  ["30/08","Forma de pagamento à vista","O card e o histórico agora mostram PAGO · Pix ou PAGO · Cartão pro fechamento da conta."],
+  ["30/08","Desfazer e rastrear","Botão ↩ Voltar no card (desfaz clique errado) + no Histórico dá pra voltar pro board um pedido que saiu por engano e acompanhar/falar com o motoboy pelo link do mapa."],
+  ["29/08","Pix consertado","O Pix estava invisível no checkout (só aparecia cartão) — corrigido. A tarde toda entrou pedido por Pix depois disso."],
+  ["29/08","Blindagem de segurança","Rodada de correções: bloqueio de comida grátis por injeção, XSS na página de status, cobrança dupla, e o frete travado no endereço cotado."],
+  ["28/08","Pedido agendado","O cliente pode agendar dia e horário (slots de 30min, até 7 dias). Aba ⏰ Agendados no painel."],
+  ["28/08","Lançamentos","Aba 🧾: cortesia, brinde de influencer, ressarcimento (estorno real no Mercado Pago) e crédito."],
+  ["28/08","Cupom e pontos","ESTREIA10 (10% no 1º pedido) e pontos passam a contar só quando o pedido é pago de verdade."],
+  ["27/08","Site no ar","riosando.coletivo.app com o app de pedido, cardápio, frete real por endereço e cadastro."],
+];
+let novVistas = Number(localStorage.getItem("rs_nov_vistas")||0);
+function atualizarBadgeNov(){ const b=document.getElementById("nov-badge"); if(!b) return; const n=NOVIDADES.length-novVistas; if(n>0){ b.textContent=n; b.style.display="inline"; } else b.style.display="none"; }
+function abrirNovidades(){ view="novidades"; novVistas=NOVIDADES.length; localStorage.setItem("rs_nov_vistas",String(novVistas)); render(); atualizarBadgeNov(); }
+function renderNovidades(){
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · NOVIDADES</h1><div class="sub">o que mudou no sistema · mais recente primeiro</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    ${NOVIDADES.map(n=>`<div class="afcard">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h3>${esc(n[1])}</h3><span style="font-size:12px;opacity:.6">${esc(n[0])}</span></div>
+      <div class="linha" style="opacity:.85;display:block">${esc(n[2])}</div>
+    </div>`).join("")}
+    <div class="vazio" style="margin-top:14px">💬 Feedback e pedidos de melhoria: em breve aqui no painel (depende de reativar o banco). Por ora, manda no grupo.</div>`;
 }
 // ── AVISO DE PEDIDO NOVO (notificação nativa + título piscando + beep) ──
 let _tituloBase = document.title || "Rio Sandô · Cozinha", _flash=null, _pend=0;
