@@ -637,9 +637,9 @@ async function reservarMesa(btn){
   if(!pessoas||pessoas<1){ erro.textContent="Quantas pessoas?"; return; }
   if(!nome||!zap){ erro.textContent="Nome e WhatsApp, por favor 🙏"; return; }
   btn.disabled=true; btn.textContent="Reservando...";
-  const {error}=await sb.from("reservas").insert({slot_id:rSlotSel.id, nome, whatsapp:zap, pessoas, obs:obs||null, user_id: sessao?.user?.id ?? null});
+  const r=await fetch(`${PGREST}/reservas`,{method:"POST",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({slot_id:rSlotSel.id, nome, whatsapp:zap, pessoas, obs:obs||null, user_id: sessao?.user?.id ?? null})});
   btn.disabled=false; btn.textContent="Confirmar reserva";
-  if(error){ erro.textContent = /lotou|passou|indispon|grande|obrigat/i.test(error.message||"")? error.message : "Não deu pra reservar — tenta outro horário. 🙏"; abrirReserva(); return; }
+  if(!r.ok){ let msg="Não deu pra reservar — tenta outro horário. 🙏"; try{ const e=await r.json(); if(e.message && /lotou|passou|indispon|grande|obrigat/i.test(e.message)) msg=e.message; }catch(_){}; erro.textContent=msg; carregarClima(rSlots.map(s=>s.data)).then(()=>{}); return; }
   const s=rSlotSel;
   document.getElementById("sheet").innerHTML=`<div class="sheet-head"><h2>Reserva confirmada ✅</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
     <div style="padding:10px 4px;font-size:16px;line-height:1.5">Te esperamos <b>${fmtDataResv(s.data)} às ${String(s.hora).slice(0,5)}</b>, ${esc(nome)}! 🥪<br><span style="opacity:.8">Mesa pra ${pessoas} ${pessoas>1?"pessoas":"pessoa"}. Qualquer coisa a gente chama no seu WhatsApp.</span></div>`;
