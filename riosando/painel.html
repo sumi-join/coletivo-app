@@ -254,6 +254,7 @@ async function carregarHist(){
   if(view==="historico") filtrarHist();
 }
 const ROTH={novo:"recebido",em_preparo:"em preparo",pronto:"pronto",saiu:"saiu 🛵",entregue:"entregue ✅",cancelado:"cancelado ✕"};
+function viaEntrega(p){ if(p.modo!=="entrega") return ""; const m={lalamove:"Lalamove",uber_direct:"Uber",manual:"delivery direto (na mão)"}; return p.entrega_provedor?` · via ${m[p.entrega_provedor]||esc(p.entrega_provedor)}`:""; }
 function histCard(p){
   return `<div class="afcard">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
@@ -261,7 +262,7 @@ function histCard(p){
     <div class="linha"><span>${esc(p.nome)} · ${p.modo==="entrega"?"🛵 "+esc(p.bairro||"entrega"):"🏠 retirada"}</span><b>${fmt(p.total)}</b></div>
     <div class="linha" style="opacity:.9">${(p.whatsapp||"").replace(/\D/g,"").length>=10?`<a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank" style="color:var(--verde)">📱 ${esc(p.whatsapp)}</a>`:`📱 ${esc(p.whatsapp||"—")}`}${p.modo==="entrega"&&p.endereco?` · 📍 ${esc(p.endereco)}`:""}</div>
     <div class="linha" style="opacity:.8">${(p.itens||[]).map(i=>`${Number(i.qtd)||"?"}× ${esc(i.item)}`).join(", ")}</div>
-    <div class="linha"><span style="opacity:.7">${ROTH[p.status]||esc(p.status)} · ${p.pagamento_status==="pago"?"pago · "+formaPgto(p):(p.pagamento_status==="estornado"?"estornado":"pgto "+formaPgto(p))}</span></div>
+    <div class="linha"><span style="opacity:.7">${ROTH[p.status]||esc(p.status)}${viaEntrega(p)} · ${p.pagamento_status==="pago"?"pago · "+formaPgto(p):(p.pagamento_status==="estornado"?"estornado":"pgto "+formaPgto(p))}</span></div>
     ${(urlSegura(p.entrega_tracking_url)||(p.status==="entregue"||p.status==="cancelado"))?`<div class="acoes" style="margin-top:8px">
       ${urlSegura(p.entrega_tracking_url)?`<button class="off" onclick="window.open('${urlSegura(p.entrega_tracking_url)}','_blank')">🛵 acompanhar entrega</button>`:""}
       ${(p.status==="entregue"||p.status==="cancelado")?`<button class="off" onclick="voltarProBoard(${p.id||"null"},${p.entrega_id?"true":"false"})">↩ voltar pro board</button>`:""}
@@ -754,6 +755,7 @@ function card(p){
     : p.status==="pronto" && p.modo==="entrega" ? `
     <button class="enviar-btn pulsa" onclick="cotarEntrega(${p.id})">🛵 Cotar e enviar entrega</button>
     <div style="text-align:center;margin-top:6px"><button class="off" onclick="saiuManual(${p.id})">🛵 Saiu com motoboy próprio / na mão</button></div>
+    <div style="text-align:center;margin-top:6px"><button class="off" onclick="entregueManual(${p.id})">✅ Já entreguei (delivery direto / na mão)</button></div>
     <div style="text-align:center;margin-top:6px"><button class="off" onclick="copiarEndereco(${p.id}, this)">📋 copiar endereço do cliente</button></div>
     <div id="cotacao-${p.id}"></div>`:""}
     </div>`;
@@ -825,6 +827,13 @@ async function carregar(){
     localStorage.setItem("rs_vistos",JSON.stringify([...vistos].slice(-200))); }, 8000);
 }
 const PREV = {em_preparo:"novo", pronto:"em_preparo", saiu:"pronto", entregue:"saiu", cancelado:"novo"};
+async function entregueManual(id){
+  const p=pedidos.find(x=>x.id===id);
+  if(!confirm(`Confirmar que o pedido${p?" #"+p.codigo:""} JÁ FOI ENTREGUE por delivery direto (motoboy próprio / na mão)?\n\nSó confirma se saiu de verdade — o cliente vê "Entregue".`)) return;
+  const r=await api(`pedidos?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({status:"entregue", entrega_provedor:"manual"})});
+  if(!r||!r.ok) alert("Não deu pra marcar — tenta de novo.");
+  carregar();
+}
 async function saiuManual(id){
   const p=pedidos.find(x=>x.id===id);
   if(!confirm(`Sair com motoboy PRÓPRIO (fora de Lalamove/Uber)?\n\nO pedido${p?" #"+p.codigo:""} vai pra "Saiu" e você marca "✅ Entregue" na mão quando chegar (não tem baixa automática nem mapa).`)) return;
