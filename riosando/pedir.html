@@ -186,7 +186,7 @@
     <div class="kana">サンド</div>
     <div class="wordmark">RI<span class="oq"></span>&nbsp;SAND<span class="osym"></span></div>
     <div class="tagline">Katsu sando japonês · feito à mão · Botafogo, Rio <span class="alma">· todo sandô tem alma</span></div>
-    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 17h–21h30</div><button class="status conta-btn" id="menu-btn" onclick="abrirMenu()" style="background:var(--preto);color:#fff">☰ menu</button><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
+    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 17h–21h30</div><button class="status conta-btn" id="menu-btn" onclick="abrirMenu()" style="background:var(--preto);color:#fff">☰ menu</button><button class="status conta-btn" onclick="abrirReserva()">🍽️ Reservar</button><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
     <span class="ultimo-pedido" id="ultimo-pedido" style="display:none"></span>
     <div class="fechado-banner" id="fechado-banner" style="display:none"></div>
     <div class="news" id="news" style="display:none"></div>
@@ -217,7 +217,7 @@ const MENU = [
     {id:"file", nome:"Filé Mignon Empanado, Queijo & Molho Jack Nicholson", preco:67, img:"2_file_mignon", destaque:true, desc:"O mais pedido de quem gosta de clássico com atitude."},
     {id:"lombo", nome:"Katsu Sandô — Lombo Suíno, Tonkatsu & Kewpie da Casa", preco:52, img:"3_lombo", desc:"O katsu raiz: lombo crocante, tonkatsu e kewpie."},
     {id:"tofu", nome:"Tofu Crocante com Spicy Mayo", preco:45, img:"4_tofu", desc:"Vegetariano de verdade — crocância e picância na medida."},
-    {id:"atum", nome:"Atum Empanado com Aioli de Wasabi", preco:65, img:"5_atum_empanado", desc:"Atum empanado na panko, crocante por fora, com aioli de wasabi."}
+    {id:"atum", nome:"Atum Empanado com Aioli de Wasabi", preco:65, img:"5_atum_empanado", desc:"Atum selado por fora, rosado por dentro, aioli de wasabi."}
   ]},
   {cat:"Sandô Frio", itens:[
     {id:"tamago", nome:"Tamago Sandô", preco:39, img:"6_tamago", desc:"O clássico de ovo japonês, cremoso e delicado."},
@@ -578,6 +578,72 @@ function atualizarFrete(){
 const fmt = v => "R$ " + v.toFixed(2).replace(".",",").replace(",00","");
 const slug = s => s.toLowerCase().normalize("NFD").replace(/[^a-z ]/g,"").replace(/ /g,"-");
 
+// ── 🍽️ RESERVA (comer no Rio Sandô) ──
+let rSlots=[], rResv=[], rSlotSel=null, rClima={};
+const _DS=["domingo","segunda","terça","quarta","quinta","sexta","sábado"];
+function fmtDataResv(d){ const [y,m,dd]=d.split("-"); const dt=new Date(+y,+m-1,+dd); return `${_DS[dt.getDay()]} ${dd}/${m}`; }
+function livresSlot(s){ const u=rResv.filter(r=>r.slot_id===s.id).reduce((a,r)=>a+(r.mesas||1),0); return s.mesas-u; }
+function climaTxt(c){ if(!c) return ""; const k=c.code; let e="🌤️"; if(k===0)e="☀️"; else if(k>=45&&k<=48)e="🌫️"; else if((k>=51&&k<=67)||(k>=80&&k<=82))e="🌧️"; else if(k>=95)e="⛈️"; return `${e} ${c.max}°/${c.min}°${c.chuva>=40?` · ${c.chuva}% chuva`:""}`; }
+async function carregarClima(datas){
+  const uniq=[...new Set(datas)].filter(d=>!(d in rClima)); if(!uniq.length) return;
+  const s=uniq.slice().sort();
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=-22.91&longitude=-43.17&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America%2FSao_Paulo&start_date=${s[0]}&end_date=${s[s.length-1]}`);
+    const d=await r.json(); const t=d.daily||{};
+    (t.time||[]).forEach((dia,i)=>{ rClima[dia]={code:t.weather_code[i],max:Math.round(t.temperature_2m_max[i]),min:Math.round(t.temperature_2m_min[i]),chuva:t.precipitation_probability_max[i]??0}; });
+  }catch(e){}
+}
+async function abrirReserva(){
+  const sheet=document.getElementById("sheet");
+  sheet.innerHTML=`<div class="sheet-head"><h2>🍽️ Comer no Rio Sandô</h2><button class="fechar" onclick="fecharSheet()">✕</button></div><div class="vazio">carregando horários...</div>`;
+  sheet.classList.add("on"); document.getElementById("overlay").classList.add("on");
+  const hoje=new Date().toISOString().slice(0,10);
+  const [rs,rr]=await Promise.all([
+    sb.from("reserva_slots").select("*").gte("data",hoje).order("data").order("hora"),
+    sb.from("reservas").select("slot_id,mesas").eq("status","confirmada")
+  ]);
+  rSlots=(rs.data||[]).filter(s=>s.ativo); rResv=rr.data||[]; rSlotSel=null;
+  await carregarClima(rSlots.map(s=>s.data));
+  renderReserva();
+}
+function escolherSlot(id){ rSlotSel=rSlots.find(s=>s.id===id); renderReserva(); }
+function renderReserva(){
+  const sheet=document.getElementById("sheet");
+  if(rSlotSel){
+    const s=rSlotSel, lv=livresSlot(s), maxP=lv*(s.lugares_por_mesa||4);
+    sheet.innerHTML=`<div class="sheet-head"><h2>Reservar mesa</h2><button class="fechar" onclick="rSlotSel=null;renderReserva()">←</button></div>
+      <div class="linha-item"><div><h3>${fmtDataResv(s.data)} · ${String(s.hora).slice(0,5)}</h3><p>${climaTxt(rClima[s.data])} · ${lv} mesa(s) livre(s) · até ${maxP} lugares</p></div></div>
+      <label>Quantas pessoas?</label><input type="number" id="r-pessoas" min="1" max="${maxP}" value="2">
+      <label>Seu nome</label><input type="text" id="r-nome" value="${(cliente.nome||"").replace(/"/g,"&quot;")}">
+      <label>WhatsApp</label><input type="tel" id="r-zap" oninput="maskTel(this)" placeholder="(21) 9 9999-9999" value="${(cliente.zap||"").replace(/"/g,"&quot;")}">
+      <label>Observação (opcional)</label><input type="text" id="r-obs" placeholder="aniversário, cadeirinha de bebê...">
+      <button class="pagar" onclick="reservarMesa(this)">Confirmar reserva</button>
+      <div class="erro" id="r-erro" style="color:var(--vermelho);margin-top:8px"></div>`;
+    return;
+  }
+  const futuros=rSlots.filter(s=>livresSlot(s)>0);
+  const porData={}; futuros.forEach(s=>{ (porData[s.data]=porData[s.data]||[]).push(s); });
+  const datas=Object.keys(porData).sort();
+  sheet.innerHTML=`<div class="sheet-head"><h2>🍽️ Comer no Rio Sandô</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <p style="opacity:.75;margin:0 0 8px">Reserve uma mesa (temos 3 mesas de 4 lugares por horário). Escolhe o dia e a hora:</p>
+    ${!datas.length?`<div class="vazio">Sem horários abertos no momento — logo abrimos mais. 🙏</div>`:datas.map(d=>`
+      <div style="margin:12px 0 4px;font-weight:600;text-transform:capitalize">${fmtDataResv(d)} <small style="font-weight:400;opacity:.7;text-transform:none">${climaTxt(rClima[d])}</small></div>
+      ${porData[d].map(s=>`<button class="off" style="display:block;width:100%;text-align:left;margin:4px 0;padding:12px 14px;font-size:15px" onclick="escolherSlot(${s.id})">🕖 ${String(s.hora).slice(0,5)} · ${livresSlot(s)} mesa(s) livre(s)</button>`).join("")}
+    `).join("")}`;
+}
+async function reservarMesa(btn){
+  const pessoas=Number(document.getElementById("r-pessoas").value), nome=(document.getElementById("r-nome").value||"").trim(), zap=(document.getElementById("r-zap").value||"").trim(), obs=(document.getElementById("r-obs").value||"").trim();
+  const erro=document.getElementById("r-erro");
+  if(!pessoas||pessoas<1){ erro.textContent="Quantas pessoas?"; return; }
+  if(!nome||!zap){ erro.textContent="Nome e WhatsApp, por favor 🙏"; return; }
+  btn.disabled=true; btn.textContent="Reservando...";
+  const {error}=await sb.from("reservas").insert({slot_id:rSlotSel.id, nome, whatsapp:zap, pessoas, obs:obs||null, user_id: sessao?.user?.id ?? null});
+  btn.disabled=false; btn.textContent="Confirmar reserva";
+  if(error){ erro.textContent = /lotou|passou|indispon|grande|obrigat/i.test(error.message||"")? error.message : "Não deu pra reservar — tenta outro horário. 🙏"; abrirReserva(); return; }
+  const s=rSlotSel;
+  document.getElementById("sheet").innerHTML=`<div class="sheet-head"><h2>Reserva confirmada ✅</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
+    <div style="padding:10px 4px;font-size:16px;line-height:1.5">Te esperamos <b>${fmtDataResv(s.data)} às ${String(s.hora).slice(0,5)}</b>, ${esc(nome)}! 🥪<br><span style="opacity:.8">Mesa pra ${pessoas} ${pessoas>1?"pessoas":"pessoa"}. Qualquer coisa a gente chama no seu WhatsApp.</span></div>`;
+}
 function render(){
   const menu = document.getElementById("menu");
   menu.innerHTML = MENU.map(c=>`
@@ -646,6 +712,9 @@ function abrirSacola(){
         <div class="mini-add" id="add-${id}">${addCtrl(id,true)}</div>
         <span class="preco">${fmt(cart[id]*BYID[id].preco)}</span>
       </div>`).join("")}
+    ${(n && !["slaw","rabanete","picles"].some(id=>cart[id]))?`<div class="linha-item" style="background:rgba(45,90,39,.06);border-radius:12px;padding:10px 12px;display:block">
+      <h3 style="font-weight:500">🥒 Que tal uma conserva à parte?</h3><p style="margin:2px 0 6px">potinho 30g · R$ 6,90 — cai bem com o sando</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${["slaw","rabanete","picles"].map(id=>`<button class="btn-add" style="padding:6px 12px" onclick="mudar('${id}',1);reabrirSacola()">+ ${esc(BYID[id].nome)}</button>`).join("")}</div></div>`:""}
     ${entrega==="entrega"?`<div class="linha-item"><div><h3 style="font-weight:400">Entrega${bairro?` · ${bairro}`:""}</h3></div><span class="preco" id="frete-valor">${entregaLabel()}</span></div>`:""}
     ${maxDesconto()>0?`<div class="linha-item"><label class="check-pontos"><input type="checkbox" ${usarPontos?"checked":""} onchange="setUsarPontos(this.checked)"><span style="text-transform:none;letter-spacing:0">Usar ${maxDesconto()*20} dos meus ⭐ ${saldoPts} pontos</span></label><span class="preco" style="color:var(--verde)">−${fmt(maxDesconto())}</span></div>`:""}
     ${cupomInfo?`<div class="linha-item"><div><h3 style="font-weight:400">Cupom ${esc(cupom)}${cupomInfo.nome&&cupomInfo.nome!==cupom?` · ${esc(cupomInfo.nome)}`:""}</h3><p style="cursor:pointer;color:var(--vermelho)" onclick="removerCupom()">remover</p></div><span class="preco" style="color:var(--verde)">−${fmt(descontoCupomAtual())}</span></div>`:""}
