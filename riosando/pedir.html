@@ -872,7 +872,9 @@ async function pagar(btn){
   if(entrega==="entrega") pgto="online"; // entrega é sempre paga no app (motoboy não recebe)
   if(entrega==="entrega" && !bairro){ erro.textContent="Escolhe o bairro da entrega. 🙏"; return; }
   if(entrega==="entrega" && !endereco){ erro.textContent="Cadê o endereço de entrega? 🙏"; return; }
-  if(entrega==="entrega" && !complemento){ erro.textContent="Falta o complemento (apto, bloco, referência) — ajuda o entregador a te achar. Se for casa, escreve \"casa\". 🙏"; document.getElementById("complemento")?.focus(); return; }
+  if(entrega==="entrega" && !complemento){
+    if(!confirm("Seu endereço não tem complemento? (apto, bloco, referência)\n\nSem isso o entregador pode se perder. Confirmar mesmo assim?")){ document.getElementById("complemento")?.focus(); erro.textContent=""; return; }
+  }
   if(entrega==="entrega" && freteStatus==="calculando"){ erro.textContent="Só um segundo, calculando o frete… 🛵"; return; }
   const {t}=totais();
   const frete = freteAtual();
@@ -1380,15 +1382,18 @@ async function enviarAval(tipo, codigo, btn){
   if(!_aval[tipo]){ const e=document.getElementById("aval-erro-"+tipo); if(e) e.textContent="Toca nas estrelinhas 🙏"; return; }
   const com=(document.getElementById("aval-com-"+tipo)?.value||"").trim();
   btn.disabled=true; btn.textContent="Enviando...";
-  try{ await fetch(`${PGREST}/feedback`,{method:"POST",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},
-    body:JSON.stringify({nota:_aval[tipo], tipo:(tipo==="pedido"?"pedido":"app"), comentario:com||null, quem:(cliente&&cliente.nome)||null, contexto:(tipo==="pedido"?("pedido #"+codigo):"app")})}); }catch(e){}
+  let pts=0;
+  try{ const r=await fetch(`${RIO_API}/avaliar`,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({codigo, tipo, nota:_aval[tipo], comentario:com||null})});
+    if(r.ok){ const j=await r.json().catch(()=>({})); pts=j.pontos_creditados||0; } }catch(e){}
   try{ localStorage.setItem("rs_aval_"+codigo+"_"+tipo,"1"); }catch(e){}
+  const ptsMsg = pts>0 ? `<div class="linha-item" style="display:block;text-align:center;padding:8px;color:var(--verde);font-weight:600">+${pts} pontos ⭐ por avaliar! Use no próximo pedido.</div>` : "";
   const wrap=document.getElementById("aval-"+tipo);
-  if(tipo==="pedido"){ _aval.app=0; if(wrap) wrap.outerHTML=blocoAvalApp(codigo); }
+  if(tipo==="pedido"){ _aval.app=0; if(wrap) wrap.outerHTML=ptsMsg+blocoAvalApp(codigo); }
   else if(wrap){ wrap.outerHTML=`<div class="linha-item" style="display:block;text-align:center;padding:14px"><b>Arigatô! 🙏</b><br><small style="opacity:.7">Seu retorno ajuda demais a melhorar.</small></div>`; }
 }
 function blocoAvalPedido(codigo){ return `<div class="linha-item" id="aval-pedido" style="display:block;background:rgba(45,90,39,.06);border-radius:12px;padding:12px">
-  <h3 style="font-weight:500">Como foi seu pedido?</h3>
+  <h3 style="font-weight:500">Como foi seu pedido?${sessao?` <small style="font-weight:400;color:var(--verde)">· ganhe 20 pontos ⭐</small>`:""}</h3>
   <div id="stars-pedido" style="margin:6px 0">${_estrelas("pedido")}</div>
   <textarea id="aval-com-pedido" placeholder="Conta pra gente (opcional)" style="width:100%;min-height:46px;border:1px solid #ddd;border-radius:8px;padding:8px;font:inherit;box-sizing:border-box"></textarea>
   <div id="aval-erro-pedido" style="color:var(--vermelho);font-size:12px;min-height:14px"></div>
