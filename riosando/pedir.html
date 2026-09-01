@@ -585,7 +585,10 @@ function fmtDataResv(d){ const [y,m,dd]=d.split("-"); const dt=new Date(+y,+m-1,
 function livresSlot(s){ const u=rResv.filter(r=>r.slot_id===s.id).reduce((a,r)=>a+(r.mesas||1),0); return s.mesas-u; }
 function climaTxt(c){ if(!c) return ""; const k=c.code; let e="🌤️"; if(k===0)e="☀️"; else if(k>=45&&k<=48)e="🌫️"; else if((k>=51&&k<=67)||(k>=80&&k<=82))e="🌧️"; else if(k>=95)e="⛈️"; return `${e} ${c.max}°/${c.min}°${c.chuva>=40?` · ${c.chuva}% chuva`:""}`; }
 async function carregarClima(datas){
-  const uniq=[...new Set(datas)].filter(d=>!(d in rClima)); if(!uniq.length) return;
+  // Open-Meteo só prevê ~16 dias: filtra pra janela válida (senão a API dá 400 e derruba o clima de TODAS as datas)
+  const _iso=dt=>`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+  const w=spWall(), hojeISO=_iso(w), limite=_iso(new Date(w.getTime()+15*864e5));
+  const uniq=[...new Set(datas)].filter(d=>!(d in rClima) && d>=hojeISO && d<=limite); if(!uniq.length) return;
   const s=uniq.slice().sort();
   try{
     const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=-22.91&longitude=-43.17&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America%2FSao_Paulo&start_date=${s[0]}&end_date=${s[s.length-1]}`);
@@ -625,7 +628,7 @@ function renderReserva(){
   const porData={}; futuros.forEach(s=>{ (porData[s.data]=porData[s.data]||[]).push(s); });
   const datas=Object.keys(porData).sort();
   sheet.innerHTML=`<div class="sheet-head"><h2>🍽️ Comer no Rio Sandô</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
-    <p style="opacity:.75;margin:0 0 8px">Reserve uma mesa (temos 3 mesas de 4 lugares por horário). Escolhe o dia e a hora:</p>
+    <p style="opacity:.75;margin:0 0 8px">Reserve sua mesa (lugares limitados por horário). Escolhe o dia e a hora:</p>
     ${!datas.length?`<div class="vazio">Sem horários abertos no momento — logo abrimos mais. 🙏</div>`:datas.map(d=>`
       <div style="margin:12px 0 4px;font-weight:600;text-transform:capitalize">${fmtDataResv(d)} <small style="font-weight:400;opacity:.7;text-transform:none">${climaTxt(rClima[d])}</small></div>
       ${porData[d].map(s=>`<button class="off" style="display:block;width:100%;text-align:left;margin:4px 0;padding:12px 14px;font-size:15px" onclick="escolherSlot(${s.id})">🕖 ${String(s.hora).slice(0,5)} · ${livresSlot(s)} mesa(s) livre(s)</button>`).join("")}
