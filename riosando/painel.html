@@ -1047,6 +1047,9 @@ function renderReservas(){
 }
 // ── 🔔 NOVIDADES (changelog do sistema) ──
 const NOVIDADES = [
+  ["31/08","Reservas abertas 🍽️","Comer no Rio Sandô: abri quartas e quintas às 18h, 8 lugares (2 mesas) por noite, até 24/09. O cliente reserva pelo app; você acompanha e cancela na aba 🍽️ Reservas."],
+  ["31/08","Cliente avalia o pedido e o app","Na tela de \"entregue\", o cliente dá nota (⭐) pro pedido e, em seguida, pro app com sugestão de melhoria. Tudo cai na aba de feedback aqui, com o número do pedido."],
+  ["31/08","Conserva sugerida + complemento","A sacola agora sugere a conserva que casa com o sando (pra subir o ticket). E o complemento de endereço virou obrigatório na entrega — menos motoboy perdido."],
   ["31/08","Bandeira e tipo do cartão","Pra emitir a nota certa: o card agora mostra a forma completa — ex. \"PAGO · Cartão · Visa · crédito\" ou \"Cartão · Master · débito\". Pix e cortesia seguem como antes."],
   ["30/08","Entrega inteligente","O card sabe se a entrega foi pelo cotador (Lalamove/Uber) ou por motoboy próprio. Botão novo: \"Saiu com motoboy próprio / na mão\" pra quem entrega fora do app."],
   ["30/08","Aviso de pedido novo","Quando entra pedido, o título da aba pisca \"🔴 PEDIDO NOVO\" + notificação do navegador + som — mesmo com a aba do iFood na frente. Clica 🔔 pra permitir a notificação."],
@@ -1063,7 +1066,7 @@ let novVistas = Number(localStorage.getItem("rs_nov_vistas")||0);
 function atualizarBadgeNov(){ const b=document.getElementById("nov-badge"); if(!b) return; const n=NOVIDADES.length-novVistas; if(n>0){ b.textContent=n; b.style.display="inline"; } else b.style.display="none"; }
 let fbNota=0, feedbacks=[];
 function abrirNovidades(){ view="novidades"; novVistas=NOVIDADES.length; localStorage.setItem("rs_nov_vistas",String(novVistas)); render(); atualizarBadgeNov(); carregarFeedback(); }
-async function carregarFeedback(){ const r=await api("feedback?select=*&order=criado_em.desc&limit=50"); if(r&&r.ok){ feedbacks=await r.json(); const el=document.getElementById("fb-lista"); if(el) el.innerHTML = feedbacks.length? feedbacks.map(f=>`<div class="afcard"><div style="display:flex;justify-content:space-between"><b>${"⭐".repeat(f.nota||0)||"—"} · ${esc(f.tipo||"")}</b><span style="font-size:11px;opacity:.6">${new Date(f.criado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span></div><div class="linha" style="display:block;opacity:.85">${esc(f.comentario||"")}</div>${f.quem?`<div class="linha" style="opacity:.6">— ${esc(f.quem)}</div>`:""}</div>`).join("") : `<div class="vazio">nenhum feedback ainda</div>`; } }
+async function carregarFeedback(){ const r=await api("feedback?select=*&order=criado_em.desc&limit=50"); if(r&&r.ok){ feedbacks=await r.json(); const el=document.getElementById("fb-lista"); if(el) el.innerHTML = feedbacks.length? feedbacks.map(f=>`<div class="afcard"><div style="display:flex;justify-content:space-between"><b>${"⭐".repeat(f.nota||0)||"—"} · ${esc(f.tipo||"")}${f.contexto?` · ${esc(f.contexto)}`:""}</b><span style="font-size:11px;opacity:.6">${new Date(f.criado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span></div><div class="linha" style="display:block;opacity:.85">${esc(f.comentario||"")}</div>${f.quem?`<div class="linha" style="opacity:.6">— ${esc(f.quem)}</div>`:""}</div>`).join("") : `<div class="vazio">nenhum feedback ainda</div>`; } }
 function setNota(n){ fbNota=n; document.querySelectorAll(".fb-star").forEach((s,i)=>s.textContent=i<n?"⭐":"☆"); }
 async function enviarFeedback(btn){
   const tipo=document.getElementById("fb-tipo").value, com=document.getElementById("fb-com").value.trim(), quem=document.getElementById("fb-quem").value.trim();

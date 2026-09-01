@@ -712,9 +712,15 @@ function abrirSacola(){
         <div class="mini-add" id="add-${id}">${addCtrl(id,true)}</div>
         <span class="preco">${fmt(cart[id]*BYID[id].preco)}</span>
       </div>`).join("")}
-    ${(n && !["slaw","rabanete","picles"].some(id=>cart[id]))?`<div class="linha-item" style="background:rgba(45,90,39,.06);border-radius:12px;padding:10px 12px;display:block">
-      <h3 style="font-weight:500">🥒 Que tal uma conserva à parte?</h3><p style="margin:2px 0 6px">potinho 30g · R$ 6,90 — cai bem com o sando</p>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${["slaw","rabanete","picles"].map(id=>`<button class="btn-add" style="padding:6px 12px" onclick="mudar('${id}',1);reabrirSacola()">+ ${esc(BYID[id].nome)}</button>`).join("")}</div></div>`:""}
+    ${(()=>{ if(!n || ["slaw","rabanete","picles"].some(id=>cart[id])) return "";
+      const PAIR={frango:["slaw","corta a crocância do frango"],file:["picles","a acidez limpa o paladar do mignon"],lombo:["rabanete","equilibra o katsu de lombo"],tofu:["slaw","dá frescor ao tofu"],atum:["picles","realça o atum"],tamago:["rabanete","contrasta com o ovo cremoso"],tuna:["picles","corta o tuna"]};
+      const sando=Object.keys(cart).find(id=>PAIR[id]);
+      const rec=sando?PAIR[sando][0]:"slaw", motivo=sando?PAIR[sando][1]:"cai bem com o sando", nomeCurto=sando?BYID[sando].nome.split(/[ —,]/)[0]:"sando";
+      const outras=["slaw","rabanete","picles"].filter(id=>id!==rec);
+      return `<div class="linha-item" style="background:rgba(45,90,39,.06);border-radius:12px;padding:10px 12px;display:block">
+        <h3 style="font-weight:500">🥒 Completa seu ${esc(nomeCurto)}</h3><p style="margin:2px 0 8px">${esc(BYID[rec].nome)} — ${motivo}. Potinho 30g · R$ 6,90.</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-add" style="padding:6px 12px;font-weight:600" onclick="mudar('${rec}',1);reabrirSacola()">+ ${esc(BYID[rec].nome)}</button>${outras.map(id=>`<button class="btn-add" style="padding:6px 12px;opacity:.85" onclick="mudar('${id}',1);reabrirSacola()">+ ${esc(BYID[id].nome)}</button>`).join("")}</div></div>`;
+    })()}
     ${entrega==="entrega"?`<div class="linha-item"><div><h3 style="font-weight:400">Entrega${bairro?` · ${bairro}`:""}</h3></div><span class="preco" id="frete-valor">${entregaLabel()}</span></div>`:""}
     ${maxDesconto()>0?`<div class="linha-item"><label class="check-pontos"><input type="checkbox" ${usarPontos?"checked":""} onchange="setUsarPontos(this.checked)"><span style="text-transform:none;letter-spacing:0">Usar ${maxDesconto()*20} dos meus ⭐ ${saldoPts} pontos</span></label><span class="preco" style="color:var(--verde)">−${fmt(maxDesconto())}</span></div>`:""}
     ${cupomInfo?`<div class="linha-item"><div><h3 style="font-weight:400">Cupom ${esc(cupom)}${cupomInfo.nome&&cupomInfo.nome!==cupom?` · ${esc(cupomInfo.nome)}`:""}</h3><p style="cursor:pointer;color:var(--vermelho)" onclick="removerCupom()">remover</p></div><span class="preco" style="color:var(--verde)">−${fmt(descontoCupomAtual())}</span></div>`:""}
@@ -744,8 +750,8 @@ function abrirSacola(){
       <div id="cep-msg" class="mp-note" style="text-align:left;margin:2px 0 0;min-height:0"></div>
       <label>Endereço de entrega</label>
       <input type="text" id="endereco" placeholder="Rua e número" value="${(cliente.endereco||"").replace(/"/g,"&quot;")}" oninput="onEnderecoInput()">
-      <label>Complemento</label>
-      <input type="text" id="complemento" placeholder="Apto, bloco, casa, referência" value="${(cliente.complemento||"").replace(/"/g,"&quot;")}">
+      <label>Complemento <span style="opacity:.55;font-weight:400">— ajuda o entregador (se for casa, escreve "casa")</span></label>
+      <input type="text" id="complemento" placeholder="Apto, bloco, referência… ou 'casa'" value="${(cliente.complemento||"").replace(/"/g,"&quot;")}">
       <label>Bairro</label>
       <select id="sel-bairro" onchange="setBairro(this.value)">
         <option value="">Escolhe o bairro...</option>
@@ -863,6 +869,7 @@ async function pagar(btn){
   if(entrega==="entrega") pgto="online"; // entrega é sempre paga no app (motoboy não recebe)
   if(entrega==="entrega" && !bairro){ erro.textContent="Escolhe o bairro da entrega. 🙏"; return; }
   if(entrega==="entrega" && !endereco){ erro.textContent="Cadê o endereço de entrega? 🙏"; return; }
+  if(entrega==="entrega" && !complemento){ erro.textContent="Falta o complemento (apto, bloco, referência) — ajuda o entregador a te achar. Se for casa, escreve \"casa\". 🙏"; document.getElementById("complemento")?.focus(); return; }
   if(entrega==="entrega" && freteStatus==="calculando"){ erro.textContent="Só um segundo, calculando o frete… 🛵"; return; }
   const {t}=totais();
   const frete = freteAtual();
@@ -1350,7 +1357,8 @@ function fecharNews(){
           </div>`).join("")}
         </div>
         ${p.entrega_tracking_url && /^https:\/\//.test(p.entrega_tracking_url)?`<button class="pagar" onclick="window.open('${esc(p.entrega_tracking_url)}','_blank')">Ver o entregador no mapa 🗺️</button>`:""}
-        <div class="mp-note">atualiza sozinho · ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</div>`}</div>`;
+        ${p.status==="entregue"?blocoAvaliacao(p.codigo):""}
+        ${p.status!=="entregue"?`<div class="mp-note">atualiza sozinho · ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</div>`:""}`}</div>`;
       sheet.classList.add("on");
       document.getElementById("overlay").classList.add("on");
       atualizar._abriu=true;
@@ -1359,6 +1367,37 @@ function fecharNews(){
   }
   atualizar();
 })();
+
+// ── Avaliação do cliente: nota do PEDIDO e nota do APP (+ sugestão) ──
+const _aval = {pedido:0, app:0};
+function _estrelas(tipo){ return [1,2,3,4,5].map(n=>`<span onclick="setNotaAval('${tipo}',${n})" style="cursor:pointer;font-size:26px;line-height:1">${n<=_aval[tipo]?"⭐":"☆"}</span>`).join(""); }
+function setNotaAval(tipo,n){ _aval[tipo]=n; const box=document.getElementById("stars-"+tipo); if(box) box.innerHTML=_estrelas(tipo); const e=document.getElementById("aval-erro-"+tipo); if(e) e.textContent=""; }
+function _avalFeito(codigo,tipo){ try{ return !!localStorage.getItem("rs_aval_"+codigo+"_"+tipo); }catch(e){ return false; } }
+async function enviarAval(tipo, codigo, btn){
+  if(!_aval[tipo]){ const e=document.getElementById("aval-erro-"+tipo); if(e) e.textContent="Toca nas estrelinhas 🙏"; return; }
+  const com=(document.getElementById("aval-com-"+tipo)?.value||"").trim();
+  btn.disabled=true; btn.textContent="Enviando...";
+  try{ await fetch(`${PGREST}/feedback`,{method:"POST",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},
+    body:JSON.stringify({nota:_aval[tipo], tipo:(tipo==="pedido"?"pedido":"app"), comentario:com||null, quem:(cliente&&cliente.nome)||null, contexto:(tipo==="pedido"?("pedido #"+codigo):"app")})}); }catch(e){}
+  try{ localStorage.setItem("rs_aval_"+codigo+"_"+tipo,"1"); }catch(e){}
+  const wrap=document.getElementById("aval-"+tipo);
+  if(tipo==="pedido"){ _aval.app=0; if(wrap) wrap.outerHTML=blocoAvalApp(codigo); }
+  else if(wrap){ wrap.outerHTML=`<div class="linha-item" style="display:block;text-align:center;padding:14px"><b>Arigatô! 🙏</b><br><small style="opacity:.7">Seu retorno ajuda demais a melhorar.</small></div>`; }
+}
+function blocoAvalPedido(codigo){ return `<div class="linha-item" id="aval-pedido" style="display:block;background:rgba(45,90,39,.06);border-radius:12px;padding:12px">
+  <h3 style="font-weight:500">Como foi seu pedido?</h3>
+  <div id="stars-pedido" style="margin:6px 0">${_estrelas("pedido")}</div>
+  <textarea id="aval-com-pedido" placeholder="Conta pra gente (opcional)" style="width:100%;min-height:46px;border:1px solid #ddd;border-radius:8px;padding:8px;font:inherit;box-sizing:border-box"></textarea>
+  <div id="aval-erro-pedido" style="color:var(--vermelho);font-size:12px;min-height:14px"></div>
+  <button class="btn-add" style="padding:8px 14px" onclick="enviarAval('pedido','${esc(codigo)}',this)">Enviar avaliação</button></div>`; }
+function blocoAvalApp(codigo){ if(_avalFeito(codigo,"app")) return `<div class="linha-item" style="display:block;text-align:center;padding:14px"><b>Arigatô pelo retorno! 🙏</b></div>`;
+  return `<div class="linha-item" id="aval-app" style="display:block;background:rgba(0,0,0,.04);border-radius:12px;padding:12px">
+  <h3 style="font-weight:500">E o app — nota e sugestão?</h3>
+  <div id="stars-app" style="margin:6px 0">${_estrelas("app")}</div>
+  <textarea id="aval-com-app" placeholder="O que dava pra melhorar no app? (opcional)" style="width:100%;min-height:46px;border:1px solid #ddd;border-radius:8px;padding:8px;font:inherit;box-sizing:border-box"></textarea>
+  <div id="aval-erro-app" style="color:var(--vermelho);font-size:12px;min-height:14px"></div>
+  <button class="btn-add" style="padding:8px 14px" onclick="enviarAval('app','${esc(codigo)}',this)">Enviar</button></div>`; }
+function blocoAvaliacao(codigo){ const dp=_avalFeito(codigo,"pedido"), da=_avalFeito(codigo,"app"); if(dp&&da) return ""; return dp?blocoAvalApp(codigo):blocoAvalPedido(codigo); }
 
 // retorno do Checkout Pro (?pago=1|0|pendente&codigo=XXXX)
 (function(){
