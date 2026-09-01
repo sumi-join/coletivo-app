@@ -107,7 +107,7 @@ const fmt = v => "R$ " + Number(v).toFixed(2).replace(".",",").replace(",00","")
 const $ = id => document.getElementById(id);
 // todo dado digitado pelo cliente passa por aqui antes de virar HTML (anti-XSS)
 const esc = s => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function formaPgto(p){ const m={pix:"Pix",cartao:"Cartão","cartão":"Cartão",online:"online (Pix/cartão)",cortesia:"🎁 Cortesia",influencer:"🎁 Influencer"}; return m[String(p.pagamento||"").toLowerCase()]||esc(p.pagamento||"—"); }
+function formaPgto(p){ const m={pix:"Pix",cartao:"Cartão","cartão":"Cartão",online:"online (Pix/cartão)",cortesia:"🎁 Cortesia",influencer:"🎁 Influencer",na_entrega:"na entrega"}; const raw=String(p.pagamento||"").trim(); if(!raw) return "—"; const parts=raw.split("·").map(s=>s.trim()).filter(Boolean); const head=m[parts[0].toLowerCase()]||esc(parts[0]); const tail=parts.slice(1).map(s=>esc(s)).join(" · "); return tail?head+" · "+tail:head; }
 const urlSegura = u => typeof u==="string" && /^https:\/\/[\w.-]+\//.test(u) ? esc(u) : null;
 // máscara de telefone BR: (21) 9 6899-9763 (cel) / (21) 6899-9763 (fixo)
 function fmtTelBR(v){
@@ -1047,6 +1047,7 @@ function renderReservas(){
 }
 // ── 🔔 NOVIDADES (changelog do sistema) ──
 const NOVIDADES = [
+  ["31/08","Bandeira e tipo do cartão","Pra emitir a nota certa: o card agora mostra a forma completa — ex. \"PAGO · Cartão · Visa · crédito\" ou \"Cartão · Master · débito\". Pix e cortesia seguem como antes."],
   ["30/08","Entrega inteligente","O card sabe se a entrega foi pelo cotador (Lalamove/Uber) ou por motoboy próprio. Botão novo: \"Saiu com motoboy próprio / na mão\" pra quem entrega fora do app."],
   ["30/08","Aviso de pedido novo","Quando entra pedido, o título da aba pisca \"🔴 PEDIDO NOVO\" + notificação do navegador + som — mesmo com a aba do iFood na frente. Clica 🔔 pra permitir a notificação."],
   ["30/08","Forma de pagamento à vista","O card e o histórico agora mostram PAGO · Pix ou PAGO · Cartão pro fechamento da conta."],
