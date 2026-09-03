@@ -1361,6 +1361,10 @@ function fecharNews(){
             <div><b style="font-size:15px">${e[1]}</b><br><small style="opacity:.6">${e[2]}</small></div>
           </div>`).join("")}
         </div>
+        ${(p.status==="saiu" && p.entrega_motorista_fone)?`<div class="linha-item" style="display:block;background:rgba(45,90,39,.06);border-radius:12px;padding:10px 12px">
+          <h3 style="font-weight:500">🛵 Seu entregador${p.entrega_motorista?`: ${esc(p.entrega_motorista)}`:""}</h3>
+          ${p.entrega_placa?`<p style="margin:2px 0 6px;opacity:.75">placa ${esc(p.entrega_placa)}</p>`:""}
+          <a class="pagar" style="display:block;text-align:center;text-decoration:none" href="tel:${esc(String(p.entrega_motorista_fone).replace(/[^\d+]/g,""))}">📞 Ligar pro entregador</a></div>`:""}
         ${p.entrega_tracking_url && /^https:\/\//.test(p.entrega_tracking_url)?`<button class="pagar" onclick="window.open('${esc(p.entrega_tracking_url)}','_blank')">Ver o entregador no mapa 🗺️</button>`:""}
         ${p.status==="entregue"?blocoAvaliacao(p.codigo):""}
         ${p.status!=="entregue"?`<div class="mp-note">atualiza sozinho · ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</div>`:""}`}</div>`;

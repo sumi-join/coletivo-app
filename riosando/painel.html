@@ -750,6 +750,7 @@ function card(p){
     </div>
     ${p.entrega_id ? `
     <div class="meta">🛵 ${esc(p.entrega_provedor)} ${p.status==="saiu"?"a caminho do cliente (baixa automática ao entregar)":"acionado (indo buscar)"}${urlSegura(p.entrega_tracking_url)?` · <a href="${urlSegura(p.entrega_tracking_url)}" target="_blank" style="color:var(--verde)">🛵 acompanhar / falar com o motoboy</a>`:""}</div>
+    ${p.entrega_motorista_fone?`<div class="meta">📞 Entregador: <b>${esc(p.entrega_motorista||"motoboy")}</b>${p.entrega_placa?` · placa ${esc(p.entrega_placa)}`:""} · <a href="tel:${esc(String(p.entrega_motorista_fone).replace(/[^\d+]/g,""))}" style="color:var(--verde)">ligar</a></div>`:""}
     ${p.status!=="saiu"?`<div class="acoes"><button class="cancelar" onclick="cancelarEntrega(${p.id}, this)">✕ cancelar entrega</button></div>`:""}
     <div class="meta" id="cotacao-${p.id}"></div>`
     : p.entrega_provedor==="manual" ? `
