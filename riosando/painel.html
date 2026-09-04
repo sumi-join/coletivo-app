@@ -139,12 +139,14 @@ function render(){
   if(view==="novidades"){ renderNovidades(); return; }
   if(view==="reservas"){ renderReservas(); return; }
   if(view==="lanc"){ renderLanc(); return; }
+  if(view==="relatorio"){ renderRelatorio(); return; }
   app.innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
         <button class="topbtn" onclick="abrirPedidoManual()">➕ Pedido</button>
         <button class="topbtn" onclick="abrirEnvioAvulso()">🛵 Envio</button>
         <button class="topbtn" onclick="abrirHistorico()">📋 Histórico</button>
+        <button class="topbtn" onclick="abrirRelatorio()">📊 Relatório</button>
         <button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button>
         <button class="topbtn" onclick="abrirCupons()">🎟️ Cupons</button>
         <button class="topbtn" onclick="abrirAgendados()">⏰ Agendados</button>
@@ -293,6 +295,78 @@ function renderHistorico(){
     <div id="hist-lista"></div>`;
   filtrarHist();
 }
+// ── 📊 Relatório de pedidos (resumo com leitura + export CSV) ──
+let relPeds=[], relDe="", relAte="", relCarregando=false;
+function _isoRel(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function abrirRelatorio(){ view="relatorio"; relPeds=[]; const h=new Date(); relDe=_isoRel(new Date(h.getFullYear(),h.getMonth(),1)); relAte=_isoRel(h); render(); carregarRelatorio(); }
+function relRange(qual){ const h=new Date(); if(qual==="mes"){ relDe=_isoRel(new Date(h.getFullYear(),h.getMonth(),1)); relAte=_isoRel(h); } else if(qual==="30"){ relDe=_isoRel(new Date(h.getTime()-29*864e5)); relAte=_isoRel(h); } else if(qual==="tudo"){ relDe=""; relAte=""; } carregarRelatorio(); }
+function setRelDe(v){ relDe=v; carregarRelatorio(); }
+function setRelAte(v){ relAte=v; carregarRelatorio(); }
+async function carregarRelatorio(){
+  relCarregando=true; if(view==="relatorio") renderRelatorio();
+  let q=`pedidos?select=codigo,created_at,nome,whatsapp,modo,bairro,endereco,itens,total,frete,desconto,pagamento,pagamento_status,status&order=created_at.desc&limit=1000`;
+  if(relDe) q+=`&created_at=gte.${relDe}T00:00:00`;
+  if(relAte) q+=`&created_at=lte.${relAte}T23:59:59`;
+  const r=await api(q); relCarregando=false;
+  relPeds=(r&&r.ok)?await r.json():[];
+  if(view==="relatorio") renderRelatorio();
+}
+function _resumoRel(ps){
+  const pagos=ps.filter(p=>p.pagamento_status==="pago");
+  const fat=pagos.reduce((s,p)=>s+(Number(p.total)||0),0);
+  return { n:ps.length, npg:pagos.length, fat, tm:pagos.length?fat/pagos.length:0,
+    cancel:ps.filter(p=>p.status==="cancelado").length,
+    ent:ps.filter(p=>p.modo==="entrega").length, ret:ps.filter(p=>p.modo==="retirada").length,
+    pix:pagos.filter(p=>String(p.pagamento||"").startsWith("pix")).length,
+    cartao:pagos.filter(p=>String(p.pagamento||"").startsWith("cart")).length };
+}
+function baixarCSVrel(){
+  if(!relPeds.length){ alert("Nada pra exportar nesse período."); return; }
+  const num=v=>Number(v||0).toFixed(2).replace(".",",");
+  const linhas=[["Código","Data","Hora","Cliente","WhatsApp","Modo","Bairro","Endereço","Itens","Total","Frete","Desconto","Forma pgto","Pgto","Status"]];
+  for(const p of relPeds){ const d=new Date(p.created_at);
+    linhas.push([p.codigo, d.toLocaleDateString("pt-BR"), d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}), p.nome||"", p.whatsapp||"", p.modo||"", p.bairro||"", (p.endereco||"").replace(/[\r\n]+/g," "), (p.itens||[]).map(i=>`${Number(i.qtd)||"?"}x ${i.item||i.nome||i.id||""}`).join("; "), num(p.total), num(p.frete), num(p.desconto), formaPgto(p), p.pagamento_status||"", p.status||""]); }
+  const csv="﻿"+linhas.map(l=>l.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(";")).join("\r\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  a.download=`rio-sando_pedidos_${relDe||"inicio"}_a_${relAte||"hoje"}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+function renderRelatorio(){
+  const R=_resumoRel(relPeds);
+  const kpi=(t,v,sub)=>`<div style="background:var(--card);border:1px solid var(--creme);border-radius:12px;padding:12px 14px;min-width:128px;flex:1"><div style="font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:.05em">${t}</div><div style="font-size:22px;font-weight:600;margin-top:2px">${v}</div>${sub?`<div style="font-size:12px;opacity:.65;margin-top:2px">${sub}</div>`:""}</div>`;
+  const prev=relPeds.slice(0,50);
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · RELATÓRIO</h1><div class="sub">${relCarregando?"carregando…":`${R.n} pedidos no período`}</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:14px">
+      <div><label style="font-size:12px;opacity:.6;display:block">De</label><input type="date" value="${relDe}" onchange="setRelDe(this.value)" style="padding:8px;border:1px solid var(--creme);border-radius:8px;background:var(--card);color:var(--preto);font-family:inherit"></div>
+      <div><label style="font-size:12px;opacity:.6;display:block">Até</label><input type="date" value="${relAte}" onchange="setRelAte(this.value)" style="padding:8px;border:1px solid var(--creme);border-radius:8px;background:var(--card);color:var(--preto);font-family:inherit"></div>
+      <button class="topbtn" onclick="relRange('mes')">Este mês</button>
+      <button class="topbtn" onclick="relRange('30')">Últimos 30d</button>
+      <button class="topbtn" onclick="relRange('tudo')">Tudo</button>
+      <button class="avancar" style="margin-left:auto" onclick="baixarCSVrel()">⬇️ Baixar CSV (${relPeds.length})</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      ${kpi("Faturamento", fmt(R.fat), `${R.npg} pedidos pagos`)}
+      ${kpi("Ticket médio", fmt(R.tm), "por pedido pago")}
+      ${kpi("Pedidos", R.n, `${R.cancel} cancelados`)}
+      ${kpi("Entrega × Retirada", `${R.ent} · ${R.ret}`, "por modo")}
+      ${kpi("Pix × Cartão", `${R.pix} · ${R.cartao}`, "pagos, por forma")}
+    </div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="text-align:left;border-bottom:1px solid var(--creme)">${["Código","Data","Cliente","Modo","Total","Forma","Status"].map(h=>`<th style="padding:6px 8px;opacity:.6;font-weight:500">${h}</th>`).join("")}</tr></thead>
+      <tbody>${prev.map(p=>{const d=new Date(p.created_at); return `<tr style="border-bottom:1px solid rgba(0,0,0,.05)">
+        <td style="padding:6px 8px">#${esc(p.codigo)}</td>
+        <td style="padding:6px 8px;white-space:nowrap">${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})} ${d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</td>
+        <td style="padding:6px 8px">${esc(p.nome||"—")}</td>
+        <td style="padding:6px 8px">${p.modo==="entrega"?"🛵":"🏠"}</td>
+        <td style="padding:6px 8px;white-space:nowrap">${fmt(p.total)}</td>
+        <td style="padding:6px 8px">${esc(formaPgto(p))}</td>
+        <td style="padding:6px 8px">${ROTH[p.status]||esc(p.status)}</td></tr>`;}).join("")}</tbody>
+    </table>${relPeds.length>50?`<div class="sub" style="padding:10px 0">mostrando 50 de ${relPeds.length} · o CSV traz todos</div>`:""}
+    ${(!relPeds.length&&!relCarregando)?`<div class="vazio">nenhum pedido no período</div>`:""}</div>`;
+}
+
 // ── ⏰ Agendados (pedidos com horário marcado pra frente) ──
 let agendados=[];
 function abrirAgendados(){ view="agendados"; agendados=[]; render(); carregarAgendados(); }
@@ -1048,6 +1122,8 @@ function renderReservas(){
 }
 // ── 🔔 NOVIDADES (changelog do sistema) ──
 const NOVIDADES = [
+  ["03/09","Relatório de pedidos 📊","Nova aba: filtra por período (este mês, 30 dias, tudo ou datas), mostra faturamento, ticket médio e mix (entrega/retirada, Pix/cartão), e baixa um CSV com todos os pedidos pra abrir no Excel/Sheets (ótimo pro fluxo de caixa do Duda)."],
+  ["03/09","Contato do entregador 📞","Quando o motoboy do Lalamove/Uber é acionado, o card mostra nome, placa e telefone dele — pra falar direto em caso de urgência. O cliente também vê no acompanhamento."],
   ["31/08","Reservas abertas 🍽️","Comer no Rio Sandô: abri quartas e quintas às 18h, 8 lugares (2 mesas) por noite, até 24/09. O cliente reserva pelo app; você acompanha e cancela na aba 🍽️ Reservas."],
   ["31/08","Cliente avalia o pedido e o app","Na tela de \"entregue\", o cliente dá nota (⭐) pro pedido e, em seguida, pro app com sugestão. Quem tem conta ganha 20 pontos por avaliar (1x por pedido). Tudo cai na aba de feedback aqui, com o número do pedido."],
   ["31/08","Conserva sugerida + complemento","A sacola agora sugere a conserva que casa com o sando (pra subir o ticket). E o complemento de endereço virou obrigatório na entrega — menos motoboy perdido."],

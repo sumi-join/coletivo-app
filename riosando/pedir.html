@@ -1350,6 +1350,13 @@ function fecharNews(){
       const etapas = p.modo==="retirada" ? ETAPAS.filter(e=>e[0]!=="saiu").map(e=>e[0]==="pronto"?["pronto","Prontinho 📦","Pode vir buscar em Botafogo!"]:e) : ETAPAS;
       const idx = Math.max(0, etapas.findIndex(e=>e[0]===p.status));
       const cancelado = p.status==="cancelado";
+      // não reconstruir o sheet se nada relevante mudou (preserva o mapa Leaflet do rastreio)
+      const _rk = p.status + "|" + (p.entrega_motorista_fone?"1":"0");
+      if(atualizar._abriu && atualizar._rk===_rk && document.getElementById("status-view")){
+        if(p.status==="saiu") garantirRastreio(p.codigo);
+        if(!cancelado && p.status!=="entregue") setTimeout(atualizar, 15000);
+        return;
+      }
       sheet.innerHTML = `<div id="status-view">
         <div class="sheet-head"><h2>Pedido #${esc(p.codigo)}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div>
         ${cancelado?`<div class="vazio">Esse pedido foi cancelado. <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">Chama a gente no WhatsApp</a> se precisar. 🙏</div>`:`
@@ -1365,17 +1372,67 @@ function fecharNews(){
           <h3 style="font-weight:500">🛵 Seu entregador${p.entrega_motorista?`: ${esc(p.entrega_motorista)}`:""}</h3>
           ${p.entrega_placa?`<p style="margin:2px 0 6px;opacity:.75">placa ${esc(p.entrega_placa)}</p>`:""}
           <a class="pagar" style="display:block;text-align:center;text-decoration:none" href="tel:${esc(String(p.entrega_motorista_fone).replace(/[^\d+]/g,""))}">📞 Ligar pro entregador</a></div>`:""}
+        ${p.status==="saiu"?`<div id="entrega-eta" class="mp-note" style="text-align:center;font-size:15px;color:var(--verde);min-height:8px;margin:2px 0 4px"></div>
+          <div id="entrega-mapa" style="height:200px;border-radius:12px;overflow:hidden;margin:0 0 6px;background:#e8e6e0"></div>`:""}
         ${p.entrega_tracking_url && /^https:\/\//.test(p.entrega_tracking_url)?`<button class="pagar" onclick="window.open('${esc(p.entrega_tracking_url)}','_blank')">Ver o entregador no mapa 🗺️</button>`:""}
         ${p.status==="entregue"?blocoAvaliacao(p.codigo):""}
         ${p.status!=="entregue"?`<div class="mp-note">atualiza sozinho · ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</div>`:""}`}</div>`;
       sheet.classList.add("on");
       document.getElementById("overlay").classList.add("on");
       atualizar._abriu=true;
+      atualizar._rk=_rk;
+      if(p.status==="saiu") garantirRastreio(p.codigo); else pararRastreio();
       if(!cancelado && p.status!=="entregue") setTimeout(atualizar, 15000);
     }catch(e){ if(!atualizar._abriu || (sheet.classList.contains("on") && document.getElementById("status-view"))) setTimeout(atualizar, 20000); }
   }
   atualizar();
 })();
+
+// ── Rastreio ao vivo do entregador: mapa Leaflet + ETA (lê a posição que Lalamove/Uber já mandam) ──
+let _rastreio=null; // {codigo, map, driver, dest, timer}
+function _carregarLeaflet(cb){
+  if(window.L){ cb(); return; }
+  if(!document.getElementById("leaflet-css")){ const l=document.createElement("link"); l.id="leaflet-css"; l.rel="stylesheet"; l.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(l); }
+  let s=document.getElementById("leaflet-js");
+  if(!s){ s=document.createElement("script"); s.id="leaflet-js"; s.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload=cb; document.head.appendChild(s); }
+  else s.addEventListener("load",cb);
+}
+function garantirRastreio(codigo){
+  const el=document.getElementById("entrega-mapa");
+  if(_rastreio && _rastreio.codigo===codigo && el && el._leaflet_id) return; // já rodando neste mapa
+  pararRastreio();
+  _rastreio={codigo, map:null, driver:null, dest:null, timer:null};
+  _carregarLeaflet(()=>{ if(!_rastreio||_rastreio.codigo!==codigo) return; _pollPosicao(codigo); _rastreio.timer=setInterval(()=>_pollPosicao(codigo), 20000); });
+}
+function pararRastreio(){
+  if(!_rastreio) return;
+  if(_rastreio.timer) clearInterval(_rastreio.timer);
+  try{ if(_rastreio.map) _rastreio.map.remove(); }catch(e){}
+  _rastreio=null;
+}
+async function _pollPosicao(codigo){
+  if(!_rastreio || _rastreio.codigo!==codigo) return;
+  const mapaEl=document.getElementById("entrega-mapa"); if(!mapaEl){ pararRastreio(); return; }
+  let d; try{ const r=await fetch(`${RIO_API}/entrega-posicao`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codigo})}); d=await r.json(); }catch(e){ return; }
+  if(!d || !d.ativo) return;
+  const etaEl=document.getElementById("entrega-eta");
+  if(etaEl) etaEl.textContent = (d.eta_min!=null) ? `🛵 chega em ~${d.eta_min} min` : "🛵 a caminho…";
+  const mot=d.motorista, dest=d.destino;
+  if((!mot && !dest) || !window.L) return;
+  if(!_rastreio.map){
+    const c0=mot||dest;
+    _rastreio.map=L.map(mapaEl,{zoomControl:true,attributionControl:false}).setView([c0.lat,c0.lng],15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(_rastreio.map);
+  }
+  if(dest && !_rastreio.dest) _rastreio.dest=L.marker([dest.lat,dest.lng]).addTo(_rastreio.map).bindPopup("Seu endereço 📍");
+  if(mot){
+    if(!_rastreio.driver) _rastreio.driver=L.marker([mot.lat,mot.lng]).addTo(_rastreio.map).bindPopup("🛵 entregador");
+    else _rastreio.driver.setLatLng([mot.lat,mot.lng]);
+  }
+  const pts=[]; if(mot) pts.push([mot.lat,mot.lng]); if(dest) pts.push([dest.lat,dest.lng]);
+  if(pts.length===1) _rastreio.map.setView(pts[0],15);
+  else if(pts.length===2){ try{ _rastreio.map.fitBounds(pts,{padding:[30,30],maxZoom:16}); }catch(e){} }
+}
 
 // ── Avaliação do cliente: nota do PEDIDO e nota do APP (+ sugestão) ──
 const _aval = {pedido:0, app:0};
