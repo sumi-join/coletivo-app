@@ -869,6 +869,8 @@ async function pagar(btn){
   const erro = document.getElementById("erro-envio");
   const nome=val("nome"), zap=val("zap"), endereco=val("endereco"), complemento=val("complemento"), obs=val("obs"), cep=val("cep");
   if(!nome || !zap){ erro.textContent="Precisamos do seu nome e WhatsApp. 🙏"; return; }
+  const zapDig = zap.replace(/\D/g,"").replace(/^55(?=\d{11}$)/,""); // tira o 55 do país se sobrar um celular BR de 11 díg
+  if(!(zapDig.length===11 && zapDig[2]==="9")){ erro.textContent="Confere seu WhatsApp: precisa ser celular brasileiro com DDD e o 9 — ex.: (21) 9 9999-9999. Sem um número BR o entregador não te acha. 🙏"; document.getElementById("zap")?.focus(); return; }
   if(entrega==="entrega") pgto="online"; // entrega é sempre paga no app (motoboy não recebe)
   if(entrega==="entrega" && !bairro){ erro.textContent="Escolhe o bairro da entrega. 🙏"; return; }
   if(entrega==="entrega" && !endereco){ erro.textContent="Cadê o endereço de entrega? 🙏"; return; }
