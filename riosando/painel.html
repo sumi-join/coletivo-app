@@ -332,7 +332,7 @@ function baixarCSVrel(){
 }
 function renderRelatorio(){
   const R=_resumoRel(relPeds);
-  const kpi=(t,v,sub)=>`<div style="background:var(--card);border:1px solid var(--creme);border-radius:12px;padding:12px 14px;min-width:128px;flex:1"><div style="font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:.05em">${t}</div><div style="font-size:22px;font-weight:600;margin-top:2px">${v}</div>${sub?`<div style="font-size:12px;opacity:.65;margin-top:2px">${sub}</div>`:""}</div>`;
+  const kpi=(t,v,sub)=>`<div style="background:var(--card);color:var(--preto);border:1px solid var(--creme);border-radius:12px;padding:12px 14px;min-width:128px;flex:1"><div style="font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:.05em">${t}</div><div style="font-size:22px;font-weight:600;margin-top:2px">${v}</div>${sub?`<div style="font-size:12px;opacity:.65;margin-top:2px">${sub}</div>`:""}</div>`;
   const prev=relPeds.slice(0,50);
   $("app").innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · RELATÓRIO</h1><div class="sub">${relCarregando?"carregando…":`${R.n} pedidos no período`}</div></div>
