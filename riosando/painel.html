@@ -81,6 +81,7 @@
   .cotcard.melhor .chamar{background:var(--verde)}
   .cot-off{background:var(--card);color:var(--preto);border:1px dashed var(--linha);border-radius:12px;padding:12px;opacity:.6;font-size:11.5px}
   .cot-ifood{display:block;text-align:center;background:#EA1D2C;color:#fff;border-radius:10px;padding:11px;font-size:13px;text-decoration:none;margin-top:8px;font-weight:500}
+  @media screen{ #comanda{display:none} }
   @media print{
     body *{display:none}
     #comanda,#comanda *{display:block}
@@ -140,10 +141,12 @@ function render(){
   if(view==="reservas"){ renderReservas(); return; }
   if(view==="lanc"){ renderLanc(); return; }
   if(view==="relatorio"){ renderRelatorio(); return; }
+  if(view==="notas"){ renderNotas(); return; }
   app.innerHTML=`<header>
       <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
         <button class="topbtn" onclick="abrirPedidoManual()">➕ Pedido</button>
+        <button class="topbtn" onclick="abrirNotas()">📄 Notas do dia</button>
         <button class="topbtn" onclick="abrirEnvioAvulso()">🛵 Envio</button>
         <button class="topbtn" onclick="abrirHistorico()">📋 Histórico</button>
         <button class="topbtn" onclick="abrirRelatorio()">📊 Relatório</button>
@@ -462,7 +465,7 @@ async function cotarEnvio(btn){
         <div class="det">${det||"&nbsp;"}</div>
         <button class="chamar" onclick='chamarEnvio("${String(c.provedor).replace(/[^\w.-]/g,"")}","${String(c.quote_id).replace(/[^\w.-]/g,"")}",this)'>Chamar ✓</button></div>`;
     }).join("");
-    el.innerHTML=`<div class="cot-grid">${cards}</div>${disp.length?"":`<a class="cot-ifood" href="https://portal.ifood.com.br" target="_blank">🔴 pedir pelo iFood</a>`}`;
+    el.innerHTML=`<div class="cot-grid">${cards}</div>${disp.length?"":`<a class="cot-ifood" href="https://gestordepedidos.ifood.com.br/" target="_blank">🔴 pedir entregador iFood (Sob Demanda)</a>`}`;
   }catch(e){ el.innerHTML=`<div style="font-size:12px;opacity:.8">erro ao cotar</div>`; }
 }
 async function chamarEnvio(provedor, quoteId, btn){
@@ -827,10 +830,12 @@ function card(p){
     ${p.entrega_motorista_fone?`<div class="meta">📞 Entregador: <b>${esc(p.entrega_motorista||"motoboy")}</b>${p.entrega_placa?` · placa ${esc(p.entrega_placa)}`:""} · <a href="tel:${esc(String(p.entrega_motorista_fone).replace(/[^\d+]/g,""))}" style="color:var(--verde)">ligar</a></div>`:""}
     ${p.status!=="saiu"?`<div class="acoes"><button class="cancelar" onclick="cancelarEntrega(${p.id}, this)">✕ cancelar entrega</button></div>`:""}
     <div class="meta" id="cotacao-${p.id}"></div>`
-    : p.entrega_provedor==="manual" ? `
-    <div class="meta">🛵 <b>motoboy próprio / na mão</b> — marque <b>✅ Entregue</b> quando chegar no cliente.</div>`
+    : (p.entrega_provedor==="manual" || p.entrega_provedor==="ifood_sob_demanda") ? `
+    <div class="meta">🛵 <b>${p.entrega_provedor==="manual"?"motoboy próprio / na mão":"entregador iFood Sob Demanda"}</b> — marque <b>✅ Entregue</b> quando chegar no cliente.</div>`
     : p.status==="pronto" && p.modo==="entrega" ? `
-    <button class="enviar-btn pulsa" onclick="cotarEntrega(${p.id})">🛵 Cotar e enviar entrega</button>
+    <button class="enviar-btn pulsa" style="background:#EA1D2C" onclick="pedirIfood(${p.id}, this)">🔴 Pedir entregador iFood (Sob Demanda)</button>
+    <div style="text-align:center;margin-top:6px"><button class="off" onclick="saiuIfood(${p.id})">🛵 Já pedi no iFood — saiu</button></div>
+    <div style="text-align:center;margin-top:10px"><button class="off" onclick="cotarEntrega(${p.id})">cotar Lalamove / Uber</button></div>
     <div style="text-align:center;margin-top:6px"><button class="off" onclick="saiuManual(${p.id})">🛵 Saiu com motoboy próprio / na mão</button></div>
     <div style="text-align:center;margin-top:6px"><button class="off" onclick="entregueManual(${p.id})">✅ Já entreguei (delivery direto / na mão)</button></div>
     <div style="text-align:center;margin-top:6px"><button class="off" onclick="copiarEndereco(${p.id}, this)">📋 copiar endereço do cliente</button></div>
@@ -918,6 +923,21 @@ async function saiuManual(id){
   if(!r||!r.ok) alert("Não deu pra marcar — tenta de novo.");
   carregar();
 }
+// iFood Sob Demanda (Gestor de Pedidos → capacete): copia o endereço e abre o Gestor numa aba
+function pedirIfood(id, btn){
+  const p=pedidos.find(x=>x.id===id); if(!p) return;
+  window.open("https://gestordepedidos.ifood.com.br/","_blank");
+  navigator.clipboard.writeText(`${p.endereco} — ${p.nome} ${p.whatsapp}`).then(()=>{
+    const t=btn.textContent; btn.textContent="✓ endereço copiado — cola no iFood"; setTimeout(()=>btn.textContent=t, 4000);
+  }).catch(()=>{});
+}
+async function saiuIfood(id){
+  const p=pedidos.find(x=>x.id===id);
+  if(!confirm(`Pedido${p?" #"+p.codigo:""} saiu com entregador do iFood Sob Demanda?\n\nVai pra "Saiu" — marque "✅ Entregue" quando chegar. O custo vem descontado do repasse do iFood.`)) return;
+  const r=await api(`pedidos?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({status:"saiu", entrega_provedor:"ifood_sob_demanda"})});
+  if(!r||!r.ok) alert("Não deu pra marcar — tenta de novo.");
+  carregar();
+}
 async function voltarStatus(id){
   const p=pedidos.find(x=>x.id===id); const prev=PREV[p?.status];
   if(!prev) return;
@@ -950,15 +970,18 @@ async function mudarStatus(id, st){
 }
 function imprimir(id){
   const p = pedidos.find(x=>x.id===id); if(!p) return;
+  const d = new Date(p.created_at);
+  const quando = d.toLocaleString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+  const ag = p.agendado_para ? `\n>>> AGENDADO: ${new Date(p.agendado_para).toLocaleString("pt-BR",{weekday:"short",hour:"2-digit",minute:"2-digit"})} <<<` : "";
+  const pago = p.pagamento_status==="pago";
   $("comanda").textContent =
-`RIO SANDO  ·  #${p.codigo}
-${new Date(p.created_at).toLocaleString("pt-BR")}
---------------------------------
-${p.itens.map(i=>`${i.qtd}x ${i.item}`).join("\n")}
---------------------------------
-${p.obs?`OBS: ${p.obs}\n`:""}${p.modo==="entrega"?`ENTREGA: ${p.endereco}`:"RETIRADA"}
-${p.nome} · ${p.whatsapp}
-TOTAL ${fmt(p.total)} · ${String(p.pagamento||"—").toUpperCase()} na ${p.modo==="entrega"?"entrega":"retirada"}
+`RIO SANDÔ  ·  #${p.codigo}
+${quando}  ·  ${p.modo==="entrega"?"ENTREGA":"RETIRADA"}${ag}
+================================
+${(p.itens||[]).map(i=>`${i.qtd}x ${i.item}`).join("\n")}
+================================
+${p.obs?`OBS: ${p.obs}\n--------------------------------\n`:""}${p.nome}${p.modo==="entrega"?`\n${p.endereco||""}`:""}
+${pago?`PAGO ONLINE (${String(p.pagamento||"").split("·")[0].trim()})`:`COBRAR ${fmt(p.total)} NA ${p.modo==="entrega"?"ENTREGA":"RETIRADA"}${/^na.entrega$/i.test(String(p.pagamento||"").trim())||!p.pagamento?"":` (${String(p.pagamento).split("·")[0].trim()})`}`}
 --------------------------------
 todo sando tem alma`;
   window.print();
@@ -998,9 +1021,9 @@ async function cotarEntrega(id){
     }).join("");
     const algum = disp.length>0;
     el.innerHTML = `<div class="cot-grid">${cards}</div>
-      <a class="cot-ifood" href="https://portal.ifood.com.br" target="_blank">🔴 ou pedir entregador pelo iFood</a>
+      <a class="cot-ifood" href="https://gestordepedidos.ifood.com.br/" target="_blank">🔴 ou pedir entregador iFood (Sob Demanda)</a>
       ${algum?"":`<div style="margin-top:6px;font-size:12px;opacity:.7">Nenhum app cotou — usa o iFood acima 👆</div>`}`;
-  }catch(e){ el.innerHTML = `<div style="font-size:12px;opacity:.8;margin-top:8px">erro ao cotar. <a class="cot-ifood" href="https://portal.ifood.com.br" target="_blank">🔴 pedir entregador pelo iFood</a></div>`; }
+  }catch(e){ el.innerHTML = `<div style="font-size:12px;opacity:.8;margin-top:8px">erro ao cotar. <a class="cot-ifood" href="https://gestordepedidos.ifood.com.br/" target="_blank">🔴 pedir entregador iFood (Sob Demanda)</a></div>`; }
 }
 async function chamarEntrega(id, provedor, quoteId, btn){
   const nome = provedor==="lalamove"?"Lalamove":provedor==="uber_direct"?"Uber":provedor;
@@ -1121,7 +1144,87 @@ function renderReservas(){
     }).join("")}`;
 }
 // ── 🔔 NOVIDADES (changelog do sistema) ──
+
+// ── NOTAS DO DIA ────────────────────────────────────────────────────────────
+// Reunião 16/09: a nota NÃO precisa sair na hora do pedido. Lança tudo de uma vez no fim do
+// turno, com o valor exato que o cliente pagou (comida − desconto + entrega) já calculado aqui.
+let notasDia = "", notasPeds = [], notasCarregando = false;
+const _isoDia = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const _brl = n => (Math.round((Number(n)||0)*100)/100).toFixed(2).replace(".",",");
+function _notasEmitidas(){ try{ return JSON.parse(localStorage.getItem("rs_nfce")||"{}"); }catch{ return {}; } }
+function abrirNotas(){ view="notas"; notasDia=_isoDia(new Date()); notasPeds=[]; render(); carregarNotas(); }
+function setNotasDia(v){ notasDia=v; carregarNotas(); }
+async function carregarNotas(){
+  if(!notasDia) return;
+  const [y,m,d]=notasDia.split("-").map(Number);
+  const ini=new Date(y,m-1,d), fim=new Date(y,m-1,d+1);
+  notasCarregando=true; if(view==="notas") renderNotas();
+  const r=await api(`pedidos?select=id,codigo,created_at,nome,modo,itens,total,frete,desconto,cupom,desconto_cupom,pagamento,pagamento_status,status&pagamento_status=eq.pago&status=neq.cancelado&created_at=gte.${ini.toISOString()}&created_at=lt.${fim.toISOString()}&order=created_at.asc`);
+  notasPeds = (r&&r.ok) ? await r.json() : [];
+  notasCarregando=false; if(view==="notas") renderNotas();
+}
+function _nota(p){
+  const comida=(p.itens||[]).reduce((a,i)=>a+(Number(i.qtd)||0)*(Number(i.preco)||0),0);
+  const dCupom=Number(p.desconto_cupom)||0, dPontos=Number(p.desconto)||0, frete=Number(p.frete)||0, total=Number(p.total)||0;
+  const confere=Math.round((comida-dCupom-dPontos+frete-total)*100)/100;
+  return {comida,dCupom,dPontos,frete,total,confere};
+}
+function toggleNota(codigo){
+  const e=_notasEmitidas();
+  if(e[codigo]) delete e[codigo]; else e[codigo]=new Date().toISOString();
+  localStorage.setItem("rs_nfce",JSON.stringify(e)); renderNotas();
+}
+function _textoNota(p){
+  const n=_nota(p), h=new Date(p.created_at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  return [`#${p.codigo} · ${h} · ${String(p.pagamento||"").split("·")[0].trim()}`,
+    ...(p.itens||[]).map(i=>`  ${i.qtd}x ${i.item} — ${_brl(i.preco)}`),
+    n.dCupom?`  Desconto${p.cupom?` (${p.cupom})`:""}: -${_brl(n.dCupom)}`:"",
+    n.dPontos?`  Desconto (pontos): -${_brl(n.dPontos)}`:"",
+    n.frete?`  Taxa de entrega: ${_brl(n.frete)}`:"",
+    `  VALOR DA NOTA: ${_brl(n.total)}`].filter(Boolean).join("\n");
+}
+function copiarNotas(btn, soPendentes){
+  const e=_notasEmitidas();
+  const lista=notasPeds.filter(p=>Number(p.total)>0 && (!soPendentes || !e[p.codigo]));
+  navigator.clipboard.writeText(lista.map(_textoNota).join("\n\n")).then(()=>{
+    const t=btn.textContent; btn.textContent=`✓ ${lista.length} copiados`; setTimeout(()=>btn.textContent=t,2500); });
+}
+function renderNotas(){
+  const e=_notasEmitidas();
+  const vendas=notasPeds.filter(p=>Number(p.total)>0);
+  const pend=vendas.filter(p=>!e[p.codigo]);
+  const soma=vendas.reduce((a,p)=>a+(Number(p.total)||0),0);
+  const cards=vendas.map(p=>{
+    const n=_nota(p), feita=e[p.codigo];
+    const h=new Date(p.created_at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+    const linha=(t,v,forte)=>`<div style="display:flex;justify-content:space-between;gap:10px;${forte?"font-weight:600;font-size:16px;border-top:1px solid var(--linha);padding-top:6px;margin-top:4px":"font-size:13px"}"><span>${t}</span><span>${v}</span></div>`;
+    return `<div class="pedido" style="${feita?"opacity:.55":""}">
+      <div class="ped-head"><span class="codigo">#${esc(p.codigo)}</span><span class="hora">${h} · ${formaPgto(p)}</span></div>
+      <div class="itens" style="font-size:13px">${(p.itens||[]).map(i=>`<div style="display:flex;justify-content:space-between;gap:10px"><span><b>${Number(i.qtd)||"?"}×</b> ${esc(i.item)}</span><span>${_brl((Number(i.qtd)||0)*(Number(i.preco)||0))}</span></div>`).join("")}</div>
+      ${linha("Comida", _brl(n.comida))}
+      ${n.dCupom?linha(`Desconto${p.cupom?` (${esc(p.cupom)})`:""}`, "−"+_brl(n.dCupom)):""}
+      ${n.dPontos?linha("Desconto (pontos)", "−"+_brl(n.dPontos)):""}
+      ${n.frete?linha("Taxa de entrega", _brl(n.frete)):""}
+      ${linha("VALOR DA NOTA", "R$ "+_brl(n.total), true)}
+      ${Math.abs(n.confere)>0.05?`<div class="meta" style="color:var(--vermelho)">⚠️ a conta não fecha em R$ ${_brl(Math.abs(n.confere))} — confere o pedido antes de lançar</div>`:""}
+      <div class="acoes"><button class="${feita?"off":"avancar"}" onclick="toggleNota('${esc(p.codigo)}')">${feita?`✓ nota emitida ${new Date(feita).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})} (desfazer)`:"Marcar nota emitida"}</button></div>
+    </div>`;
+  }).join("");
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · NOTAS DO DIA</h1><div class="sub">${notasCarregando?"carregando…":`${vendas.length} pedidos do app · R$ ${_brl(soma)} · <b>${pend.length} sem nota</b>`}</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-bottom:12px">
+      <div><label style="font-size:12px;opacity:.6;display:block">Dia</label><input type="date" value="${notasDia}" onchange="setNotasDia(this.value)" style="padding:8px;border:1px solid var(--creme);border-radius:8px;background:var(--card);color:var(--preto);font-family:inherit"></div>
+      <button class="topbtn" onclick="copiarNotas(this,true)">📋 copiar pendentes</button>
+      <button class="topbtn" onclick="copiarNotas(this,false)">📋 copiar todos</button>
+    </div>
+    <div class="meta" style="margin-bottom:12px;line-height:1.5">A nota não precisa sair na hora: a comanda da cozinha sai pelo app (🖨️). No fim do turno, lance cada pedido no Menew com os itens, <b>uma linha de desconto</b> e a <b>taxa de entrega</b> como aparecem aqui — o <b>valor da nota</b> já é o que o cliente pagou. Marque cada uma ao emitir.</div>
+    ${vendas.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cards}</div>`:`<div class="meta" style="text-align:center;padding:30px">${notasCarregando?"":"nenhum pedido pago do app nesse dia"}</div>`}`;
+}
+
 const NOVIDADES = [
+  ["16/09","Notas do dia 📄 + comanda nova + iFood Sob Demanda","Nova aba 📄 Notas do dia: cada pedido pago do app com itens, desconto, taxa de entrega e o VALOR DA NOTA já calculado — lança tudo no Menew no fim do turno, sem conta de cabeça, e marca o que já emitiu. A comanda 🖨️ agora diz PAGO ONLINE (acabou o \"pagar na entrega\" errado) e destaca agendado. Pedido de entrega pronto: o 1º botão é pedir entregador no iFood Sob Demanda (copia o endereço e abre o Gestor)."],
   ["03/09","Relatório de pedidos 📊","Nova aba: filtra por período (este mês, 30 dias, tudo ou datas), mostra faturamento, ticket médio e mix (entrega/retirada, Pix/cartão), e baixa um CSV com todos os pedidos pra abrir no Excel/Sheets (ótimo pro fluxo de caixa do Duda)."],
   ["03/09","Contato do entregador 📞","Quando o motoboy do Lalamove/Uber é acionado, o card mostra nome, placa e telefone dele — pra falar direto em caso de urgência. O cliente também vê no acompanhamento."],
   ["31/08","Reservas abertas 🍽️","Comer no Rio Sandô: abri quartas e quintas às 18h, 8 lugares (2 mesas) por noite, até 24/09. O cliente reserva pelo app; você acompanha e cancela na aba 🍽️ Reservas."],
