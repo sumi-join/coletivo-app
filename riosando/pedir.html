@@ -198,7 +198,7 @@
 
 <main class="wrap" id="menu"></main>
 
-<div class="cartbar"><button id="cartbar" class="hidden-bar" onclick="abrirSacola()">
+<div class="cartbar"><div id="cart-nudge" style="display:none;text-align:center;font-size:12.5px;margin:0 auto 6px;max-width:420px;background:var(--verde);color:#fff;border-radius:99px;padding:6px 12px"></div><button id="cartbar" class="hidden-bar" onclick="abrirSacola()">
   <span id="cart-count">Ver sacola</span><span id="cart-total"></span>
 </button></div>
 
@@ -489,6 +489,12 @@ const rotuloSlotISO = iso => {
   return d.toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
 };
 function FRETES_EXISTE(b){ return Object.prototype.hasOwnProperty.call(FRETES,b); }
+// Regras de entrega (17/09): a casa banca 35% do frete; frete GRÁTIS com R$ 150+ em comida.
+// O valor que vale é o do servidor (rio-api) — aqui só espelha pra mostrar antes de cotar.
+const SUBSIDIO_FRETE = 0.35, FRETE_GRATIS_ACIMA = 150;
+const freteComSubsidio = v => Math.round(Math.max(0, v) * (1 - SUBSIDIO_FRETE) * 10) / 10;
+const freteGratis = () => entrega==="entrega" && totais().t >= FRETE_GRATIS_ACIMA;
+const faltaFreteGratis = () => Math.max(0, FRETE_GRATIS_ACIMA - totais().t);
 const FRETES = {
   "Botafogo":9, "Humaitá":9, "Urca":9,
   "Flamengo":11, "Catete":11, "Glória":11, "Laranjeiras":11, "Cosme Velho":11,
@@ -496,7 +502,7 @@ const FRETES = {
   "Ipanema":15, "Leblon":15, "Gávea":15
 };
 // frete cobrado = cotação real no endereço; enquanto não cotou, mostra a tabela do bairro como estimativa
-const freteAtual = () => entrega!=="entrega" ? 0 : (freteCotado!=null ? freteCotado : (FRETES[bairro] ?? 0));
+const freteAtual = () => entrega!=="entrega" ? 0 : (freteGratis() ? 0 : (freteCotado!=null ? freteCotado : freteComSubsidio(FRETES[bairro] ?? 0)));
 if(cliente.bairro && FRETES_EXISTE(cliente.bairro)) bairro = cliente.bairro;
 
 // ── CEP automático (ViaCEP) + cotação de frete no endereço real ──
@@ -561,10 +567,11 @@ async function cotarFrete(){
 }
 cotarFrete._seq = 0;
 function entregaLabel(){
+  if(freteGratis()) return "grátis 🎉";
   if(!bairro) return "—";
   if(freteStatus==="calculando") return "calculando…";
   if(freteCotado!=null) return fmt(freteCotado);
-  return fmt(FRETES[bairro]);
+  return fmt(freteComSubsidio(FRETES[bairro]));
 }
 // atualiza os números do frete/total SEM re-renderizar a sacola (preserva foco e o que foi digitado)
 function atualizarFrete(){
@@ -698,6 +705,11 @@ function syncBar(){
   bar.classList.toggle("hidden-bar",!n);
   document.getElementById("cart-count").textContent=`Ver sacola · ${n} ${n>1?"itens":"item"}`;
   document.getElementById("cart-total").textContent=fmt(t);
+  // aviso do frete grátis enquanto monta o carrinho (só pra quem vai receber em casa)
+  const nud=document.getElementById("cart-nudge");
+  if(nud){ const mostra = n>0 && entrega!=="retirada";
+    nud.style.display = mostra ? "block" : "none";
+    if(mostra) nud.textContent = t>=FRETE_GRATIS_ACIMA ? "🎉 Frete grátis liberado!" : `🛵 Faltam ${fmt(FRETE_GRATIS_ACIMA-t)} pro frete grátis`; }
 }
 function irPara(id,btn){
   document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
@@ -724,7 +736,7 @@ function abrirSacola(){
         <h3 style="font-weight:500">🥒 Completa seu ${esc(nomeCurto)}</h3><p style="margin:2px 0 8px">${esc(BYID[rec].nome)} — ${motivo}. Potinho 30g · R$ 6,90.</p>
         <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-add" style="padding:6px 12px;font-weight:600" onclick="mudar('${rec}',1);reabrirSacola()">+ ${esc(BYID[rec].nome)}</button>${outras.map(id=>`<button class="btn-add" style="padding:6px 12px;opacity:.85" onclick="mudar('${id}',1);reabrirSacola()">+ ${esc(BYID[id].nome)}</button>`).join("")}</div></div>`;
     })()}
-    ${entrega==="entrega"?`<div class="linha-item"><div><h3 style="font-weight:400">Entrega${bairro?` · ${bairro}`:""}</h3></div><span class="preco" id="frete-valor">${entregaLabel()}</span></div>`:""}
+    ${entrega==="entrega"?`<div class="linha-item"><div><h3 style="font-weight:400">Entrega${bairro?` · ${bairro}`:""}</h3><p style="margin:2px 0 0;color:var(--verde)">${freteGratis()?"Frete por nossa conta 🎉":`Faltam ${fmt(faltaFreteGratis())} pro frete grátis · 35% do frete já é por nossa conta`}</p></div><span class="preco" id="frete-valor">${entregaLabel()}</span></div>`:""}
     ${maxDesconto()>0?`<div class="linha-item"><label class="check-pontos"><input type="checkbox" ${usarPontos?"checked":""} onchange="setUsarPontos(this.checked)"><span style="text-transform:none;letter-spacing:0">Usar ${maxDesconto()*20} dos meus ⭐ ${saldoPts} pontos</span></label><span class="preco" style="color:var(--verde)">−${fmt(maxDesconto())}</span></div>`:""}
     ${cupomInfo?`<div class="linha-item"><div><h3 style="font-weight:400">Cupom ${esc(cupom)}${cupomInfo.nome&&cupomInfo.nome!==cupom?` · ${esc(cupomInfo.nome)}`:""}</h3><p style="cursor:pointer;color:var(--vermelho)" onclick="removerCupom()">remover</p></div><span class="preco" style="color:var(--verde)">−${fmt(descontoCupomAtual())}</span></div>`:""}
     <div class="total-row"><span>Total</span><span id="total-valor">${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</span></div>
@@ -801,7 +813,7 @@ function restaurarForm(f){
   }
 }
 function reabrirSacola(){ const f=lerForm(); abrirSacola(); restaurarForm(f); }
-function setEntrega(v){ entrega=v; if(v==="entrega") pgto="online"; else { freteCotado=null; freteToken=null; freteStatus=""; } reabrirSacola(); }
+function setEntrega(v){ entrega=v; if(v==="entrega") pgto="online"; else { freteCotado=null; freteToken=null; freteStatus=""; } syncBar(); reabrirSacola(); }
 function setPgto(v){ pgto=v; reabrirSacola(); }
 function setBairro(v){ bairro=v; freteCotado=null; freteToken=null; freteStatus=""; reabrirSacola(); cotarFrete(); }
 function setQuando(v){ quando=v; if(v==="asap") slotAg=""; reabrirSacola(); }
