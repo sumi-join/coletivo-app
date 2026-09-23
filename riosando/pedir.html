@@ -495,11 +495,13 @@ const SUBSIDIO_FRETE = 0.35, FRETE_GRATIS_ACIMA = 150;
 const freteComSubsidio = v => Math.round(Math.max(0, v) * (1 - SUBSIDIO_FRETE) * 10) / 10;
 const freteGratis = () => entrega==="entrega" && totais().t >= FRETE_GRATIS_ACIMA;
 const faltaFreteGratis = () => Math.max(0, FRETE_GRATIS_ACIMA - totais().t);
+// Estimativa por bairro = MÉDIA DA COTAÇÃO REAL (Lalamove/Uber) medida nos pedidos de 17–23/09.
+// Antes era otimista (Ipanema R$ 15 estimado x R$ 20 cotado) e o frete SUBIA no meio do checkout.
 const FRETES = {
-  "Botafogo":9, "Humaitá":9, "Urca":9,
-  "Flamengo":11, "Catete":11, "Glória":11, "Laranjeiras":11, "Cosme Velho":11,
-  "Copacabana":13, "Leme":13, "Lagoa":13, "Jardim Botânico":13,
-  "Ipanema":15, "Leblon":15, "Gávea":15
+  "Botafogo":12, "Humaitá":13, "Urca":13,
+  "Flamengo":14, "Catete":14, "Glória":14, "Laranjeiras":14, "Cosme Velho":14,
+  "Copacabana":17, "Leme":17, "Lagoa":17, "Jardim Botânico":17,
+  "Ipanema":20, "Leblon":24, "Gávea":22
 };
 // frete cobrado = cotação real no endereço; enquanto não cotou, mostra a tabela do bairro como estimativa
 const freteAtual = () => entrega!=="entrega" ? 0 : (freteGratis() ? 0 : (freteCotado!=null ? freteCotado : freteComSubsidio(FRETES[bairro] ?? 0)));
@@ -772,7 +774,7 @@ function abrirSacola(){
         <option value="">Escolhe o bairro...</option>
         ${Object.keys(FRETES).map(b=>`<option ${b===bairro?"selected":""} value="${b}">${b}</option>`).join("")}
       </select>
-      <div class="mp-note" style="text-align:left;opacity:.7;margin-top:4px">🛵 O frete é calculado de verdade no seu endereço — pode variar alguns reais.</div>
+      <div class="mp-note" style="text-align:left;opacity:.7;margin-top:4px">🛵 Estimativa do bairro. O frete final é cotado no seu endereço quando você digitar o número.</div>
     </div>
     <label>Seu nome</label>
     <input type="text" id="nome" placeholder="Como te chamamos?" value="${(cliente.nome||"").replace(/"/g,"&quot;")}">
