@@ -228,6 +228,7 @@ function renderCupons(){
           <button class="off" onclick="editarCupom('${esc(c.codigo)}')">✏️ editar</button>
           <button class="off" onclick="copiarTxt('${esc(c.codigo)}',this)">📋 copiar código</button>
           <button class="off" onclick="toggleCupom('${esc(c.codigo)}',${!c.ativo})">${c.ativo?"⏸ desativar":"▶ reativar"}</button>
+          <button class="off" style="background:var(--vermelho)" onclick="apagarCupom('${esc(c.codigo)}',${c.usos})">🗑 apagar</button>
         </div>
       </div>`;
     }).join("")}`;
@@ -265,6 +266,7 @@ function formCupom(c){
     <div class="acoes" style="margin-top:12px">
       <button onclick="salvarCupom('${esc(c.codigo)}',this)">Salvar</button>
       <button class="off" onclick="cancelarCupom()">Cancelar</button>
+      <button class="off" style="background:var(--vermelho);margin-left:auto" onclick="apagarCupom('${esc(c.codigo)}',${c.usos})">🗑 apagar</button>
     </div>
     <div class="erro" id="${id('erro')}" style="color:var(--vermelho);font-size:13px;margin-top:8px"></div>
   </div>`;
@@ -309,6 +311,15 @@ async function criarCupom(btn){
   const r=await api("cupons",{method:"POST",headers:{Prefer:"return=minimal"},body:JSON.stringify(body)});
   btn.disabled=false; btn.textContent="Criar cupom";
   if(!r||!r.ok){ err.textContent = r&&r.status===409?"Já existe um cupom com esse código.":"Não deu pra criar — confere os campos."; return; }
+  carregarCupons();
+}
+async function apagarCupom(cod, usos){
+  // cupom já usado não some: o pedido antigo guarda o código e o histórico tem que fechar
+  if(usos>0){ alert(`O cupom ${cod} já foi usado ${usos}x — não dá pra apagar, senão o histórico fica sem referência.\n\nUsa "⏸ desativar": ele para de valer e continua no registro.`); return; }
+  if(!confirm(`Apagar o cupom ${cod}? Isso não tem volta.`)) return;
+  const r=await api(`cupons?codigo=eq.${encodeURIComponent(cod)}`,{method:"DELETE"});
+  if(!r||!r.ok){ alert('Não deu pra apagar — o banco recusou. Desativa o cupom em "⏸ desativar".'); return; }
+  if(cupomEdit===cod) cupomEdit=null;
   carregarCupons();
 }
 async function toggleCupom(cod,ativo){
