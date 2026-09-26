@@ -65,7 +65,11 @@
   .afform label{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.7;margin:10px 0 4px}
   .afform input{width:100%;font-family:inherit;font-size:15px;padding:10px;border:1px solid var(--preto);border-radius:8px;background:#fff}
   .afform .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .afform select{width:100%;font-family:inherit;font-size:15px;padding:10px;border:1px solid var(--preto);border-radius:8px;background:#fff}
   .afform button{width:100%;margin-top:14px;background:var(--vermelho);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px}
+  .afform .acoes{display:flex;gap:8px;margin-top:14px}
+  .afform .acoes button{width:auto;margin-top:0;padding:10px 16px;font-size:13px}
+  .afform .acoes .off{background:var(--preto);color:var(--creme);border-radius:8px}
   .pagarcom{background:var(--verde);color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:13px}
   .off{background:var(--preto);color:var(--creme);border:none;border-radius:8px;padding:5px 10px;font-size:11px}
   /* cotação de entrega */
@@ -232,18 +236,18 @@ function renderCupons(){
 const dataCupom = iso => { try{ return new Date(new Date(iso).getTime()-3*3600e3).toISOString().slice(0,10); }catch(e){ return ""; } };
 function formCupom(c){
   const id = s => `e-${c.codigo}-${s}`;
-  return `<div class="afcard" style="border-color:var(--verde)">
+  return `<div class="afform" style="border:2px solid var(--verde)">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
-      <h3 style="letter-spacing:.02em">✏️ ${esc(c.codigo)}</h3>
+      <h3 style="margin:0;letter-spacing:.02em">✏️ ${esc(c.codigo)}</h3>
       <span style="font-size:12px;opacity:.6">${c.usos} uso(s) — o código não muda</span></div>
     <div class="grid" style="margin-top:8px">
       <div><label>Campanha (interno)</label><input id="${id('camp')}" value="${esc(c.campanha||"")}"></div>
-      <div><label>Tipo</label><select id="${id('tipo')}">
+      <div><label>Tipo</label><select id="${id('tipo')}" onchange="tipoCupomUI('${esc(c.codigo)}')">
         <option value="valor" ${c.tipo==="valor"?"selected":""}>Valor fixo (R$)</option>
         <option value="percentual" ${c.tipo==="percentual"?"selected":""}>Percentual (%)</option></select></div>
     </div>
     <div class="grid">
-      <div><label>Valor</label><input id="${id('valor')}" type="number" inputmode="decimal" value="${c.valor}"></div>
+      <div><label id="${id('vlabel')}">${c.tipo==="valor"?"Valor (R$)":"Percentual (%)"}</label><input id="${id('valor')}" type="number" inputmode="decimal" value="${c.valor}"></div>
       <div><label>Pedido mínimo (R$)</label><input id="${id('min')}" type="number" inputmode="decimal" value="${c.min_pedido||0}"></div>
     </div>
     <div class="grid">
@@ -265,6 +269,7 @@ function formCupom(c){
     <div class="erro" id="${id('erro')}" style="color:var(--vermelho);font-size:13px;margin-top:8px"></div>
   </div>`;
 }
+function tipoCupomUI(cod){ const t=$(`e-${cod}-tipo`).value; $(`e-${cod}-vlabel`).textContent = t==="valor"?"Valor (R$)":"Percentual (%)"; }
 function editarCupom(cod){ cupomEdit=cod; renderCupons(); }
 function cancelarCupom(){ cupomEdit=null; renderCupons(); }
 async function salvarCupom(cod, btn){
