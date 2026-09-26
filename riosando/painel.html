@@ -173,8 +173,8 @@ function abrirAfiliados(){ view="afiliados"; render(); carregarAfiliados(); }
 function voltarBoard(){ view="board"; render(); }
 
 // ── 🎟️ Cupons de promoção ──
-let cupons=[];
-function abrirCupons(){ view="cupons"; cupons=[]; render(); carregarCupons(); }
+let cupons=[], cupomEdit=null;
+function abrirCupons(){ view="cupons"; cupons=[]; cupomEdit=null; render(); carregarCupons(); }
 async function carregarCupons(){
   const r=await api("cupons?select=*&order=criado_em.desc");
   if(r&&r.ok){ cupons=await r.json(); if(view==="cupons") renderCupons(); }
@@ -213,6 +213,7 @@ function renderCupons(){
     ${!cupons.length?`<div class="vazio">nenhum cupom ainda</div>`:cupons.map(c=>{
       const exp=cupomExpirado(c); const off = c.tipo==="valor"?fmt(c.valor):`${c.valor}%`;
       const usos = c.usos_max!=null ? `${c.usos}/${c.usos_max}` : `${c.usos} usos`;
+      if(cupomEdit===c.codigo) return formCupom(c);
       return `<div class="afcard" style="${c.ativo&&!exp?'':'opacity:.55'}">
         <div style="display:flex;justify-content:space-between;align-items:baseline">
           <h3 style="letter-spacing:.02em">🎟️ ${esc(c.codigo)}</h3>
@@ -220,11 +221,69 @@ function renderCupons(){
         <div class="linha"><span>${esc(c.campanha||"—")} · mín ${fmt(c.min_pedido)}${c.primeiro_pedido?" · 1º pedido":""}</span></div>
         <div class="linha"><span>${exp?"⛔ expirado":"vale até "+dCurto(c.valido_ate)} · ${c.por_cliente_max}/cliente · ${usos}</span></div>
         <div class="acoes" style="margin-top:10px">
+          <button class="off" onclick="editarCupom('${esc(c.codigo)}')">✏️ editar</button>
           <button class="off" onclick="copiarTxt('${esc(c.codigo)}',this)">📋 copiar código</button>
           <button class="off" onclick="toggleCupom('${esc(c.codigo)}',${!c.ativo})">${c.ativo?"⏸ desativar":"▶ reativar"}</button>
         </div>
       </div>`;
     }).join("")}`;
+}
+// data do cupom no fuso do Rio (o banco guarda em UTC), pro <input type="date">
+const dataCupom = iso => { try{ return new Date(new Date(iso).getTime()-3*3600e3).toISOString().slice(0,10); }catch(e){ return ""; } };
+function formCupom(c){
+  const id = s => `e-${c.codigo}-${s}`;
+  return `<div class="afcard" style="border-color:var(--verde)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <h3 style="letter-spacing:.02em">✏️ ${esc(c.codigo)}</h3>
+      <span style="font-size:12px;opacity:.6">${c.usos} uso(s) — o código não muda</span></div>
+    <div class="grid" style="margin-top:8px">
+      <div><label>Campanha (interno)</label><input id="${id('camp')}" value="${esc(c.campanha||"")}"></div>
+      <div><label>Tipo</label><select id="${id('tipo')}">
+        <option value="valor" ${c.tipo==="valor"?"selected":""}>Valor fixo (R$)</option>
+        <option value="percentual" ${c.tipo==="percentual"?"selected":""}>Percentual (%)</option></select></div>
+    </div>
+    <div class="grid">
+      <div><label>Valor</label><input id="${id('valor')}" type="number" inputmode="decimal" value="${c.valor}"></div>
+      <div><label>Pedido mínimo (R$)</label><input id="${id('min')}" type="number" inputmode="decimal" value="${c.min_pedido||0}"></div>
+    </div>
+    <div class="grid">
+      <div><label>Vale até</label><input id="${id('ate')}" type="date" value="${dataCupom(c.valido_ate)}"></div>
+      <div><label>Usos por cliente</label><input id="${id('porcli')}" type="number" value="${c.por_cliente_max||1}"></div>
+    </div>
+    <div class="grid">
+      <div><label>Usos no total (vazio = ilimitado)</label><input id="${id('max')}" type="number" placeholder="ilimitado" value="${c.usos_max??""}"></div>
+      <div><label>Situação</label><select id="${id('ativo')}">
+        <option value="1" ${c.ativo?"selected":""}>ativo</option>
+        <option value="0" ${c.ativo?"":"selected"}>pausado</option></select></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:14px;margin-top:10px">
+      <input type="checkbox" id="${id('primeiro')}" ${c.primeiro_pedido?"checked":""} style="width:auto"> Só no primeiro pedido do cliente</label>
+    <div class="acoes" style="margin-top:12px">
+      <button onclick="salvarCupom('${esc(c.codigo)}',this)">Salvar</button>
+      <button class="off" onclick="cancelarCupom()">Cancelar</button>
+    </div>
+    <div class="erro" id="${id('erro')}" style="color:var(--vermelho);font-size:13px;margin-top:8px"></div>
+  </div>`;
+}
+function editarCupom(cod){ cupomEdit=cod; renderCupons(); }
+function cancelarCupom(){ cupomEdit=null; renderCupons(); }
+async function salvarCupom(cod, btn){
+  const id = s => $(`e-${cod}-${s}`);
+  const err=id("erro"); err.textContent="";
+  const tipo=id("tipo").value, valor=Number(id("valor").value), ate=id("ate").value;
+  const maxRaw=String(id("max").value).trim();
+  if(!(valor>0)){ err.textContent="Valor tem que ser maior que zero."; return; }
+  if(tipo==="percentual"&&valor>100){ err.textContent="Percentual não pode passar de 100."; return; }
+  if(!ate){ err.textContent="Escolhe até quando vale."; return; }
+  btn.disabled=true; btn.textContent="Salvando...";
+  const body={campanha:(id("camp").value||"").trim()||null, tipo, valor,
+    min_pedido:Number(id("min").value)||0, valido_ate:`${ate}T23:59:59-03:00`,
+    por_cliente_max:Number(id("porcli").value)||1, usos_max:maxRaw===""?null:Number(maxRaw),
+    primeiro_pedido:id("primeiro").checked, ativo:id("ativo").value==="1"};
+  const r=await api(`cupons?codigo=eq.${encodeURIComponent(cod)}`,{method:"PATCH",body:JSON.stringify(body)});
+  btn.disabled=false; btn.textContent="Salvar";
+  if(!r||!r.ok){ err.textContent="Não deu pra salvar — confere os campos."; return; }
+  cupomEdit=null; carregarCupons();
 }
 function cTipoUI(){ const t=$("c-tipo").value; $("c-vlabel").textContent = t==="valor"?"Valor (R$)":"Percentual (%)"; }
 function copiarTxt(t,btn){ navigator.clipboard.writeText(t).then(()=>{ const o=btn.textContent; btn.textContent="✓ copiado"; setTimeout(()=>btn.textContent=o,1500); }); }
