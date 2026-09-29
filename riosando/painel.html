@@ -906,7 +906,10 @@ async function pagarComissoes(id,btn){
 function card(p){
   const [nx,rot] = NEXT[p.status]||[];
   const flash = !vistos.has(p.id) && p.status==="novo";
-  const chamarEntrega = p.status==="pronto" && p.modo==="entrega" && !p.entrega_id;
+  // "chamar entrega" só enquanto NENHUM entregador foi acionado — com iFood Sob Demanda ou motoboy
+  // próprio o provedor já está gravado (sem entrega_id), e o card tem que mostrar o botão de avançar
+  const semEntregador = !p.entrega_id && !p.entrega_provedor;
+  const chamarEntrega = p.status==="pronto" && p.modo==="entrega" && semEntregador;
   return `<div class="pedido ${flash?"novo-flash":""} ${chamarEntrega?"chamar-entrega":""}">
     ${flash?`<span class="badge">NOVO</span>`:""}
     ${chamarEntrega?`<span class="badge-entrega pulsa">🛵 CHAMAR ENTREGA</span>`:""}
@@ -919,7 +922,7 @@ function card(p){
     ${p.obs?`<div class="meta">📝 ${esc(p.obs)}</div>`:""}
     <div class="total">${fmt(p.total)}</div>
     <div class="acoes">
-      ${nx && !(p.status==="pronto" && p.modo==="entrega" && !p.entrega_id)?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${rot}</button>`:""}
+      ${nx && !(p.status==="pronto" && p.modo==="entrega" && semEntregador)?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${rot}</button>`:""}
       ${p.status!=="novo"?`<button class="off" onclick="voltarStatus(${p.id})" title="desfazer">↩</button>`:""}
       <button class="imprimir" onclick="imprimir(${p.id})">🖨️</button>
       ${p.status==="novo"?`<button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕</button>`:""}
