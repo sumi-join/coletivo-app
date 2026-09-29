@@ -27,6 +27,10 @@
 
   /* board */
   .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+  .espera-box{border:1px dashed #8a7a2a;background:rgba(200,170,40,.07);border-radius:12px;padding:14px;margin-bottom:22px}
+  .espera-box h2{font-size:12px;letter-spacing:.25em;text-transform:uppercase;margin-bottom:10px;color:#e0c14a}
+  .pedido.em-espera{opacity:.9;border-color:#8a7a2a}
+  .motivo-espera{background:rgba(200,170,40,.12);border-left:3px solid #e0c14a;padding:6px 9px;border-radius:0 6px 6px 0;margin-top:8px;font-size:13px}
   .col h2{font-size:12px;letter-spacing:.25em;text-transform:uppercase;margin-bottom:10px;opacity:.8}
   .pedido{background:var(--card);color:var(--preto);border-radius:14px;padding:16px;margin-bottom:12px;position:relative}
   .pedido.novo-flash{outline:3px solid var(--vermelho)}
@@ -163,8 +167,13 @@ function render(){
         <button class="topbtn" onclick="abrirLancamentos()">🧾 Lançamentos</button>
         <button class="sair" onclick="sair()">Sair</button></div>
     </header>
+    ${(()=>{const esp=pedidos.filter(p=>p.em_espera); return !esp.length?"":`
+    <div class="espera-box">
+      <h2>⏸ EM ESPERA (${esp.length}) <span style="opacity:.6;letter-spacing:0;text-transform:none;font-weight:400">— parados de propósito, esperando uma definição. Não somem, não tocam o som.</span></h2>
+      <div class="cols">${esp.map(card).join("")}</div>
+    </div>`;})()}
     <div class="cols">${COLS.map(([st,titulo])=>{
-      const list=pedidos.filter(p=>p.status===st);
+      const list=pedidos.filter(p=>p.status===st && !p.em_espera);
       return `<div class="col"><h2>${titulo} (${list.length})</h2>
         ${!list.length?`<div class="vazio">nada por aqui</div>`:list.map(card).join("")}</div>`;
     }).join("")}</div>`;
@@ -909,9 +918,11 @@ function card(p){
   // "chamar entrega" só enquanto NENHUM entregador foi acionado — com iFood Sob Demanda ou motoboy
   // próprio o provedor já está gravado (sem entrega_id), e o card tem que mostrar o botão de avançar
   const semEntregador = !p.entrega_id && !p.entrega_provedor;
-  const chamarEntrega = p.status==="pronto" && p.modo==="entrega" && semEntregador;
-  return `<div class="pedido ${flash?"novo-flash":""} ${chamarEntrega?"chamar-entrega":""}">
-    ${flash?`<span class="badge">NOVO</span>`:""}
+  const espera = !!p.em_espera;
+  const chamarEntrega = !espera && p.status==="pronto" && p.modo==="entrega" && semEntregador;
+  return `<div class="pedido ${flash&&!espera?"novo-flash":""} ${chamarEntrega?"chamar-entrega":""} ${espera?"em-espera":""}">
+    ${espera?`<span class="badge" style="background:#8a7a2a">⏸ EM ESPERA</span>`:""}
+    ${flash&&!espera?`<span class="badge">NOVO</span>`:""}
     ${chamarEntrega?`<span class="badge-entrega pulsa">🛵 CHAMAR ENTREGA</span>`:""}
     ${p.agendado_para && new Date(p.agendado_para).getTime()>Date.now() ? `<span class="badge" style="background:var(--verde);right:auto;left:12px">⏰ AGENDADO ${new Date(p.agendado_para).toLocaleString("pt-BR",{weekday:"short",hour:"2-digit",minute:"2-digit"})}</span>`:""}
     <div class="ped-head"><span class="codigo">#${esc(p.codigo)}</span>
@@ -921,13 +932,22 @@ function card(p){
     <div class="itens">${(p.itens||[]).map(i=>`<b>${Number(i.qtd)||"?"}×</b> ${esc(i.item)}`).join("<br>")}</div>
     ${p.obs?`<div class="meta">📝 ${esc(p.obs)}</div>`:""}
     <div class="total">${fmt(p.total)}</div>
+    ${espera?`
+    <div class="motivo-espera">⏸ <b>${esc(p.espera_motivo||"sem motivo anotado")}</b><br>
+      <span style="opacity:.7">parado ${p.espera_em?"desde "+new Date(p.espera_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}${p.espera_por?" · por "+esc(p.espera_por):""}${p.pagamento_status==="pago"?" · ⚠️ <b>já pago</b>: se cancelar, devolver em 🧾 Lançamentos":""}</span></div>
+    <div class="acoes">
+      <button class="avancar" onclick="tirarDaEspera(${p.id})">▶ Retomar (volta pra ${ROTH[p.status]||esc(p.status)})</button>
+      <button class="imprimir" onclick="imprimir(${p.id})">🖨️</button>
+      <button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕ cancelar pedido</button>
+    </div>`:`
     <div class="acoes">
       ${nx && !(p.status==="pronto" && p.modo==="entrega" && semEntregador)?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${rot}</button>`:""}
       ${p.status!=="novo"?`<button class="off" onclick="voltarStatus(${p.id})" title="desfazer">↩</button>`:""}
       <button class="imprimir" onclick="imprimir(${p.id})">🖨️</button>
+      <button class="off" onclick="porEmEspera(${p.id})" title="segurar esse pedido">⏸</button>
       ${p.status==="novo"?`<button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕</button>`:""}
-    </div>
-    ${p.entrega_id ? `
+    </div>`}
+    ${espera ? "" : p.entrega_id ? `
     <div class="meta">🛵 ${esc(p.entrega_provedor)} ${p.status==="saiu"?"a caminho do cliente (baixa automática ao entregar)":"acionado (indo buscar)"}${urlSegura(p.entrega_tracking_url)?` · <a href="${urlSegura(p.entrega_tracking_url)}" target="_blank" style="color:var(--verde)">🛵 acompanhar / falar com o motoboy</a>`:""}</div>
     ${p.entrega_motorista_fone?`<div class="meta">📞 Entregador: <b>${esc(p.entrega_motorista||"motoboy")}</b>${p.entrega_placa?` · placa ${esc(p.entrega_placa)}`:""} · <a href="tel:${esc(String(p.entrega_motorista_fone).replace(/[^\d+]/g,""))}" style="color:var(--verde)">ligar</a></div>`:""}
     ${p.status!=="saiu"?`<div class="acoes"><button class="cancelar" onclick="cancelarEntrega(${p.id}, this)">✕ cancelar entrega</button></div>`:""}
@@ -988,10 +1008,10 @@ async function carregar(){
   const todos = await r.json();
   // board = tudo ativo, menos agendados de dias FUTUROS (esses ficam na aba ⏰ Agendados até o dia)
   const dados = todos.filter(p=>!p.agendado_para || new Date(p.agendado_para).getTime() < amanha.getTime());
-  const novos = dados.filter(p=>p.status==="novo" && !vistos.has(p.id));
+  const novos = dados.filter(p=>p.status==="novo" && !p.em_espera && !vistos.has(p.id));
   if(novos.length && carregar.ja){ avisarPedido(novos.length, novos.map(p=>p.nome).join(", ")); }
   // pedido de entrega ficou pronto e ainda não foi despachado → avisa (uma vez) e o card pulsa
-  const prontosEntrega = dados.filter(p=>p.status==="pronto" && p.modo==="entrega" && !p.entrega_id && !avisadosEntrega.has(p.id));
+  const prontosEntrega = dados.filter(p=>p.status==="pronto" && p.modo==="entrega" && !p.em_espera && !p.entrega_id && !avisadosEntrega.has(p.id));
   if(prontosEntrega.length && carregar.ja) bip();
   prontosEntrega.forEach(p=>avisadosEntrega.add(p.id));
   const autoprint = new URLSearchParams(location.search).has("autoprint");
@@ -1056,6 +1076,26 @@ async function voltarProBoard(id, temEntrega){
   if(!r||!r.ok){ alert("Não deu pra voltar — tenta de novo."); return; }
   carregarHist();
   alert("Voltou pro board 👍");
+}
+// quem está logado (claim email do JWT) — só pra assinar quem segurou o pedido
+function quemSou(){ try{ return JSON.parse(atob(sess.token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/"))).email||""; }catch(e){ return ""; } }
+async function porEmEspera(id){
+  const p=pedidos.find(x=>x.id===id); if(!p) return;
+  const motivo=prompt(`⏸ Segurar o pedido #${p.codigo} (${p.nome}).\n\nPor quê? (o que precisa acontecer pra ele voltar a andar)`,"");
+  if(motivo===null) return;
+  if(!motivo.trim()){ alert("Escreve o motivo — é ele que faz o pedido não ser esquecido."); return; }
+  const r=await api(`pedidos?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({
+    em_espera:true, espera_motivo:motivo.trim(), espera_em:new Date().toISOString(), espera_por:(quemSou()||"equipe")})});
+  if(!r||!r.ok){ alert("Não deu pra segurar o pedido — tenta de novo."); return; }
+  carregar();
+}
+async function tirarDaEspera(id){
+  const p=pedidos.find(x=>x.id===id); if(!p) return;
+  if(!confirm(`Retomar o #${p.codigo}? Ele volta pro board em "${ROTH[p.status]||p.status}".`)) return;
+  const r=await api(`pedidos?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({
+    em_espera:false, espera_motivo:null, espera_em:null, espera_por:null})});
+  if(!r||!r.ok){ alert("Não deu pra retomar — tenta de novo."); return; }
+  carregar();
 }
 async function mudarStatus(id, st){
   if(st==="cancelado"){
