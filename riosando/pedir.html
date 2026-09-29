@@ -783,11 +783,11 @@ function abrirSacola(){
     <label>Observações</label>
     <textarea id="obs" rows="2" placeholder="Sem repolho? Molho à parte? Conta aqui.">${(cliente.obs||"").replace(/</g,"&lt;")}</textarea>
 
-    <label>Pagamento</label>
     ${entrega==="entrega"?`
-    <div class="toggle"><button class="on" style="flex:1">⚡ Pagar agora · Pix ou cartão</button></div>
-    <div class="mp-note" style="text-align:left;opacity:.75">🛵 Entrega é paga no app — o motoboy não passa maquininha nem recebe. Pra pagar na hora, escolha <b>retirada</b>.</div>`
+    <label>Pagamento</label>
+    <div class="mp-note" style="text-align:left;opacity:.75">⚡ Pix ou cartão, aqui no app — o motoboy não passa maquininha nem recebe. Pra pagar na hora, escolha <b>retirada</b>.</div>`
     :`
+    <label>Como você quer pagar?</label>
     <div class="toggle">
       <button class="${pgto==="online"?"on":""}" onclick="setPgto('online')">⚡ Pagar agora</button>
       <button class="${pgto==="pix"?"on":""}" onclick="setPgto('pix')">Pix na retirada</button>
