@@ -919,6 +919,8 @@ function card(p){
   // próprio o provedor já está gravado (sem entrega_id), e o card tem que mostrar o botão de avançar
   const semEntregador = !p.entrega_id && !p.entrega_provedor;
   const espera = !!p.em_espera;
+  // a coluna em_espera pode ainda nao existir no banco (migracao 03) — sem ela, nada de botao quebrado
+  const temEspera = ("em_espera" in p);
   const chamarEntrega = !espera && p.status==="pronto" && p.modo==="entrega" && semEntregador;
   return `<div class="pedido ${flash&&!espera?"novo-flash":""} ${chamarEntrega?"chamar-entrega":""} ${espera?"em-espera":""}">
     ${espera?`<span class="badge" style="background:#8a7a2a">⏸ EM ESPERA</span>`:""}
@@ -944,7 +946,7 @@ function card(p){
       ${nx && !(p.status==="pronto" && p.modo==="entrega" && semEntregador)?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${rot}</button>`:""}
       ${p.status!=="novo"?`<button class="off" onclick="voltarStatus(${p.id})" title="desfazer">↩</button>`:""}
       <button class="imprimir" onclick="imprimir(${p.id})">🖨️</button>
-      <button class="off" onclick="porEmEspera(${p.id})" title="segurar esse pedido">⏸</button>
+      ${temEspera?`<button class="off" onclick="porEmEspera(${p.id})" title="segurar esse pedido">⏸</button>`:""}
       ${p.status==="novo"?`<button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕</button>`:""}
     </div>`}
     ${espera ? "" : p.entrega_id ? `
