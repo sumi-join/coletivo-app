@@ -1195,8 +1195,31 @@ sb.auth.onAuthStateChange((ev)=>{
 function fecharTudo(){ cart={}; localStorage.removeItem("rs_cart"); render(); fecharSheet(); }
 
 // ── pagamento embutido (Mercado Pago Payment Brick) ──
-let brickAtivo = null;
+let brickAtivo = null, brickPronto = false, brickTimer = null;
+// o pedido pronto pra mandar no zap — se o pagamento travar, a venda NÃO se perde
+function textoPedidoZap(pedido, valor){
+  const linhas = (pedido.itens||[]).map(i=>`${i.qtd}x ${i.item}`).join("\n");
+  return `Oi! Tentei fechar o pedido pelo site e a tela de pagamento não carregou.\n\n`+
+    `Pedido #${pedido.codigo}\n${linhas}\n\n`+
+    (pedido.modo==="entrega" ? `Entrega: ${pedido.endereco}\n` : `Retirada em Botafogo\n`)+
+    `Nome: ${pedido.nome}\nTotal: ${fmt(valor)}\n\nConsegue fechar por aqui?`;
+}
+// pagamento demorou ou deu erro: mostra a saída em vez de deixar o cliente olhando "carregando"
+function socorroPagamento(pedido, valor, motivo){
+  if(brickPronto) return;
+  const el = document.getElementById("pay-erro"); if(!el || el.dataset.socorro) return;
+  el.dataset.socorro = "1";
+  const link = `https://wa.me/${ZAP_LOJA}?text=${encodeURIComponent(textoPedidoZap(pedido, valor))}`;
+  el.innerHTML = `<div style="background:rgba(192,57,43,.1);border:1px solid var(--vermelho);border-radius:12px;padding:16px;margin-bottom:12px;font-size:14px;line-height:1.5">
+    <b>${motivo==="erro"?"O pagamento não abriu.":"Está demorando mais que o normal."}</b><br>
+    <span style="opacity:.85">Não perde o pedido: manda pra gente no WhatsApp que a gente fecha em 1 minuto.</span>
+    <a class="pagar" style="display:block;text-align:center;margin-top:12px;text-decoration:none;background:var(--verde)" href="${link}" target="_blank">💬 Fechar pelo WhatsApp</a>
+    <button class="pagar" style="margin-top:8px;background:transparent;border:1px solid var(--vermelho);color:var(--vermelho)" onclick="abrirPagamento(window.__pedidoAtual, window.__valorAtual)">↻ Tentar de novo</button>
+  </div>`;
+}
 async function abrirPagamento(pedido, valor){
+  window.__pedidoAtual = pedido; window.__valorAtual = valor;
+  brickPronto = false; if(brickTimer) clearTimeout(brickTimer);
   const sheet=document.getElementById("sheet");
   sheet.innerHTML = `
     <div class="sheet-head"><h2>Pagamento · ${fmt(valor)}</h2><button class="fechar" onclick="abrirSacola()">←</button></div>
@@ -1209,12 +1232,14 @@ async function abrirPagamento(pedido, valor){
       `<div style="background:rgba(192,57,43,.1);border:1px solid var(--vermelho);border-radius:12px;padding:16px;color:var(--vermelho);font-size:14px;line-height:1.5">
         Não deu pra carregar o pagamento (pode ser bloqueador de anúncios ou conexão).<br>
         <button class="pagar" style="margin-top:12px" onclick="location.reload()">Recarregar e tentar de novo</button>
-        <div style="margin-top:8px;opacity:.85">Se persistir, chama a gente no <a href="https://wa.me/${ZAP_LOJA}" target="_blank" style="color:var(--verde)">WhatsApp</a> que a gente resolve.</div>
+        <a class="pagar" style="display:block;text-align:center;margin-top:10px;text-decoration:none;background:var(--verde)" href="https://wa.me/${ZAP_LOJA}?text=${encodeURIComponent(textoPedidoZap(pedido, valor))}" target="_blank">💬 Fechar pelo WhatsApp</a>
       </div>`;
     return; // sacola preservada; não lança (o catch do pagar mostraria mensagem errada)
   }
   const mp = new MercadoPago(MP_PUBLIC_KEY, {locale:"pt-BR"});
   if(brickAtivo){ try{ brickAtivo.unmount(); }catch(e){} }
+  // 8s sem o brick ficar pronto = cliente olhando pra "carregando". Mostra a saída pelo WhatsApp.
+  brickTimer = setTimeout(()=>socorroPagamento(pedido, valor, "demorou"), 8000);
   try{
   brickAtivo = await mp.bricks().create("payment","pay-brick",{
     initialization:{ amount: valor },
@@ -1225,8 +1250,10 @@ async function abrirPagamento(pedido, valor){
       }}},
     },
     callbacks:{
-      onReady: ()=>{ document.querySelector("#pay-brick .vazio")?.remove(); },
-      onError: (e)=>{ console.error(e); },
+      onReady: ()=>{ brickPronto = true; if(brickTimer) clearTimeout(brickTimer);
+        document.querySelector("#pay-brick .vazio")?.remove();
+        const pe=document.getElementById("pay-erro"); if(pe && pe.dataset.socorro){ pe.innerHTML=""; delete pe.dataset.socorro; } },
+      onError: (e)=>{ console.error(e); socorroPagamento(pedido, valor, "erro"); },
       onSubmit: async ({formData})=>{
         limparPagamentoErro();
         const user_token = (await sb.auth.getSession()).data.session?.access_token ?? null;
@@ -1251,9 +1278,8 @@ async function abrirPagamento(pedido, valor){
   }catch(e){
     console.error(e);
     const pb=document.getElementById("pay-brick");
-    if(pb) pb.innerHTML = `<div style="background:rgba(192,57,43,.1);border:1px solid var(--vermelho);border-radius:12px;padding:16px;color:var(--vermelho);font-size:14px;line-height:1.5">
-      Não deu pra abrir o pagamento agora.<br>
-      <button class="pagar" style="margin-top:12px" onclick="location.reload()">Recarregar e tentar de novo</button></div>`;
+    if(pb) pb.innerHTML = "";
+    socorroPagamento(pedido, valor, "erro");
   }
 }
 // traduz o código de recusa do Mercado Pago pra algo que o cliente entende
