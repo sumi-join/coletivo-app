@@ -564,7 +564,7 @@ async function cotarEnvio(btn){
         <div class="det">${det||"&nbsp;"}</div>
         <button class="chamar" onclick='chamarEnvio("${String(c.provedor).replace(/[^\w.-]/g,"")}","${String(c.quote_id).replace(/[^\w.-]/g,"")}",this)'>Chamar ✓</button></div>`;
     }).join("");
-    el.innerHTML=`<div class="cot-grid">${cards}</div>${disp.length?"":`<a class="cot-ifood" href="https://gestordepedidos.ifood.com.br/" target="_blank">🔴 pedir entregador iFood (Sob Demanda)</a>`}`;
+    el.innerHTML=`<div class="cot-grid">${cards}</div>${disp.length?"":`<a class="cot-ifood" href="https://gestordepedidos.ifood.com.br/#/home/pos/new-order/customer?utm_source=on-demand-home&amp;utm_campaign=on-demand" target="_blank">🔴 pedir entregador iFood (Sob Demanda)</a>`}`;
   }catch(e){ el.innerHTML=`<div style="font-size:12px;opacity:.8">erro ao cotar</div>`; }
 }
 async function chamarEnvio(provedor, quoteId, btn){
@@ -1025,7 +1025,7 @@ async function saiuManual(id){
 // iFood Sob Demanda (Gestor de Pedidos → capacete): copia o endereço e abre o Gestor numa aba
 function pedirIfood(id, btn){
   const p=pedidos.find(x=>x.id===id); if(!p) return;
-  window.open("https://gestordepedidos.ifood.com.br/","_blank");
+  window.open("https://gestordepedidos.ifood.com.br/#/home/pos/new-order/customer?utm_source=on-demand-home&utm_campaign=on-demand","_blank");
   navigator.clipboard.writeText(`${p.endereco} — ${p.nome} ${p.whatsapp}`).then(()=>{
     const t=btn.textContent; btn.textContent="✓ endereço copiado — cola no iFood"; setTimeout(()=>btn.textContent=t, 4000);
   }).catch(()=>{});
@@ -1120,9 +1120,9 @@ async function cotarEntrega(id){
     }).join("");
     const algum = disp.length>0;
     el.innerHTML = `<div class="cot-grid">${cards}</div>
-      <a class="cot-ifood" href="https://gestordepedidos.ifood.com.br/" target="_blank">🔴 ou pedir entregador iFood (Sob Demanda)</a>
+      <a class="cot-ifood" href="https://gestordepedidos.ifood.com.br/#/home/pos/new-order/customer?utm_source=on-demand-home&amp;utm_campaign=on-demand" target="_blank">🔴 ou pedir entregador iFood (Sob Demanda)</a>
       ${algum?"":`<div style="margin-top:6px;font-size:12px;opacity:.7">Nenhum app cotou — usa o iFood acima 👆</div>`}`;
-  }catch(e){ el.innerHTML = `<div style="font-size:12px;opacity:.8;margin-top:8px">erro ao cotar. <a class="cot-ifood" href="https://gestordepedidos.ifood.com.br/" target="_blank">🔴 pedir entregador iFood (Sob Demanda)</a></div>`; }
+  }catch(e){ el.innerHTML = `<div style="font-size:12px;opacity:.8;margin-top:8px">erro ao cotar. <a class="cot-ifood" href="https://gestordepedidos.ifood.com.br/#/home/pos/new-order/customer?utm_source=on-demand-home&amp;utm_campaign=on-demand" target="_blank">🔴 pedir entregador iFood (Sob Demanda)</a></div>`; }
 }
 async function chamarEntrega(id, provedor, quoteId, btn){
   const nome = provedor==="lalamove"?"Lalamove":provedor==="uber_direct"?"Uber":provedor;
