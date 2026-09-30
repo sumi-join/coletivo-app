@@ -1204,11 +1204,16 @@ function textoPedidoZap(pedido, valor){
     (pedido.modo==="entrega" ? `Entrega: ${pedido.endereco}\n` : `Retirada em Botafogo\n`)+
     `Nome: ${pedido.nome}\nTotal: ${fmt(valor)}\n\nConsegue fechar por aqui?`;
 }
+// beacon técnico: só pra descobrir POR QUE o pagamento travou (nada de nome/telefone/endereço)
+function px(evento, ms){
+  try{ new Image().src = `${RIO_API}/px?e=${encodeURIComponent(evento)}&ms=${ms||0}&sdk=${typeof MercadoPago==="undefined"?"nao":"sim"}&t=${Date.now()}`; }catch(e){}
+}
 // pagamento demorou ou deu erro: mostra a saída em vez de deixar o cliente olhando "carregando"
 function socorroPagamento(pedido, valor, motivo){
   if(brickPronto) return;
   const el = document.getElementById("pay-erro"); if(!el || el.dataset.socorro) return;
   el.dataset.socorro = "1";
+  px("brick_"+motivo, Date.now()-(window.__brickT0||Date.now()));
   const link = `https://wa.me/${ZAP_LOJA}?text=${encodeURIComponent(textoPedidoZap(pedido, valor))}`;
   el.innerHTML = `<div style="background:rgba(192,57,43,.1);border:1px solid var(--vermelho);border-radius:12px;padding:16px;margin-bottom:12px;font-size:14px;line-height:1.5">
     <b>${motivo==="erro"?"O pagamento não abriu.":"Está demorando mais que o normal."}</b><br>
@@ -1219,7 +1224,7 @@ function socorroPagamento(pedido, valor, motivo){
 }
 async function abrirPagamento(pedido, valor){
   window.__pedidoAtual = pedido; window.__valorAtual = valor;
-  brickPronto = false; if(brickTimer) clearTimeout(brickTimer);
+  brickPronto = false; window.__brickT0 = Date.now(); if(brickTimer) clearTimeout(brickTimer);
   const sheet=document.getElementById("sheet");
   sheet.innerHTML = `
     <div class="sheet-head"><h2>Pagamento · ${fmt(valor)}</h2><button class="fechar" onclick="abrirSacola()">←</button></div>
@@ -1228,6 +1233,7 @@ async function abrirPagamento(pedido, valor){
     <div class="mp-note">Pagamento processado pelo Mercado Pago 🔒</div>`;
   // o SDK é um script externo — se não carregou (adblock/rede), não deixa o cliente preso
   if(typeof MercadoPago==="undefined"){
+    px("sdk_ausente", 0);
     document.getElementById("pay-brick").innerHTML =
       `<div style="background:rgba(192,57,43,.1);border:1px solid var(--vermelho);border-radius:12px;padding:16px;color:var(--vermelho);font-size:14px;line-height:1.5">
         Não deu pra carregar o pagamento (pode ser bloqueador de anúncios ou conexão).<br>
@@ -1251,6 +1257,7 @@ async function abrirPagamento(pedido, valor){
     },
     callbacks:{
       onReady: ()=>{ brickPronto = true; if(brickTimer) clearTimeout(brickTimer);
+        px("brick_ok", Date.now()-(window.__brickT0||Date.now()));
         document.querySelector("#pay-brick .vazio")?.remove();
         const pe=document.getElementById("pay-erro"); if(pe && pe.dataset.socorro){ pe.innerHTML=""; delete pe.dataset.socorro; } },
       onError: (e)=>{ console.error(e); socorroPagamento(pedido, valor, "erro"); },
