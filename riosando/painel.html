@@ -27,9 +27,11 @@
 
   /* board */
   .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
-  .espera-box{border:1px dashed #8a7a2a;background:rgba(200,170,40,.07);border-radius:12px;padding:14px;margin-bottom:22px}
-  .espera-box h2{font-size:12px;letter-spacing:.25em;text-transform:uppercase;margin-bottom:10px;color:#e0c14a}
   .pedido.em-espera{opacity:.9;border-color:#8a7a2a}
+  .nota-espera{width:100%;min-height:64px;margin-top:6px;padding:8px;border-radius:8px;border:1px solid #8a7a2a;background:rgba(255,255,255,.9);color:#111;font:inherit;font-size:14px;resize:vertical}
+  .nota-assin{opacity:.75;font-size:12px;margin-top:4px}
+  .nota-hist{margin-top:8px;font-size:12px;opacity:.8}
+  .nota-hist div{border-top:1px dashed rgba(138,122,42,.5);padding-top:5px;margin-top:5px}
   .motivo-espera{background:rgba(200,170,40,.12);border-left:3px solid #e0c14a;padding:6px 9px;border-radius:0 6px 6px 0;margin-top:8px;font-size:13px}
   .col h2{font-size:12px;letter-spacing:.25em;text-transform:uppercase;margin-bottom:10px;opacity:.8}
   .pedido{background:var(--card);color:var(--preto);border-radius:14px;padding:16px;margin-bottom:12px;position:relative}
@@ -145,6 +147,7 @@ function render(){
   if(view==="envio"){ renderEnvioAvulso(); return; }
   if(view==="cupons"){ renderCupons(); return; }
   if(view==="agendados"){ renderAgendados(); return; }
+  if(view==="espera"){ renderEspera(); return; }
   if(view==="novidades"){ renderNovidades(); return; }
   if(view==="reservas"){ renderReservas(); return; }
   if(view==="lanc"){ renderLanc(); return; }
@@ -161,17 +164,13 @@ function render(){
         <button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button>
         <button class="topbtn" onclick="abrirCupons()">🎟️ Cupons</button>
         <button class="topbtn" onclick="abrirAgendados()">⏰ Agendados</button>
+        <button class="topbtn" onclick="abrirEspera()">⏸ Em espera<span id="esp-badge" style="display:none;background:#8a7a2a;color:#fff;border-radius:9px;padding:0 6px;margin-left:5px;font-size:11px"></span></button>
         <button class="topbtn" onclick="abrirReservas()">🍽️ Reservas</button>
         <button class="topbtn" onclick="abrirNovidades()">🔔 Novidades<span id="nov-badge" style="display:none;background:var(--vermelho);color:#fff;border-radius:9px;padding:0 6px;margin-left:5px;font-size:11px"></span></button>
         <button class="topbtn" onclick="testarAviso()">🔊 Testar som</button>
         <button class="topbtn" onclick="abrirLancamentos()">🧾 Lançamentos</button>
         <button class="sair" onclick="sair()">Sair</button></div>
     </header>
-    ${(()=>{const esp=pedidos.filter(p=>p.em_espera); return !esp.length?"":`
-    <div class="espera-box">
-      <h2>⏸ EM ESPERA (${esp.length}) <span style="opacity:.6;letter-spacing:0;text-transform:none;font-weight:400">— parados de propósito, esperando uma definição. Não somem, não tocam o som.</span></h2>
-      <div class="cols">${esp.map(card).join("")}</div>
-    </div>`;})()}
     <div class="cols">${COLS.map(([st,titulo])=>{
       const list=pedidos.filter(p=>p.status===st && !p.em_espera);
       return `<div class="col"><h2>${titulo} (${list.length})</h2>
@@ -499,6 +498,21 @@ function agendCard(p){
     <div class="linha" style="opacity:.8">${(p.itens||[]).map(i=>`${Number(i.qtd)||"?"}× ${esc(i.item)}`).join(", ")}</div>
     <div class="linha"><span style="opacity:.7">${p.pagamento_status==="pago"?"✅ pago · "+formaPgto(p):"pgto "+formaPgto(p)} · ${ROTH[p.status]||esc(p.status)}</span></div>
   </div>`;
+}
+// ── ⏸ Em espera: fora do board de propósito — a cozinha vê o fluxo, quem decide vê a pendência ──
+function abrirEspera(){ view="espera"; render(); }
+function atualizarBadgeEsp(){
+  const b=document.getElementById("esp-badge"); if(!b) return;
+  const n=pedidos.filter(p=>p.em_espera).length;
+  if(n>0){ b.textContent=n; b.style.display="inline"; } else b.style.display="none";
+}
+function renderEspera(){
+  const esp=pedidos.filter(p=>p.em_espera).sort((a,b)=>new Date(a.espera_em||a.created_at)-new Date(b.espera_em||b.created_at));
+  $("app").innerHTML=`<header>
+      <div><h1>RIO SAND<span>Ô</span> · EM ESPERA</h1><div class="sub">${esp.length} pedido(s) parados esperando uma decisão · o mais antigo primeiro</div></div>
+      <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div>
+    </header>
+    ${!esp.length?`<div class="vazio">nenhum pedido em espera 👍</div>`:`<div class="cols">${esp.map(card).join("")}</div>`}`;
 }
 function renderAgendados(){
   const grupos={}, ordem=[];
@@ -935,8 +949,7 @@ function card(p){
     ${p.obs?`<div class="meta">📝 ${esc(p.obs)}</div>`:""}
     <div class="total">${fmt(p.total)}</div>
     ${espera?`
-    <div class="motivo-espera">⏸ <b>${esc(p.espera_motivo||"sem motivo anotado")}</b><br>
-      <span style="opacity:.7">parado ${p.espera_em?"desde "+new Date(p.espera_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—"}${p.espera_por?" · por "+esc(p.espera_por):""}${p.pagamento_status==="pago"?" · ⚠️ <b>já pago</b>: se cancelar, devolver em 🧾 Lançamentos":""}</span></div>
+    ${blocoNotaEspera(p)}
     <div class="acoes">
       <button class="avancar" onclick="tirarDaEspera(${p.id})">▶ Retomar (volta pra ${ROTH[p.status]||esc(p.status)})</button>
       <button class="imprimir" onclick="imprimir(${p.id})">🖨️</button>
@@ -1020,8 +1033,10 @@ async function carregar(){
   const paraImprimir = carregar.ja && autoprint ? novos.filter(p=>!impressos.has(p.id)) : [];
   carregar.ja = true;
   pedidos = dados;
-  if(view==="board") render();
+  const digitando = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains("nota-espera");
+  if((view==="board" || view==="espera") && !digitando) render();
   atualizarBadgeNov();
+  atualizarBadgeEsp();
   // modo quiosque (?autoprint=1 + Chrome --kiosk-printing): comanda sai sozinha na térmica
   for(const p of paraImprimir){
     impressos.add(p.id);
@@ -1079,6 +1094,49 @@ async function voltarProBoard(id, temEntrega){
   carregarHist();
   alert("Voltou pro board 👍");
 }
+// ── notas da espera: editar = nova versão ASSINADA; a anterior fica no histórico (rastreável e questionável) ──
+// o login do painel é compartilhado, então o nome é perguntado uma vez por aparelho (e pode trocar)
+function quemEscreve(forcar){
+  let n=""; try{ n=localStorage.getItem("rs_quem")||""; }catch(e){}
+  if(!n || forcar){
+    const r=prompt("Seu nome (vai assinado na nota, pra todo mundo saber quem escreveu):", n);
+    if(r===null) return null;
+    n=r.trim(); if(!n){ alert("Sem nome a nota não fica rastreável — escreve seu nome."); return null; }
+    try{ localStorage.setItem("rs_quem", n); }catch(e){}
+  }
+  return n;
+}
+const notasDe = p => Array.isArray(p.espera_notas)&&p.espera_notas.length ? p.espera_notas
+  : (p.espera_motivo ? [{txt:p.espera_motivo, por:p.espera_por||"?", em:p.espera_em}] : []);
+const quandoNota = iso => iso ? new Date(iso).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
+function blocoNotaEspera(p){
+  const ns=notasDe(p), atual=ns[ns.length-1], antes=ns.slice(0,-1).reverse();
+  let quem=""; try{ quem=localStorage.getItem("rs_quem")||""; }catch(e){}
+  return `<div class="motivo-espera">
+    <div style="font-size:11px;letter-spacing:.12em;opacity:.7">⏸ NOTA · parado desde ${quandoNota(p.espera_em)}</div>
+    <textarea class="nota-espera" id="nota-${p.id}" placeholder="O que está pendente e o que precisa acontecer pra ele andar?">${esc(atual?atual.txt:"")}</textarea>
+    <div class="nota-assin">${atual?`— <b>${esc(atual.por)}</b> · ${quandoNota(atual.em)}`:"sem nota ainda"}${p.pagamento_status==="pago"?" · ⚠️ <b>já pago</b>: se cancelar, devolver em 🧾 Lançamentos":""}</div>
+    <div class="acoes" style="margin-top:6px">
+      <button class="off" onclick="salvarNotaEspera(${p.id})">💾 salvar nota${quem?` como <b>${esc(quem)}</b>`:""}</button>
+      ${quem?`<button class="off" onclick="quemEscreve(true);render()" title="trocar o nome">não é ${esc(quem)}?</button>`:""}
+    </div>
+    ${antes.length?`<details class="nota-hist"><summary>histórico (${antes.length} versão${antes.length>1?"ões":""} anterior${antes.length>1?"es":""})</summary>
+      ${antes.map(n=>`<div>${esc(n.txt)}<br><span style="opacity:.75">— <b>${esc(n.por)}</b> · ${quandoNota(n.em)}</span></div>`).join("")}</details>`:""}
+  </div>`;
+}
+async function salvarNotaEspera(id){
+  const p=pedidos.find(x=>x.id===id); if(!p) return;
+  const el=document.getElementById(`nota-${id}`); const txt=(el?.value||"").trim();
+  if(!txt){ alert("A nota não pode ficar vazia."); return; }
+  const ns=notasDe(p);
+  if(ns.length && ns[ns.length-1].txt===txt){ alert("Nada mudou na nota."); return; }
+  const por=quemEscreve(); if(!por) return;
+  const nova={txt, por, em:new Date().toISOString()};
+  const r=await api(`pedidos?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({espera_notas:[...ns,nova], espera_motivo:txt})});
+  if(!r||!r.ok){ alert("Não salvou a nota — tenta de novo."); return; }
+  if(el) el.blur();
+  carregar();
+}
 // quem está logado (claim email do JWT) — só pra assinar quem segurou o pedido
 function quemSou(){ try{ return JSON.parse(atob(sess.token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/"))).email||""; }catch(e){ return ""; } }
 async function porEmEspera(id){
@@ -1086,8 +1144,11 @@ async function porEmEspera(id){
   const motivo=prompt(`⏸ Segurar o pedido #${p.codigo} (${p.nome}).\n\nPor quê? (o que precisa acontecer pra ele voltar a andar)`,"");
   if(motivo===null) return;
   if(!motivo.trim()){ alert("Escreve o motivo — é ele que faz o pedido não ser esquecido."); return; }
+  const por=quemEscreve(); if(!por) return;
+  const agora=new Date().toISOString();
   const r=await api(`pedidos?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({
-    em_espera:true, espera_motivo:motivo.trim(), espera_em:new Date().toISOString(), espera_por:(quemSou()||"equipe")})});
+    em_espera:true, espera_motivo:motivo.trim(), espera_em:agora, espera_por:por,
+    espera_notas:[...notasDe(p), {txt:motivo.trim(), por, em:agora}]})});
   if(!r||!r.ok){ alert("Não deu pra segurar o pedido — tenta de novo."); return; }
   carregar();
 }
