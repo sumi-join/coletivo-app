@@ -1,0 +1,269 @@
+<!doctype html><html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rio Sandô · Sócios</title>
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{--preto:#1A1A1A;--papel:#F5F0EB;--carta:#FBF9F6;--fio:#DED6CB;--tinta2:#6F6A63;--tinta3:#98918B;
+        --vermelho:#C0392B;--verde:#2D5A27;--ocre:#B8822F;
+        --display:"Jost","Futura","Helvetica Neue",sans-serif;--texto:"IBM Plex Sans",Arial,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--preto);color:var(--papel);font-family:var(--texto);font-size:15px;line-height:1.5}
+  .wrap{max-width:900px;margin:0 auto;padding-inline:16px;padding-block:24px 70px}
+  h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+  .kicker{font-family:var(--display);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--tinta3)}
+  h1{font-size:28px;font-weight:600;letter-spacing:-.01em;margin-top:6px}
+  /* gate */
+  #gate{max-width:380px;margin:12vh auto;padding-inline:16px}
+  #gate input{width:100%;font-family:inherit;font-size:16px;padding:12px;border:1px solid #3A3631;border-radius:10px;
+              background:#221F1B;color:var(--papel);margin-top:8px}
+  #gate button{width:100%;margin-top:14px;background:var(--vermelho);color:#fff;border:0;border-radius:10px;
+               padding:13px;font-size:15px;font-family:var(--display);font-weight:600;letter-spacing:.04em;cursor:pointer}
+  .erro{color:#E5705F;font-size:13.5px;min-height:18px;margin-top:10px}
+  /* app */
+  nav{display:flex;gap:6px;overflow-x:auto;margin:18px 0 4px;position:sticky;top:env(safe-area-inset-top,0px);
+      background:var(--preto);padding-block:10px;z-index:3}
+  nav button{font-family:var(--display);font-size:13.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;
+    background:none;border:1px solid #3A3631;color:var(--tinta3);padding:7px 13px;border-radius:999px;cursor:pointer;white-space:nowrap}
+  nav button[aria-selected="true"]{background:var(--papel);color:var(--preto);border-color:var(--papel)}
+  .carta{background:var(--carta);color:var(--preto);border-radius:14px;padding:18px;margin-top:14px}
+  .alvo{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .alvo .n{font-family:var(--display);font-size:46px;font-weight:600;line-height:.9;font-variant-numeric:tabular-nums}
+  .bloco{border-top:1px solid var(--fio);padding-top:12px;margin-top:16px}
+  .bloco h3{font-size:16px;font-weight:600;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .hora{font-family:var(--display);font-size:12.5px;font-weight:600;letter-spacing:.06em;color:var(--vermelho)}
+  .quem{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta2);border:1px solid var(--fio);
+        padding:2px 8px;border-radius:999px}
+  ul.t{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+  ul.t li{padding-left:19px;position:relative;font-size:14.5px}
+  ul.t li::before{content:"";position:absolute;left:0;top:7px;width:9px;height:9px;border:1.5px solid var(--tinta3);border-radius:2px}
+  .tabwrap{overflow-x:auto;margin-top:10px}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+  th{font-family:var(--display);font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+     color:var(--tinta2);text-align:left;border-bottom:1px solid var(--preto);padding:6px 12px 6px 0;white-space:nowrap}
+  td{border-bottom:1px solid var(--fio);padding:7px 12px 7px 0;vertical-align:middle}
+  td.num,th.num{text-align:right;padding-right:16px}
+  td.num:last-child,th.num:last-child{padding-right:0}
+  .pin{display:inline-block;font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.04em;
+       padding:3px 8px;border-radius:6px;color:#fff;white-space:nowrap}
+  .pin.on{background:var(--verde)} .pin.off{background:#CFC7BC;color:var(--tinta2)}
+  .pin.dom{background:var(--vermelho)} .pin.ex{background:var(--ocre)}
+  .nota{font-size:13.5px;color:var(--tinta2);margin-top:12px}
+  .nota b{color:var(--preto)}
+  .sair{position:absolute;right:16px;top:22px;background:none;border:1px solid #3A3631;color:var(--tinta3);
+        border-radius:999px;padding:5px 12px;font-size:12px;font-family:var(--display);cursor:pointer}
+  footer{margin-top:32px;border-top:1px solid #322E29;padding-top:14px;font-size:12.5px;color:var(--tinta3)}
+  a{color:var(--ocre)}
+</style></head><body>
+
+<div id="gate">
+  <p class="kicker">Rio Sandô</p>
+  <h1>Área dos sócios</h1>
+  <p style="color:var(--tinta3);font-size:14px;margin-top:10px">Ordem do dia da cozinha e escala da equipe. Mesmo login do painel.</p>
+  <input id="g-mail" type="email" placeholder="e-mail" autocomplete="username">
+  <input id="g-senha" type="password" placeholder="senha" autocomplete="current-password">
+  <button id="g-btn">Entrar</button>
+  <div class="erro" id="g-erro"></div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <button class="sair" onclick="sair()">sair</button>
+  <p class="kicker">Rio Sandô · sócios</p>
+  <h1 id="titulo">Ordem do dia</h1>
+  <nav id="abas" role="tablist"></nav>
+  <div id="conteudo"></div>
+  <footer id="rodape"></footer>
+</div>
+
+<script>
+const FB_KEY = "AIzaSyChnmo3XFjrFodlnnRq_ZOc2NYqdMgZKDQ";
+const $ = id => document.getElementById(id);
+
+/* ───────── login: mesmo Firebase do painel ───────── */
+async function entrar(){
+  const e = $("g-erro"); e.textContent = ""; $("g-btn").disabled = true;
+  try{
+    const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FB_KEY}`,
+      {method:"POST",headers:{"Content-Type":"application/json"},
+       body:JSON.stringify({email:$("g-mail").value.trim(),password:$("g-senha").value,returnSecureToken:true})});
+    const d = await r.json();
+    if(!r.ok) throw new Error(d?.error?.message || "erro");
+    try{ localStorage.setItem("rs_socios", JSON.stringify({email:d.email, exp:Date.now()+12*36e5})); }catch(_){}
+    abrir(d.email);
+  }catch(err){
+    const m = String(err.message||"");
+    e.textContent = /EMAIL_NOT_FOUND|INVALID_PASSWORD|INVALID_LOGIN/.test(m) ? "E-mail ou senha não conferem."
+                  : /TOO_MANY/.test(m) ? "Muitas tentativas. Espera um minuto." : "Não deu para entrar. Tenta de novo.";
+  }finally{ $("g-btn").disabled = false; }
+}
+function sair(){ try{ localStorage.removeItem("rs_socios"); }catch(_){} location.reload(); }
+$("g-btn").onclick = entrar;
+$("g-senha").addEventListener("keydown", ev => { if(ev.key === "Enter") entrar(); });
+
+/* ───────── dados: ordem do dia (modelo P90 das últimas 7 semanas) ───────── */
+const DIA = {
+ ter:{nome:"Terça",alvo:30,tag:"produção da semana",paes:10.3,
+  itens:[["Katsu (lombo)",7,"0,80 kg"],["Filé mignon",6,"0,64 kg"],["Frango",6,"0,67 kg"],["Atum empanado",4,"0,39 kg"],["Tamago",3,"—"],["Tuna japa",2,"0,21 kg"],["Pão perdido",2,"—"]],
+  base:[["Farinha","0,45 kg"],["Panko","0,57 kg"],["Ovos","22 un"],["Manteiga","0,24 kg"],["Slaw fresco","0,90 kg"],["Embalagens","30"]],
+  molhos:[["Teriyaki","0,21 kg"],["Tonkatsu","0,25 kg"],["Jack Nicholson","0,20 kg"],["Aioli wasabi","0,11 kg"],["Kewpie","0,32 kg"]],
+  blocos:[["08h–12h","Marcelinho","Massa do pão e porcionamento",["Bater <b>2 receitas</b> de shokupan (46 pães) e deixar fermentando.","Porcionar e congelar a proteína da semana: lombo 7,1 kg · filé 5,7 kg · sobrecoxa 5,9 kg · atum 3,4 kg · tuna 1,9 kg.","Etiquetar tudo com data, hora e validade."]],
+          ["13h–16h","Dona Lourdes","Forno, molhos e conservas",["Assar as duas receitas — 6 pães por fornada, 40 min.","Molhos longos: teriyaki 1,9 kg · tonkatsu 2,2 kg · Jack 1,8 kg.","Conservas da semana: rabanete 1 kg e pepino 1 kg.","Slaw fresco 1 kg e 1ª rodada de maioneses (kewpie 1,4 · spicy 0,4 · aioli 0,5 kg)."]],
+          ["16h–17h","Atendimento","Abertura",["Conferir a linha contra o alvo do dia.","Abrir app e iFood às 17h."]],
+          ["17h–21h30","Serviço","Pico de 18h às 21h",["Empanar só no pedido, 170–175 °C.","Tostar o pão na manteiga, montar, etiquetar, embalar."]],
+          ["21h30–22h","Atendimento","Fechamento",["Contar sobra por item e lançar no painel.","Pão que sobra vai para a caixa do pão perdido."]]]},
+ qua:{nome:"Quarta",alvo:25,tag:"dia mais leve",paes:8.6,
+  itens:[["Katsu (lombo)",6,"0,67 kg"],["Filé mignon",5,"0,53 kg"],["Frango",5,"0,56 kg"],["Atum empanado",3,"0,32 kg"],["Tamago",3,"—"],["Tuna japa",2,"0,18 kg"],["Pão perdido",2,"—"]],
+  base:[["Farinha","0,38 kg"],["Panko","0,47 kg"],["Ovos","18 un"],["Manteiga","0,20 kg"],["Slaw","de terça"],["Embalagens","25"]],
+  molhos:[["Teriyaki","0,18 kg"],["Tonkatsu","0,21 kg"],["Jack Nicholson","0,17 kg"],["Aioli wasabi","0,09 kg"],["Kewpie","0,27 kg"]],
+  blocos:[["13h–16h","Dona Lourdes","Reposição",["Descongelar a proteína do dia na bandeja de trás.","Conferir validade das maioneses de terça — vencem quinta.","Tamago: 3 porções, 3 ovos cada."]],
+          ["16h–17h","Atendimento","Abertura",["Conferência da linha e abertura às 17h."]],
+          ["17h–21h30","Serviço","Serviço",["Quarta concentra entre 18h e 20h; uma pessoa dá conta do envase."]],
+          ["21h30–22h","Atendimento","Fechamento",["Contagem de sobra no painel."]]]},
+ qui:{nome:"Quinta",alvo:45,tag:"prepara o fim de semana",paes:15.5,
+  itens:[["Katsu (lombo)",11,"1,20 kg"],["Filé mignon",9,"0,96 kg"],["Frango",9,"1,01 kg"],["Atum empanado",5,"0,58 kg"],["Tamago",5,"—"],["Tuna japa",3,"0,32 kg"],["Pão perdido",3,"—"]],
+  base:[["Farinha","0,68 kg"],["Panko","0,85 kg"],["Ovos","33 un"],["Manteiga","0,36 kg"],["Slaw fresco","1,35 kg"],["Embalagens","45"]],
+  molhos:[["Teriyaki","0,32 kg"],["Tonkatsu","0,38 kg"],["Jack Nicholson","0,31 kg"],["Aioli wasabi","0,16 kg"],["Kewpie","0,48 kg"]],
+  blocos:[["08h–12h","Marcelinho","3ª receita de pão",["Bater 1 receita (23 pães) — é o pão do fim de semana.","Repor o porcionamento do que saiu terça e quarta."]],
+          ["13h–16h","Dona Lourdes","Assar e preparar o pico",["Assar a receita da manhã.","Slaw fresco 1,35 kg.","Marinar a sobrecoxa de sexta e sábado — 2,8 kg."]],
+          ["16h–17h","Atendimento","Abertura",["Conferência da linha e abertura às 17h."]],
+          ["17h–21h30","Serviço","Serviço",["As duas últimas quintas passaram de R$ 2,2 mil. Acima de 40 sandos, puxa da reserva."]],
+          ["21h30–22h","Atendimento","Fechamento",["Contagem de sobra e conferência do pão para sexta."]]]},
+ sex:{nome:"Sexta",alvo:75,tag:"o dia que define a capacidade — recorde de 102",paes:25.8,pico:true,
+  itens:[["Katsu (lombo)",18,"2,00 kg"],["Filé mignon",15,"1,60 kg"],["Frango",15,"1,68 kg"],["Atum empanado",9,"0,97 kg"],["Tamago",9,"—"],["Tuna japa",5,"0,53 kg"],["Pão perdido",5,"—"]],
+  base:[["Farinha","1,14 kg"],["Panko","1,42 kg"],["Ovos","54 un"],["Manteiga","0,60 kg"],["Slaw fresco","2,25 kg"],["Embalagens","75"]],
+  molhos:[["Teriyaki","0,54 kg"],["Tonkatsu","0,64 kg"],["Jack Nicholson","0,51 kg"],["Aioli wasabi","0,27 kg"],["Kewpie","0,81 kg"]],
+  blocos:[["14h–16h","Dona Lourdes","Mise en place do pico",["Montar a linha para <b>75 sandos</b> e deixar <b>27 porções</b> de reserva descongelando.","2ª rodada de maioneses: kewpie 1,4 · spicy 0,4 · aioli 0,5 kg.","Slaw fresco 2,25 kg.","Separar 26 pães e conferir a caixa do pão perdido."]],
+          ["16h–17h","Atendimento","Abertura",["Conferir a linha item a item.","Checar cotação de entrega e saldo do Lalamove."]],
+          ["18h–21h","Atendimento + extra","Pico — duas funções separadas",["Uma pessoa <b>só no computador</b>: pedidos, WhatsApp e motoboy.","Uma pessoa <b>só no envase</b>: etiqueta, sacola, grampo e nota.","Ritmo do recorde: 1 pedido a cada 4 minutos por 3 horas."]],
+          ["21h30–22h","Todos","Fechamento",["Contagem de sobra por item.","Proteína descongelada que sobrou vai para sábado, com etiqueta nova."]]]},
+ sáb:{nome:"Sábado",alvo:50,tag:"começa mais tarde, entre 19h e 21h",paes:17.2,
+  itens:[["Katsu (lombo)",12,"1,33 kg"],["Filé mignon",10,"1,07 kg"],["Frango",10,"1,12 kg"],["Atum empanado",6,"0,65 kg"],["Tamago",6,"—"],["Tuna japa",3,"0,35 kg"],["Pão perdido",3,"—"]],
+  base:[["Farinha","0,76 kg"],["Panko","0,95 kg"],["Ovos","36 un"],["Manteiga","0,40 kg"],["Slaw fresco","1,50 kg"],["Embalagens","50"]],
+  molhos:[["Teriyaki","0,36 kg"],["Tonkatsu","0,42 kg"],["Jack Nicholson","0,34 kg"],["Aioli wasabi","0,18 kg"],["Kewpie","0,54 kg"]],
+  blocos:[["14h–16h","Dona Lourdes","Reposição do que a sexta levou",["Repor a linha para 50 sandos — usar primeiro a proteína de sexta.","Slaw fresco 1,5 kg.","Conferir 17 pães e separar os mais antigos para o pão perdido."]],
+          ["16h–17h","Atendimento","Abertura",["Conferência da linha e abertura às 17h."]],
+          ["18h–21h","Atendimento + extra","Pico",["Sábado de sol estoura depois das 19h30 — segure a fritura até o pedido.","Mesma divisão da sexta: um no computador, um no envase."]],
+          ["21h30–22h","Todos","Fechamento",["Contagem de sobra e separação do que vai para domingo."]]]},
+ dom:{nome:"Domingo",alvo:40,tag:"abre a partir de 05/10 — alvo estimado",paes:13.7,
+  itens:[["Katsu (lombo)",10,"1,06 kg"],["Filé mignon",8,"0,85 kg"],["Frango",8,"0,90 kg"],["Atum empanado",5,"0,52 kg"],["Tamago",5,"—"],["Tuna japa",3,"0,28 kg"],["Pão perdido",3,"—"]],
+  base:[["Farinha","0,61 kg"],["Panko","0,76 kg"],["Ovos","29 un"],["Manteiga","0,32 kg"],["Slaw","de sábado"],["Embalagens","40"]],
+  molhos:[["Teriyaki","0,29 kg"],["Tonkatsu","0,34 kg"],["Jack Nicholson","0,27 kg"],["Aioli wasabi","0,14 kg"],["Kewpie","0,43 kg"]],
+  blocos:[["13h–14h","Escala do domingo","Montagem curta",["Montar a linha para 40 sandos com o que sobrou de sábado, em ordem FIFO.","Assar o pão da sobra como pão perdido."]],
+          ["14h–21h","Atendimento + extra","Serviço",["Abertura às 14h: a praia esvazia entre 17h e 19h.","Anotar os pedidos por hora — é esse dado que decide se o domingo fica."]],
+          ["21h–21h30","Atendimento","Fechamento da semana",["Contagem final e foto do fechamento no grupo.","Lista de compras da terça a partir da sobra real."]]]}
+};
+const ORDEM = ["ter","qua","qui","sex","sáb","dom"];
+
+/* ───────── escala: a batalha naval ───────── */
+const EQUIPE = [
+  {nome:"Agatha", papel:"atendimento (contratada com domingo)", dias:[3,4,5,6,0], folga:"seg e ter"},
+  {nome:"Kátia", papel:"atendimento e compras", dias:[2,4,5], folga:"seg e qua (dom só no 4º)", dom4:true},
+  {nome:"Luisa", papel:"extra treinada (diária R$ 150)", dias:[5,6,0], folga:"seg a qui", extra:true},
+  {nome:"Dona Lourdes", papel:"cozinha", dias:[2,3,4,5,6], folga:"seg e dom", domAlt:0},
+  {nome:"Marcelinho", papel:"cozinha de manhã (massa do pão)", dias:[1,2,3,4,5], folga:"sáb e dom", domAlt:1},
+  {nome:"Jean", papel:"produção manhã (contrato Tatim)", dias:[1,2,3,4,5], folga:"sáb e dom", fixo:true}
+];
+const NOMEDIA = ["dom","seg","ter","qua","qui","sex","sáb"];
+
+function domingos(){                     // os domingos de outubro a dezembro
+  const out = []; const d = new Date(2026,9,1);
+  while(d.getFullYear() === 2026 && d.getMonth() <= 11){
+    if(d.getDay() === 0 && d >= new Date(2026,9,5)) out.push(new Date(d));
+    d.setDate(d.getDate()+1);
+  }
+  return out;
+}
+function escalaDomingo(){
+  // atendimento: Agatha, menos no 4º domingo do mês (Kátia). cozinha: Lourdes e Marcelinho alternados.
+  return domingos().map((dt,i) => {
+    const nDoMes = Math.ceil(dt.getDate()/7);
+    return {data:dt, atendimento: nDoMes === 4 ? "Kátia" : "Agatha",
+            apoio:"Luisa (extra)", cozinha: i % 2 === 0 ? "Dona Lourdes" : "Marcelinho (extra)"};
+  });
+}
+
+/* ───────── render ───────── */
+let aba = "ordem";
+function abrir(email){
+  $("gate").hidden = true; $("app").hidden = false;
+  $("rodape").innerHTML = `Entrou como ${email}. Alvos do P90 das últimas 7 semanas (iFood pela API + app), mix do Menew, ` +
+    `rendimento de 2,7 sandos por pão e gramagens da ficha “Revisadas 3 fatias 110 g”. ` +
+    `Compromissos e caixa ficam no <a href="https://docs.google.com/spreadsheets/d/1fRwelMFzXy7YbZf5dQZv8Q7ZB8JjvHEwN6nJ-XxyecY" target="_blank" rel="noreferrer">cockpit</a>.`;
+  const abas = [["ordem","Ordem do dia"],["escala","Escala"],["domingo","Domingos"]];
+  $("abas").innerHTML = "";
+  abas.forEach(([k,rot]) => {
+    const b = document.createElement("button");
+    b.textContent = rot; b.dataset.k = k; b.setAttribute("role","tab");
+    b.onclick = () => { aba = k; render(); };
+    $("abas").appendChild(b);
+  });
+  render();
+}
+function render(){
+  [...$("abas").children].forEach(b => b.setAttribute("aria-selected", String(b.dataset.k === aba)));
+  $("titulo").textContent = aba === "ordem" ? "Ordem do dia" : aba === "escala" ? "Escala da semana" : "Rodízio dos domingos";
+  $("conteudo").innerHTML = aba === "ordem" ? viewOrdem() : aba === "escala" ? viewEscala() : viewDomingo();
+}
+let diaSel = (()=>{ const m = {2:"ter",3:"qua",4:"qui",5:"sex",6:"sáb",0:"dom"}; return m[new Date().getDay()] || "sex"; })();
+function viewOrdem(){
+  const d = DIA[diaSel];
+  return `<nav style="position:static;margin:4px 0 0">${ORDEM.map(k =>
+      `<button data-d="${k}" aria-selected="${k===diaSel}" onclick="diaSel='${k}';render()">${DIA[k].nome}</button>`).join("")}</nav>
+    <div class="carta">
+      <div class="alvo"><span class="n">${d.alvo}</span>
+        <span><b>sandos de alvo</b> · ${d.tag}<br>${String(d.paes).replace(".",",")} pães${d.pico?" · reserva de pico +27":""}</span></div>
+      ${d.blocos.map(([h,q,t,ts]) => `<div class="bloco"><h3><span class="hora">${h}</span> ${t} <span class="quem">${q}</span></h3>
+        <ul class="t">${ts.map(x=>`<li>${x}</li>`).join("")}</ul></div>`).join("")}
+      <div class="bloco"><h3>Quanto de cada coisa</h3>
+        <div class="tabwrap"><table><tr><th>Sando</th><th class="num">Un</th><th class="num">Proteína</th></tr>
+          ${d.itens.map(i=>`<tr><td>${i[0]}</td><td class="num">${i[1]}</td><td class="num">${i[2]}</td></tr>`).join("")}</table></div>
+        <div class="tabwrap"><table><tr><th>Base</th><th class="num">Qtd</th><th>Molho</th><th class="num">Qtd</th></tr>
+          ${d.base.map((x,i)=>`<tr><td>${x[0]}</td><td class="num">${x[1]}</td><td>${(d.molhos[i]||["",""])[0]}</td><td class="num">${(d.molhos[i]||["",""])[1]}</td></tr>`).join("")}</table></div>
+      </div>
+    </div>`;
+}
+function viewEscala(){
+  const cols = [1,2,3,4,5,6,0];
+  return `<div class="carta">
+    <div class="tabwrap"><table>
+      <tr><th>Pessoa</th>${cols.map(c=>`<th class="num" style="text-align:center">${NOMEDIA[c]}</th>`).join("")}<th>Folga</th></tr>
+      ${EQUIPE.map(p=>`<tr><td><b>${p.nome}</b><br><span style="font-size:12px;color:var(--tinta2)">${p.papel}</span></td>
+        ${cols.map(c=>{
+          const trab = p.dias.includes(c);
+          if(c === 0){
+            if(trab) return `<td style="text-align:center"><span class="pin dom">todo dom</span></td>`;
+            if(p.dom4) return `<td style="text-align:center"><span class="pin ex">4º dom</span></td>`;
+            if(p.domAlt !== undefined) return `<td style="text-align:center"><span class="pin ex">alternado</span></td>`;
+            return `<td style="text-align:center"><span class="pin off">folga</span></td>`;
+          }
+          return `<td style="text-align:center">${trab ? `<span class="pin ${p.extra ? "ex" : "on"}">✓</span>` : ""}</td>`;
+        }).join("")}<td style="font-size:12.5px;color:var(--tinta2)">${p.folga}</td></tr>`).join("")}
+    </table></div>
+    <p class="nota"><b>A regra:</b> ninguém trabalha mais de 5 dias e ninguém pega todos os domingos. A Agatha entra de quarta a domingo
+    porque o contrato dela já contempla domingo; a Kátia cobre o domingo em que a Agatha folga. Na cozinha, Dona Lourdes e Marcelinho
+    alternam os domingos, com diária extra de R$ 150 para quem pegar e folga compensatória na semana.</p>
+    <p class="nota">O Jean segue no contrato da Tatim, de segunda a sexta das 6h às 14h — por isso o pão nasce na manhã da terça,
+    dentro da jornada que ele já tem.</p>
+  </div>`;
+}
+function viewDomingo(){
+  const linhas = escalaDomingo();
+  return `<div class="carta">
+    <div class="tabwrap"><table>
+      <tr><th>Domingo</th><th>Atendimento</th><th>Apoio</th><th>Cozinha</th></tr>
+      ${linhas.map(l=>`<tr><td><b>${l.data.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</b></td>
+        <td>${l.atendimento}</td><td>${l.apoio}</td><td>${l.cozinha}</td></tr>`).join("")}
+    </table></div>
+    <p class="nota"><b>Régua:</b> o domingo se paga a partir de <b>R$ 1.392 por dia</b>. Média dos quatro primeiros acima de R$ 1.400 mantém;
+    entre R$ 1.000 e R$ 1.400 revê o horário; abaixo disso fecha e a atendente cobre a terça.</p>
+    <p class="nota">Horário proposto: <b>14h às 21h</b> — a praia esvazia entre 17h e 19h, e o pedido de domingo entra mais cedo que o de sábado.</p>
+  </div>`;
+}
+
+/* sessão guardada */
+try{
+  const s = JSON.parse(localStorage.getItem("rs_socios") || "null");
+  if(s && s.exp > Date.now()) abrir(s.email);
+}catch(_){}
+</script>
+</body></html>
