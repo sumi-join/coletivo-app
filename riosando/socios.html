@@ -75,6 +75,25 @@
   .inp.num{text-align:right}
   .botao{margin-top:14px;background:var(--preto);color:var(--papel);border:0;border-radius:9px;padding:10px 16px;
          font-family:var(--display);font-size:13px;letter-spacing:.04em;cursor:pointer}
+
+  .tl{display:flex;gap:8px;min-width:900px}
+  .eixo{position:relative;width:42px;flex:0 0 42px;margin-top:52px}
+  .hlinha{position:absolute;left:0;right:-100vw;border-top:1px solid var(--fio)}
+  .hlinha span{position:absolute;top:-8px;left:0;font-family:var(--display);font-size:10.5px;color:var(--tinta3);background:var(--carta);padding-right:4px}
+  .cols{display:flex;gap:6px;flex:1}
+  .col-h{flex:1;min-width:116px}
+  .col-h.dom .grade-h{background:#F6EEEA}
+  .cab-h{font-family:var(--display);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta2);
+         height:52px;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:6px;line-height:1.3}
+  .cab-h b{color:var(--preto);font-size:13px;letter-spacing:0}
+  .cab-h span{color:var(--tinta3);font-size:10.5px}
+  .grade-h{position:relative;border-left:1px solid var(--fio);background:#F3EFE9;border-radius:6px}
+  .bloco-h{position:absolute;border-radius:5px;color:#fff;padding:3px 5px;overflow:hidden;
+           font-family:var(--display);font-size:10.5px;line-height:1.25;display:flex;flex-direction:column}
+  .bloco-h b{font-size:11.5px;font-weight:600}
+  .bloco-h span{opacity:.85}
+  .legenda-h{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:12.5px;color:var(--tinta2)}
+  .legenda-h i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
   a{color:var(--ocre)}
 </style></head><body>
 
@@ -100,6 +119,7 @@
 <script>
 const FB_KEY = "AIzaSyChnmo3XFjrFodlnnRq_ZOc2NYqdMgZKDQ";
 const $ = id => document.getElementById(id);
+let SESSAO = null;
 
 /* ───────── login: mesmo Firebase do painel ───────── */
 async function entrar(){
@@ -110,7 +130,8 @@ async function entrar(){
        body:JSON.stringify({email:$("g-mail").value.trim(),password:$("g-senha").value,returnSecureToken:true})});
     const d = await r.json();
     if(!r.ok) throw new Error(d?.error?.message || "erro");
-    try{ localStorage.setItem("rs_socios", JSON.stringify({email:d.email, exp:Date.now()+12*36e5})); }catch(_){}
+    SESSAO = {email:d.email, idToken:d.idToken, refresh:d.refreshToken, exp:Date.now()+(Number(d.expiresIn||3600)-120)*1000};
+    try{ localStorage.setItem("rs_socios", JSON.stringify(SESSAO)); }catch(_){}
     abrir(d.email);
   }catch(err){
     const m = String(err.message||"");
@@ -218,7 +239,7 @@ function abrir(email){
   $("rodape").innerHTML = `Entrou como ${email}. Alvos do P90 das últimas 7 semanas (iFood pela API + app), mix do Menew, ` +
     `rendimento de 2,7 sandos por pão e gramagens da ficha “Revisadas 3 fatias 110 g”. ` +
     `Compromissos e caixa ficam no <a href="https://docs.google.com/spreadsheets/d/1fRwelMFzXy7YbZf5dQZv8Q7ZB8JjvHEwN6nJ-XxyecY" target="_blank" rel="noreferrer">cockpit</a>.`;
-  const abas = [["ordem","Ordem do dia"],["escala","Escala"],["planner","Calendário"],["equipe","Equipe"],["domingo","Domingos"]];
+  const abas = [["ordem","Ordem do dia"],["horarios","Horários"],["planner","Calendário"],["escala","Escala"],["equipe","Equipe"],["domingo","Domingos"]];
   $("abas").innerHTML = "";
   abas.forEach(([k,rot]) => {
     const b = document.createElement("button");
@@ -227,14 +248,16 @@ function abrir(email){
     $("abas").appendChild(b);
   });
   render();
+  nuvemLer();
 }
 function render(){
   [...$("abas").children].forEach(b => b.setAttribute("aria-selected", String(b.dataset.k === aba)));
   const T = {ordem:"Ordem do dia", escala:"Escala da semana", planner:"Calendário de outubro a dezembro",
-             equipe:"Quem podemos contar", domingo:"Rodízio dos domingos"};
+             horarios:"Quem está na casa, hora a hora", equipe:"Quem podemos contar", domingo:"Rodízio dos domingos"};
   $("titulo").textContent = T[aba];
   $("conteudo").innerHTML = aba === "ordem" ? viewOrdem() : aba === "escala" ? viewEscala()
-                          : aba === "planner" ? viewPlanner() : aba === "equipe" ? viewEquipe() : viewDomingo();
+                          : aba === "planner" ? viewPlanner() : aba === "horarios" ? viewHorarios()
+                          : aba === "equipe" ? viewEquipe() : viewDomingo();
   if(aba === "planner") ligarDnD();
 }
 let diaSel = (()=>{ const m = {2:"ter",3:"qua",4:"qui",5:"sex",6:"sáb",0:"dom"}; return m[new Date().getDay()] || "sex"; })();
@@ -336,7 +359,10 @@ const PADRAO_EQUIPE = EQUIPE.map((p,i) => ({
 function carregar(chave, padrao){
   try{ const v = JSON.parse(localStorage.getItem(chave) || "null"); return v ?? padrao; }catch(_){ return padrao; }
 }
-function guardar(chave, valor){ try{ localStorage.setItem(chave, JSON.stringify(valor)); }catch(_){} }
+function guardar(chave, valor){
+  try{ localStorage.setItem(chave, JSON.stringify(valor)); }catch(_){}
+  if(chave === "rs_escala" || chave === "rs_equipe") nuvemSalvar();
+}
 let TIME = carregar("rs_equipe", PADRAO_EQUIPE);
 let PLANO = carregar("rs_escala", null) || semear();
 
@@ -422,8 +448,9 @@ function viewPlanner(){
     <div class="tabwrap"><table class="cal">${grade}</table></div>
     ${alertas ? `<ul class="t" style="margin-top:14px">${alertas}</ul>` : `<p class="nota">✅ Todo mundo tem pelo menos um domingo de folga neste mês (${domTotal[mesSel]||0} domingos abertos).</p>`}
     <p class="nota">As horas por semana aparecem embaixo de cada semana, já descontando 1h de intervalo nos turnos acima de 6h.
-    Mudanças ficam <b>neste aparelho</b> por enquanto — quando eu ligar o banco compartilhado, todo mundo vê a mesma escala.</p>
+    O que você mexer aqui é salvo para todo mundo na hora.</p>
     <button class="botao" onclick="resetarPlano()">voltar para a escala proposta</button>
+    ${ultimoAutor ? `<p class="nota">Última alteração: <b>${ultimoAutor}</b> — todo mundo vê a mesma escala.</p>` : ""}
   </div>`;
 }
 function viewEquipe(){
@@ -490,10 +517,108 @@ function ligarDnD(){
   });
 }
 
+
+
+/* ───────── escala compartilhada no Firestore ───────── */
+const DOC = "https://firestore.googleapis.com/v1/projects/rio-sando/databases/(default)/documents/escala/atual";
+let salvando = null, ultimoAutor = "";
+async function token(){
+  if(!SESSAO) return null;
+  if(Date.now() < SESSAO.exp) return SESSAO.idToken;
+  try{
+    const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FB_KEY}`,
+      {method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+       body:new URLSearchParams({grant_type:"refresh_token",refresh_token:SESSAO.refresh})});
+    const d = await r.json(); if(!r.ok) return null;
+    SESSAO = {...SESSAO, idToken:d.id_token, refresh:d.refresh_token, exp:Date.now()+(Number(d.expires_in||3600)-120)*1000};
+    try{ localStorage.setItem("rs_socios", JSON.stringify(SESSAO)); }catch(_){}
+    return SESSAO.idToken;
+  }catch(_){ return null; }
+}
+async function nuvemLer(){
+  const t = await token(); if(!t) return;
+  try{
+    const r = await fetch(DOC, {headers:{Authorization:"Bearer "+t}});
+    if(!r.ok) return;                                   // 404 = ninguém salvou ainda
+    const d = await r.json(), f = d.fields || {};
+    if(f.plano)  { PLANO = JSON.parse(f.plano.stringValue); guardar("rs_escala", PLANO); }
+    if(f.equipe) { TIME  = JSON.parse(f.equipe.stringValue); guardar("rs_equipe", TIME); }
+    ultimoAutor = f.por ? `${f.por.stringValue} · ${new Date(f.em.stringValue).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}` : "";
+    if(["planner","horarios","equipe","domingo"].includes(aba)) render();
+  }catch(_){}
+}
+function nuvemSalvar(){
+  clearTimeout(salvando);
+  salvando = setTimeout(async () => {
+    const t = await token(); if(!t) return;
+    const corpo = {fields:{plano:{stringValue:JSON.stringify(PLANO)}, equipe:{stringValue:JSON.stringify(TIME)},
+                           por:{stringValue:(SESSAO||{}).email||"?"}, em:{stringValue:new Date().toISOString()}}};
+    const url = DOC + "?updateMask.fieldPaths=plano&updateMask.fieldPaths=equipe&updateMask.fieldPaths=por&updateMask.fieldPaths=em";
+    try{ await fetch(url, {method:"PATCH", headers:{Authorization:"Bearer "+t, "Content-Type":"application/json"},
+                           body:JSON.stringify(corpo)}); }catch(_){}
+  }, 800);
+}
+
+/* ───────── visão hora a hora: linhas = horário, colunas = dia ───────── */
+const CORES = ["#2D5A27","#B8822F","#2C5A7A","#C0392B","#6B5B95","#4E7A5E"];
+const corDe = id => CORES[Math.max(0, TIME.findIndex(p => p.id === id)) % CORES.length];
+const H0 = 6, H1 = 24, PX = 26;                         // das 6h às 24h, 26px por hora
+function faixa(janela){
+  const m = String(janela).match(/(\d{1,2})h.*?(\d{1,2})h/);
+  if(!m) return null;
+  let a = Number(m[1]), b = Number(m[2]); if(b <= a) b += 24;
+  return [a, b];
+}
+let semanaSel = null;
+function semanasDoPeriodo(){ return [...new Set(diasDoPeriodo().map(semanaDe))]; }
+function viewHorarios(){
+  const semanas = semanasDoPeriodo();
+  const hoje = iso(new Date());
+  if(!semanaSel || !semanas.includes(semanaSel)) semanaSel = semanas.find(s => s >= semanaDe(new Date(hoje+"T12:00"))) || semanas[0];
+  const ini = new Date(semanaSel + "T12:00");
+  const dias = [...Array(7)].map((_,i) => { const d = new Date(ini); d.setDate(d.getDate()+i); return d; });
+  const nome = id => (TIME.find(p => p.id === id) || {}).nome || "?";
+  const linhas = [...Array(H1-H0)].map((_,i) =>
+    `<div class="hlinha" style="top:${i*PX}px"><span>${String(H0+i).padStart(2,"0")}h</span></div>`).join("");
+  const colunas = dias.map(d => {
+    const k = iso(d), lista = (PLANO[k] || []).slice();
+    // quem entra primeiro fica à esquerda; blocos lado a lado quando se sobrepõem
+    lista.sort((x,y) => (faixa(x.janela)||[0])[0] - (faixa(y.janela)||[0])[0]);
+    const blocos = lista.map((it, idx) => {
+      const f = faixa(it.janela); if(!f) return "";
+      const top = (f[0]-H0)*PX, alt = (f[1]-f[0])*PX;
+      const larg = 100/Math.max(1, lista.length), esq = larg*idx;
+      return `<div class="bloco-h" style="top:${top}px;height:${alt-2}px;left:${esq}%;width:calc(${larg}% - 3px);background:${corDe(it.id)}"
+        title="${nome(it.id)} · ${it.janela}"><b>${nome(it.id).split(" ")[0]}</b>${lista.length <= 3 ? `<span>${it.janela}</span>` : ""}</div>`;
+    }).join("");
+    const total = lista.reduce((a,it) => a + horas(it.janela), 0);
+    return `<div class="col-h ${d.getDay()===0?"dom":""}">
+      <div class="cab-h">${NOMEDIA[d.getDay()]} <b>${d.getDate()}/${d.getMonth()+1}</b><span>${total}h</span></div>
+      <div class="grade-h" style="height:${(H1-H0)*PX}px">${blocos}</div></div>`;
+  }).join("");
+  const i = semanas.indexOf(semanaSel);
+  return `<div class="carta">
+    <div class="meses">
+      <button class="pin off" ${i<=0?"disabled":""} onclick="semanaSel='${semanas[Math.max(0,i-1)]}';render()">← semana anterior</button>
+      <button class="pin on" style="cursor:default">${ini.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})} a ${dias[6].toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</button>
+      <button class="pin off" ${i>=semanas.length-1?"disabled":""} onclick="semanaSel='${semanas[Math.min(semanas.length-1,i+1)]}';render()">próxima →</button>
+    </div>
+    <div class="tabwrap"><div class="tl">
+      <div class="eixo" style="height:${(H1-H0)*PX}px">${linhas}</div>
+      <div class="cols">${colunas}</div>
+    </div></div>
+    <div class="legenda-h">${TIME.filter(p=>p.ativo).map(p =>
+      `<span><i style="background:${corDe(p.id)}"></i>${p.nome}</span>`).join("")}</div>
+    <p class="nota">A casa abre às 17h (domingo às 14h) e o pico é das 18h às 21h — a faixa onde sempre tem duas pessoas no atendimento.
+    A cozinha entra antes para a mise en place, e o Marcelinho sai às 14h, dentro do contrato da Tatim.</p>
+    <p class="nota">Para mudar quem trabalha em cada dia, use a aba <b>Calendário</b>: o que você mexer lá aparece aqui na hora.</p>
+  </div>`;
+}
+
 /* sessão guardada */
 try{
   const s = JSON.parse(localStorage.getItem("rs_socios") || "null");
-  if(s && s.exp > Date.now()) abrir(s.email);
+  if(s && s.refresh){ SESSAO = s; abrir(s.email); }
 }catch(_){}
 </script>
 </body></html>
