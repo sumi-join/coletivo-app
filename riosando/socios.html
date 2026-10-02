@@ -156,13 +156,20 @@ const ORDEM = ["ter","qua","qui","sex","sáb","dom"];
 
 /* ───────── escala: a batalha naval ───────── */
 const EQUIPE = [
-  {nome:"Agatha", papel:"atendimento (contratada com domingo)", dias:[3,4,5,6,0], folga:"seg e ter"},
-  {nome:"Kátia", papel:"atendimento e compras", dias:[2,4,5], folga:"seg e qua (dom só no 4º)", dom4:true},
-  {nome:"Luisa", papel:"extra treinada (diária R$ 150)", dias:[5,6,0], folga:"seg a qui", extra:true},
-  {nome:"Dona Lourdes", papel:"cozinha", dias:[2,3,4,5,6], folga:"seg e dom", domAlt:0},
-  {nome:"Marcelinho", papel:"cozinha de manhã (massa do pão)", dias:[1,2,3,4,5], folga:"sáb e dom", domAlt:1},
-  {nome:"Jean", papel:"produção manhã (contrato Tatim)", dias:[1,2,3,4,5], folga:"sáb e dom", fixo:true}
+  {nome:"Agatha", papel:"atendimento (contrato já com domingo)",
+   h:{3:"16h–22h",4:"16h–22h",5:"15h–23h",6:"15h–23h",0:"13h–21h"}, folga:"seg e ter", semana:33},
+  {nome:"Kátia", papel:"atendimento e compras (rateada com a Tatim)",
+   h:{2:"16h–22h",4:"16h–22h",5:"15h–23h"}, folga:"seg, qua e sáb · dom só no 4º", dom4:true, semana:19},
+  {nome:"Luisa", papel:"extra treinada · diária R$ 150",
+   h:{5:"18h–23h",6:"18h–23h",0:"14h–21h"}, folga:"seg a qui", extra:true, semana:17},
+  {nome:"Dona Lourdes", papel:"cozinha",
+   h:{2:"13h–21h",3:"14h–21h",4:"13h–21h",5:"14h–22h",6:"14h–22h"}, folga:"seg · dom alternado", domAlt:0, semana:37},
+  {nome:"Marcelinho", papel:"cozinha de manhã · massa do pão ter e qui",
+   h:{1:"08h–14h",2:"08h–14h",3:"08h–14h",4:"08h–14h",5:"08h–14h"}, folga:"sáb · dom alternado", domAlt:1, semana:30},
+  {nome:"Jean", papel:"produção manhã · contrato Tatim",
+   h:{1:"06h–14h",2:"06h–14h",3:"06h–14h",4:"06h–14h",5:"06h–14h"}, folga:"sáb e dom", fixo:true, semana:40}
 ];
+EQUIPE.forEach(p => p.dias = Object.keys(p.h).map(Number));
 const NOMEDIA = ["dom","seg","ter","qua","qui","sex","sáb"];
 
 function domingos(){                     // os domingos de outubro a dezembro
@@ -226,35 +233,70 @@ function viewEscala(){
   const cols = [1,2,3,4,5,6,0];
   return `<div class="carta">
     <div class="tabwrap"><table>
-      <tr><th>Pessoa</th>${cols.map(c=>`<th class="num" style="text-align:center">${NOMEDIA[c]}</th>`).join("")}<th>Folga</th></tr>
+      <tr><th>Pessoa</th>${cols.map(c=>`<th style="text-align:center">${NOMEDIA[c]}</th>`).join("")}<th class="num">Semana</th><th>Folga</th></tr>
       ${EQUIPE.map(p=>`<tr><td><b>${p.nome}</b><br><span style="font-size:12px;color:var(--tinta2)">${p.papel}</span></td>
         ${cols.map(c=>{
-          const trab = p.dias.includes(c);
-          if(c === 0){
-            if(trab) return `<td style="text-align:center"><span class="pin dom">todo dom</span></td>`;
+          const h = p.h[c];
+          if(c === 0 && !h){
             if(p.dom4) return `<td style="text-align:center"><span class="pin ex">4º dom</span></td>`;
             if(p.domAlt !== undefined) return `<td style="text-align:center"><span class="pin ex">alternado</span></td>`;
             return `<td style="text-align:center"><span class="pin off">folga</span></td>`;
           }
-          return `<td style="text-align:center">${trab ? `<span class="pin ${p.extra ? "ex" : "on"}">✓</span>` : ""}</td>`;
-        }).join("")}<td style="font-size:12.5px;color:var(--tinta2)">${p.folga}</td></tr>`).join("")}
+          if(!h) return `<td style="text-align:center"><span class="pin off">folga</span></td>`;
+          return `<td style="text-align:center;white-space:nowrap"><span class="pin ${c===0?"dom":p.extra?"ex":"on"}">${h}</span></td>`;
+        }).join("")}
+        <td class="num">${p.semana}h</td>
+        <td style="font-size:12.5px;color:var(--tinta2)">${p.folga}</td></tr>`).join("")}
     </table></div>
-    <p class="nota"><b>A regra:</b> ninguém trabalha mais de 5 dias e ninguém pega todos os domingos. A Agatha entra de quarta a domingo
-    porque o contrato dela já contempla domingo; a Kátia cobre o domingo em que a Agatha folga. Na cozinha, Dona Lourdes e Marcelinho
-    alternam os domingos, com diária extra de R$ 150 para quem pegar e folga compensatória na semana.</p>
+    <p class="nota"><b>Jornada:</b> ninguém passa de 44h por semana, e todo turno acima de 6h tem 1h de intervalo dentro do horário acima.
+    O pico de 18h às 21h fica sempre com duas pessoas no atendimento — por isso a Agatha e a Luisa entram mais cedo na sexta e no sábado.</p>
+    <p class="nota"><b>A regra do rodízio:</b> ninguém trabalha mais de 5 dias e ninguém pega todos os domingos. A Agatha cobre três por mês;
+    a Kátia entra no quarto, quando a Agatha folga. Na cozinha, Dona Lourdes e Marcelinho alternam, com diária extra de R$ 150
+    e folga compensatória na semana.</p>
     <p class="nota">O Jean segue no contrato da Tatim, de segunda a sexta das 6h às 14h — por isso o pão nasce na manhã da terça,
     dentro da jornada que ele já tem.</p>
   </div>`;
 }
+
 function viewDomingo(){
   const linhas = escalaDomingo();
+  // quem folga no domingo, pessoa por pessoa — a lei pede repouso em domingo com alguma frequência
+  const PESSOAS = ["Agatha","Kátia","Luisa","Dona Lourdes","Marcelinho"];
+  const trabalha = (p, l) => l.atendimento === p || l.apoio.startsWith(p) || l.cozinha.startsWith(p);
+  const meses = {};
+  linhas.forEach(l => {
+    const m = l.data.toLocaleDateString("pt-BR",{month:"long"});
+    (meses[m] = meses[m] || []).push(l);
+  });
+  const resumo = Object.entries(meses).map(([m, ls]) => {
+    const cel = PESSOAS.map(p => {
+      const folgas = ls.filter(l => !trabalha(p, l)).length;
+      const ok = folgas >= 1;
+      return `<td style="text-align:center"><span class="pin ${ok ? "on" : "dom"}">${folgas} de ${ls.length}</span></td>`;
+    }).join("");
+    return `<tr><td><b>${m}</b></td>${cel}</tr>`;
+  }).join("");
   return `<div class="carta">
     <div class="tabwrap"><table>
       <tr><th>Domingo</th><th>Atendimento</th><th>Apoio</th><th>Cozinha</th></tr>
       ${linhas.map(l=>`<tr><td><b>${l.data.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</b></td>
         <td>${l.atendimento}</td><td>${l.apoio}</td><td>${l.cozinha}</td></tr>`).join("")}
     </table></div>
-    <p class="nota"><b>Régua:</b> o domingo se paga a partir de <b>R$ 1.392 por dia</b>. Média dos quatro primeiros acima de R$ 1.400 mantém;
+
+    <div class="bloco"><h3>Domingos de folga por pessoa <span class="quem">a lei manda</span></h3>
+      <div class="tabwrap"><table>
+        <tr><th>Mês</th>${PESSOAS.map(p=>`<th class="num" style="text-align:center">${p.split(" ").pop()}</th>`).join("")}</tr>
+        ${resumo}
+      </table></div>
+      <p class="nota">Quem trabalha em domingo tem direito a repouso coincidindo com domingo de tempos em tempos — no comércio,
+      ao menos <b>um domingo a cada três semanas</b>; em bar e restaurante, a frequência vem da convenção coletiva.
+      Esta escala garante, no mínimo, <b>um domingo de folga por mês para cada pessoa</b>, e o rodízio é fechado de outubro a dezembro,
+      para todo mundo saber com antecedência.</p>
+      <p class="nota"><b>A confirmar com o jurídico (#41):</b> a frequência exata que a nossa convenção exige, e o enquadramento
+      da diária de extra em sexta, sábado e domingo.</p>
+    </div>
+
+    <p class="nota"><b>Régua do dia:</b> o domingo se paga a partir de <b>R$ 1.392</b>. Média dos quatro primeiros acima de R$ 1.400 mantém;
     entre R$ 1.000 e R$ 1.400 revê o horário; abaixo disso fecha e a atendente cobre a terça.</p>
     <p class="nota">Horário proposto: <b>14h às 21h</b> — a praia esvazia entre 17h e 19h, e o pedido de domingo entra mais cedo que o de sábado.</p>
   </div>`;
