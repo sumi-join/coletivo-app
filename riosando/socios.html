@@ -53,6 +53,28 @@
   .sair{position:absolute;right:16px;top:22px;background:none;border:1px solid #3A3631;color:var(--tinta3);
         border-radius:999px;padding:5px 12px;font-size:12px;font-family:var(--display);cursor:pointer}
   footer{margin-top:32px;border-top:1px solid #322E29;padding-top:14px;font-size:12.5px;color:var(--tinta3)}
+
+  .chip{display:inline-block;background:var(--verde);color:#fff;font-family:var(--display);font-size:11.5px;font-weight:600;
+        padding:4px 9px;border-radius:7px;margin:2px 3px 2px 0;cursor:grab;white-space:nowrap}
+  .chip b{font-weight:500;opacity:.85}
+  .chip.fonte{background:var(--preto)}
+  .paleta{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:12px}
+  .meses{display:flex;gap:6px;margin-bottom:10px}
+  .meses .pin{cursor:pointer;border:0;font-family:var(--display)}
+  table.cal{table-layout:fixed}
+  table.cal td.cel{border:1px solid var(--fio);vertical-align:top;padding:6px;min-width:120px;height:86px}
+  table.cal td.cel.domingo{background:#F6EEEA}
+  table.cal td.cel.alvo{background:#E8F0E4;border-color:var(--verde)}
+  table.cal td.cel .chip{display:block;margin:2px 0;overflow:hidden;text-overflow:ellipsis}
+  table.cal td.cel.sel{outline:2px solid var(--verde);outline-offset:-2px}
+  .chip.fonte.ativa{background:var(--verde);box-shadow:0 0 0 2px rgba(45,90,39,.25)}
+  table.cal .data{font-family:var(--display);font-size:11.5px;color:var(--tinta2);margin-bottom:4px}
+  table.cal .data span{text-transform:uppercase;letter-spacing:.08em}
+  td.resumo{font-size:11.5px;color:var(--tinta2);border-bottom:2px solid var(--fio);padding:4px 0 10px}
+  .inp{font-family:inherit;font-size:13.5px;padding:6px 8px;border:1px solid var(--fio);border-radius:7px;width:100%;background:#fff;color:var(--preto)}
+  .inp.num{text-align:right}
+  .botao{margin-top:14px;background:var(--preto);color:var(--papel);border:0;border-radius:9px;padding:10px 16px;
+         font-family:var(--display);font-size:13px;letter-spacing:.04em;cursor:pointer}
   a{color:var(--ocre)}
 </style></head><body>
 
@@ -196,7 +218,7 @@ function abrir(email){
   $("rodape").innerHTML = `Entrou como ${email}. Alvos do P90 das últimas 7 semanas (iFood pela API + app), mix do Menew, ` +
     `rendimento de 2,7 sandos por pão e gramagens da ficha “Revisadas 3 fatias 110 g”. ` +
     `Compromissos e caixa ficam no <a href="https://docs.google.com/spreadsheets/d/1fRwelMFzXy7YbZf5dQZv8Q7ZB8JjvHEwN6nJ-XxyecY" target="_blank" rel="noreferrer">cockpit</a>.`;
-  const abas = [["ordem","Ordem do dia"],["escala","Escala"],["domingo","Domingos"]];
+  const abas = [["ordem","Ordem do dia"],["escala","Escala"],["planner","Calendário"],["equipe","Equipe"],["domingo","Domingos"]];
   $("abas").innerHTML = "";
   abas.forEach(([k,rot]) => {
     const b = document.createElement("button");
@@ -208,8 +230,12 @@ function abrir(email){
 }
 function render(){
   [...$("abas").children].forEach(b => b.setAttribute("aria-selected", String(b.dataset.k === aba)));
-  $("titulo").textContent = aba === "ordem" ? "Ordem do dia" : aba === "escala" ? "Escala da semana" : "Rodízio dos domingos";
-  $("conteudo").innerHTML = aba === "ordem" ? viewOrdem() : aba === "escala" ? viewEscala() : viewDomingo();
+  const T = {ordem:"Ordem do dia", escala:"Escala da semana", planner:"Calendário de outubro a dezembro",
+             equipe:"Quem podemos contar", domingo:"Rodízio dos domingos"};
+  $("titulo").textContent = T[aba];
+  $("conteudo").innerHTML = aba === "ordem" ? viewOrdem() : aba === "escala" ? viewEscala()
+                          : aba === "planner" ? viewPlanner() : aba === "equipe" ? viewEquipe() : viewDomingo();
+  if(aba === "planner") ligarDnD();
 }
 let diaSel = (()=>{ const m = {2:"ter",3:"qua",4:"qui",5:"sex",6:"sáb",0:"dom"}; return m[new Date().getDay()] || "sex"; })();
 function viewOrdem(){
@@ -300,6 +326,168 @@ function viewDomingo(){
     entre R$ 1.000 e R$ 1.400 revê o horário; abaixo disso fecha e a atendente cobre a terça.</p>
     <p class="nota">Horário proposto: <b>14h às 21h</b> — a praia esvazia entre 17h e 19h, e o pedido de domingo entra mais cedo que o de sábado.</p>
   </div>`;
+}
+
+
+/* ───────── equipe editável + calendário com arrastar e soltar ───────── */
+const PADRAO_EQUIPE = EQUIPE.map((p,i) => ({
+  id:"p"+i, nome:p.nome, papel:p.papel, desde:"2026-10-01", maxSemana:44, h:p.h, extra:!!p.extra, ativo:true, obs:""
+}));
+function carregar(chave, padrao){
+  try{ const v = JSON.parse(localStorage.getItem(chave) || "null"); return v ?? padrao; }catch(_){ return padrao; }
+}
+function guardar(chave, valor){ try{ localStorage.setItem(chave, JSON.stringify(valor)); }catch(_){} }
+let TIME = carregar("rs_equipe", PADRAO_EQUIPE);
+let PLANO = carregar("rs_escala", null) || semear();
+
+function diasDoPeriodo(){
+  const out = [], d = new Date(2026,9,1), fim = new Date(2026,11,31);
+  while(d <= fim){ out.push(new Date(d)); d.setDate(d.getDate()+1); }
+  return out;
+}
+function iso(d){ return d.toISOString().slice(0,10); }   // função, não const: é usada antes desta linha
+function semear(){                       // escala inicial = o padrão de cada pessoa, de outubro a dezembro
+  const plano = {};
+  diasDoPeriodo().forEach(d => {
+    const wd = d.getDay();
+    plano[iso(d)] = TIME.filter(p => p.ativo && p.h[wd] && iso(d) >= p.desde)
+      .map(p => ({id:p.id, janela:p.h[wd]}));
+  });
+  // domingo: Agatha nos 3 primeiros do mês, Kátia no 4º; cozinha alternando Lourdes/Marcelinho
+  let n = 0;
+  diasDoPeriodo().filter(d => d.getDay() === 0 && iso(d) >= "2026-10-05").forEach(d => {
+    const nMes = Math.ceil(d.getDate()/7), k = iso(d);
+    const atend = nMes === 4 ? "p1" : "p0", coz = n++ % 2 === 0 ? "p3" : "p4";
+    plano[k] = [{id:atend, janela:"13h–21h"}, {id:"p2", janela:"14h–21h"}, {id:coz, janela:"13h–21h"}];
+  });
+  return plano;
+}
+function horas(janela){
+  const m = String(janela).match(/(\d{1,2})h.*?(\d{1,2})h/);
+  if(!m) return 0;
+  let h = Number(m[2]) - Number(m[1]); if(h < 0) h += 24;
+  return h > 6 ? h - 1 : h;              // turno acima de 6h desconta 1h de intervalo
+}
+function semanaDe(d){ const x = new Date(d); x.setDate(x.getDate() - ((x.getDay()+6) % 7)); return iso(x); }
+function contabilidade(){
+  const porSemana = {}, domFolga = {}, domTotal = {};
+  diasDoPeriodo().forEach(d => {
+    const k = iso(d), sem = semanaDe(d), lista = PLANO[k] || [];
+    lista.forEach(it => {
+      porSemana[sem] = porSemana[sem] || {};
+      porSemana[sem][it.id] = (porSemana[sem][it.id] || 0) + horas(it.janela);
+    });
+    if(d.getDay() === 0 && k >= "2026-10-05"){
+      const mes = k.slice(0,7);
+      domTotal[mes] = (domTotal[mes] || 0) + 1;
+      TIME.forEach(p => {
+        domFolga[mes] = domFolga[mes] || {};
+        if(!lista.some(it => it.id === p.id)) domFolga[mes][p.id] = (domFolga[mes][p.id] || 0) + 1;
+      });
+    }
+  });
+  return {porSemana, domFolga, domTotal};
+}
+let mesSel = "2026-10", escolhido = null;
+function viewPlanner(){
+  const {porSemana, domFolga, domTotal} = contabilidade();
+  const dias = diasDoPeriodo().filter(d => iso(d).startsWith(mesSel));
+  const semanas = [...new Set(dias.map(semanaDe))];
+  const nome = id => (TIME.find(p => p.id === id) || {}).nome || "?";
+  const chip = (it, k) => `<span class="chip" draggable="true" data-dia="${k}" data-id="${it.id}"
+      title="arraste para outro dia · clique para tirar" onclick="event.stopPropagation();tirar('${k}','${it.id}')">${nome(it.id)} <b>${it.janela}</b></span>`;
+  const grade = semanas.map(sem => {
+    const dd = dias.filter(d => semanaDe(d) === sem);
+    const linha = dd.map(d => {
+      const k = iso(d), lista = PLANO[k] || [];
+      return `<td class="cel ${d.getDay()===0?"domingo":""} ${escolhido?"sel":""}" data-dia="${k}" onclick="porNoDia('${k}')">
+        <div class="data">${d.getDate()}/${d.getMonth()+1} <span>${NOMEDIA[d.getDay()]}</span></div>
+        ${lista.map(it => chip(it,k)).join("")}</td>`;
+    }).join("");
+    const horasSem = Object.entries(porSemana[sem] || {})
+      .map(([id,h]) => `${nome(id).split(" ").pop()} ${h}h${h > (TIME.find(p=>p.id===id)||{}).maxSemana ? " ⚠️" : ""}`).join(" · ");
+    return `<tr>${linha}</tr><tr><td colspan="${dd.length}" class="resumo">${horasSem || "—"}</td></tr>`;
+  }).join("");
+  const alertas = TIME.filter(p => p.ativo).map(p => {
+    const folgas = (domFolga[mesSel] || {})[p.id] || 0;
+    return folgas === 0 ? `<li>⚠️ <b>${p.nome}</b> está sem domingo de folga em ${mesSel.slice(5)}/${mesSel.slice(2,4)} — a lei pede repouso em domingo de tempos em tempos.</li>` : "";
+  }).filter(Boolean).join("");
+  return `<div class="carta">
+    <div class="paleta">${TIME.filter(p => p.ativo).map(p =>
+      `<span class="chip fonte ${escolhido===p.id?"ativa":""}" draggable="true" data-fonte="${p.id}"
+         onclick="escolhido = escolhido === '${p.id}' ? null : '${p.id}'; render()">${p.nome}</span>`).join("")}
+      <span class="nota" style="margin:0 0 0 auto">no computador, arraste o nome para o dia · no celular, toque no nome e depois no dia · toque no chip do dia para tirar</span></div>
+    <div class="meses">${["2026-10","2026-11","2026-12"].map(m =>
+      `<button class="pin ${m===mesSel?"on":"off"}" onclick="mesSel='${m}';render()">${["outubro","novembro","dezembro"][Number(m.slice(5))-10]}</button>`).join("")}</div>
+    <div class="tabwrap"><table class="cal">${grade}</table></div>
+    ${alertas ? `<ul class="t" style="margin-top:14px">${alertas}</ul>` : `<p class="nota">✅ Todo mundo tem pelo menos um domingo de folga neste mês (${domTotal[mesSel]||0} domingos abertos).</p>`}
+    <p class="nota">As horas por semana aparecem embaixo de cada semana, já descontando 1h de intervalo nos turnos acima de 6h.
+    Mudanças ficam <b>neste aparelho</b> por enquanto — quando eu ligar o banco compartilhado, todo mundo vê a mesma escala.</p>
+    <button class="botao" onclick="resetarPlano()">voltar para a escala proposta</button>
+  </div>`;
+}
+function viewEquipe(){
+  return `<div class="carta">
+    <p class="nota" style="margin-top:0">Quem está disponível, a partir de quando e em que horário. O calendário usa isto como ponto de partida.</p>
+    <div class="tabwrap"><table>
+      <tr><th>Pessoa</th><th>Papel</th><th>Disponível a partir de</th><th class="num">Máx/semana</th><th style="text-align:center">Conta com</th></tr>
+      ${TIME.map(p => `<tr>
+        <td><b>${p.nome}</b></td>
+        <td><input class="inp" value="${p.papel}" onchange="editarPessoa('${p.id}','papel',this.value)"></td>
+        <td><input class="inp" type="date" value="${p.desde}" onchange="editarPessoa('${p.id}','desde',this.value)"></td>
+        <td class="num"><input class="inp num" type="number" min="0" max="44" value="${p.maxSemana}" onchange="editarPessoa('${p.id}','maxSemana',Number(this.value))"></td>
+        <td style="text-align:center"><input type="checkbox" ${p.ativo?"checked":""} onchange="editarPessoa('${p.id}','ativo',this.checked)"></td>
+      </tr>`).join("")}
+    </table></div>
+    <p class="nota"><b>Prioridade de chamada:</b> a ordem da lista é a ordem de quem entra primeiro quando falta alguém.
+    Hoje: Agatha e Kátia no atendimento, Luisa como extra, Lourdes e Marcelinho na cozinha, Jean só na manhã (contrato Tatim).</p>
+    <button class="botao" onclick="novaPessoa()">+ pessoa</button>
+  </div>`;
+}
+function editarPessoa(id, campo, valor){
+  const p = TIME.find(x => x.id === id); if(!p) return;
+  p[campo] = valor; guardar("rs_equipe", TIME); render();
+}
+function novaPessoa(){
+  TIME.push({id:"p"+Date.now(), nome:"Nova pessoa", papel:"a definir", desde:iso(new Date()), maxSemana:44, h:{}, ativo:true});
+  guardar("rs_equipe", TIME); render();
+}
+function porNoDia(dia){
+  if(!escolhido) return;
+  const p = TIME.find(x => x.id === escolhido); if(!p) return;
+  const wd = new Date(dia + "T12:00").getDay();
+  const janela = p.h[wd] || p.h[5] || "16h–22h";
+  PLANO[dia] = (PLANO[dia] || []).filter(it => it.id !== p.id).concat([{id:p.id, janela}]);
+  guardar("rs_escala", PLANO); render();
+}
+function tirar(dia, id){
+  PLANO[dia] = (PLANO[dia] || []).filter(it => it.id !== id);
+  guardar("rs_escala", PLANO); render();
+}
+function resetarPlano(){ PLANO = semear(); guardar("rs_escala", PLANO); render(); }
+function ligarDnD(){
+  let arrastando = null;
+  document.querySelectorAll(".chip[draggable]").forEach(c => {
+    c.addEventListener("dragstart", e => {
+      arrastando = {id: c.dataset.id || c.dataset.fonte, de: c.dataset.dia || null};
+      e.dataTransfer.effectAllowed = "move";
+    });
+  });
+  document.querySelectorAll(".cel").forEach(cel => {
+    cel.addEventListener("dragover", e => { e.preventDefault(); cel.classList.add("alvo"); });
+    cel.addEventListener("dragleave", () => cel.classList.remove("alvo"));
+    cel.addEventListener("drop", e => {
+      e.preventDefault(); cel.classList.remove("alvo");
+      if(!arrastando) return;
+      const dia = cel.dataset.dia, p = TIME.find(x => x.id === arrastando.id);
+      if(!p) return;
+      if(arrastando.de) PLANO[arrastando.de] = (PLANO[arrastando.de] || []).filter(it => it.id !== p.id);
+      const wd = new Date(dia + "T12:00").getDay();
+      const janela = p.h[wd] || p.h[5] || "16h–22h";
+      PLANO[dia] = (PLANO[dia] || []).filter(it => it.id !== p.id).concat([{id:p.id, janela}]);
+      guardar("rs_escala", PLANO); arrastando = null; render();
+    });
+  });
 }
 
 /* sessão guardada */
