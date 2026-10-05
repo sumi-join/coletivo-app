@@ -491,7 +491,7 @@ const rotuloSlotISO = iso => {
 function FRETES_EXISTE(b){ return Object.prototype.hasOwnProperty.call(FRETES,b); }
 // Regras de entrega (17/09): a casa banca 35% do frete; frete GRÁTIS com R$ 150+ em comida.
 // O valor que vale é o do servidor (rio-api) — aqui só espelha pra mostrar antes de cotar.
-const SUBSIDIO_FRETE = 0.35, FRETE_GRATIS_ACIMA = 150;
+let SUBSIDIO_FRETE = 0.35, FRETE_GRATIS_ACIMA = 150;
 const freteComSubsidio = v => Math.round(Math.max(0, v) * (1 - SUBSIDIO_FRETE) * 10) / 10;
 const freteGratis = () => entrega==="entrega" && totais().t >= FRETE_GRATIS_ACIMA;
 const faltaFreteGratis = () => Math.max(0, FRETE_GRATIS_ACIMA - totais().t);
@@ -507,6 +507,20 @@ const FRETES = {
 const freteAtual = () => entrega!=="entrega" ? 0 : (freteGratis() ? 0 : (freteCotado!=null ? freteCotado : freteComSubsidio(FRETES[bairro] ?? 0)));
 if(cliente.bairro && FRETES_EXISTE(cliente.bairro)) bairro = cliente.bairro;
 
+// ── Área de entrega: a fonte única é a rio-api (/area). A tabela acima é só o boot e o plano B se a API cair —
+// antes eram duas tabelas e divergiram (Leblon: app R$ 24, servidor R$ 15 → cliente via um frete e pagava outro).
+async function carregarArea(){
+  try{
+    const r = await fetch(`${RIO_API}/area`); if(!r.ok) return;
+    const a = await r.json(); if(!a || !a.fretes || !Object.keys(a.fretes).length) return;
+    Object.keys(FRETES).forEach(k=>delete FRETES[k]); Object.assign(FRETES, a.fretes);
+    Object.keys(BAIRRO_NORM).forEach(k=>delete BAIRRO_NORM[k]); Object.keys(FRETES).forEach(b=>{ BAIRRO_NORM[normStr(b)] = b; });
+    if(typeof a.subsidio==="number") SUBSIDIO_FRETE = a.subsidio;
+    if(typeof a.gratis_acima==="number") FRETE_GRATIS_ACIMA = a.gratis_acima;
+    if(bairro && !FRETES_EXISTE(bairro)) bairro = "";
+    if(typeof syncBar==="function") syncBar();
+  }catch(e){}
+}
 // ── CEP automático (ViaCEP) + cotação de frete no endereço real ──
 const normStr = s => (s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
 const BAIRRO_NORM = {}; Object.keys(FRETES).forEach(b=>{ BAIRRO_NORM[normStr(b)] = b; });
@@ -528,7 +542,7 @@ async function buscarCep(cep, ctx){
     const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
     const d = await r.json();
     if(d.erro) return setMsg("CEP não encontrado — pode digitar o endereço à mão. 🙏","var(--vermelho)");
-    if(normStr(d.localidade)!=="rio de janeiro") return setMsg("Esse CEP não é do Rio — por enquanto entregamos só na Zona Sul. 🙈","var(--vermelho)");
+    if(normStr(d.localidade)!=="rio de janeiro"){ if(ctx==="checkout") px(`fora:${d.localidade||"?"}|${cep.slice(0,5)}`); return setMsg("Esse CEP não é do Rio — por enquanto entregamos só na Zona Sul. 🙈","var(--vermelho)"); }
     const b = BAIRRO_NORM[normStr(d.bairro)];
     const end = document.getElementById(A.end);
     if(end && d.logradouro) end.value = d.logradouro + ", ";
@@ -539,6 +553,7 @@ async function buscarCep(cep, ctx){
       setMsg(`📍 ${d.logradouro?d.logradouro+" · ":""}${b}`,"var(--verde)");
     } else {
       if(ctx==="checkout"){ bairro=""; if(sel) sel.value=""; freteCotado=null; freteToken=null; }
+      if(ctx==="checkout") px(`fora:${d.bairro||"?"}|${cep.slice(0,5)}`);
       setMsg(`📍 ${d.bairro||"esse bairro"} — fora da nossa área (Botafogo → Gávea) por enquanto. 🙈`,"var(--vermelho)");
     }
     if(A.cota){ freteCotado=null; freteToken=null; atualizarFrete(); }
@@ -1339,6 +1354,7 @@ function mostrarPix(codigo, pix, valor){
 }
 render();
 aplicarCupomURL();
+carregarArea();
 
 // novidades do app (subir o id a cada atualização — quem já viu não vê de novo)
 const NOVIDADES = {id:2, itens:[
