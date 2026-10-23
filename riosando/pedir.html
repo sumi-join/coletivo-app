@@ -671,9 +671,13 @@ async function reservarMesa(btn){
   document.getElementById("sheet").innerHTML=`<div class="sheet-head"><h2>Reserva confirmada ✅</h2><button class="fechar" onclick="fecharSheet()">✕</button></div>
     <div style="padding:10px 4px;font-size:16px;line-height:1.5">Te esperamos <b>${fmtDataResv(s.data)} às ${String(s.hora).slice(0,5)}</b>, ${esc(nome)}! 🥪<br><span style="opacity:.8">Mesa pra ${pessoas} ${pessoas>1?"pessoas":"pessoa"}. Qualquer coisa a gente chama no seu WhatsApp.</span></div>`;
 }
+// Item desativado no painel/banco (produtos.ativo=false) some do cardápio — 23/10/2026
+let INATIVOS = new Set();
+const menuVis = () => MENU.map(c=>({...c, itens:c.itens.filter(i=>!INATIVOS.has(i.id))})).filter(c=>c.itens.length);
+fetch(`${PGREST}/produtos?ativo=eq.false&select=id`).then(r=>r.json()).then(l=>{ INATIVOS=new Set(l.map(x=>x.id)); if(INATIVOS.size) try{ render(); }catch(e){} }).catch(()=>{});
 function render(){
   const menu = document.getElementById("menu");
-  menu.innerHTML = MENU.map(c=>`
+  menu.innerHTML = menuVis().map(c=>`
     <section id="${slug(c.cat)}">
       <h2>${c.cat} ${c.nota?`<small>${c.nota}</small>`:""}</h2>
       ${c.itens.map(i => i.img ? `
@@ -694,7 +698,7 @@ function render(){
         </div>`).join("")}
     </section>`).join("") + `
     <footer><a href="pontos.html" style="color:inherit">⭐ Pontos & indicação</a> · <a href="afiliados.html" style="color:inherit">🤝 Seja divulgador</a><br><span style="opacity:.7">@riosando_rj · coletivo.app</span></footer>`;
-  document.getElementById("chips").innerHTML = MENU.map((c,ix)=>
+  document.getElementById("chips").innerHTML = menuVis().map((c,ix)=>
     `<button class="chip ${ix===0?"on":""}" onclick="irPara('${slug(c.cat)}',this)">${c.cat}</button>`).join("");
   syncBar();
 }
