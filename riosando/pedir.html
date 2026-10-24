@@ -674,7 +674,7 @@ async function reservarMesa(btn){
 // Item desativado no painel/banco (produtos.ativo=false) some do cardápio — 23/10/2026
 let INATIVOS = new Set();
 const menuVis = () => MENU.map(c=>({...c, itens:c.itens.filter(i=>!INATIVOS.has(i.id))})).filter(c=>c.itens.length);
-fetch(`${PGREST}/produtos?ativo=eq.false&select=id`).then(r=>r.json()).then(l=>{ INATIVOS=new Set(l.map(x=>x.id)); if(INATIVOS.size) try{ render(); }catch(e){} }).catch(()=>{});
+fetch(`${PGREST}/produtos?select=id,preco,ativo`).then(r=>r.json()).then(l=>{ INATIVOS=new Set(l.filter(x=>!x.ativo).map(x=>x.id)); l.forEach(x=>{ if(BYID[x.id] && x.preco!=null) BYID[x.id].preco=Number(x.preco); }); try{ render(); }catch(e){} }).catch(()=>{});  // preço e disponibilidade vêm do painel 🍱
 function render(){
   const menu = document.getElementById("menu");
   menu.innerHTML = menuVis().map(c=>`
