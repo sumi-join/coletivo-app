@@ -48,6 +48,7 @@
     <h2>Quero divulgar</h2>
     <label>Seu nome</label><input id="f-nome" placeholder="Como te chamam">
     <label>WhatsApp (pro Pix da comissão)</label><input id="f-zap" type="tel" placeholder="(21) 9 9999-9999">
+    <label>E-mail</label><input id="f-email" type="email" placeholder="voce@email.com" autocomplete="email">
     <label>Instagram (@ ou link)</label><input id="f-ig" placeholder="@seuinsta">
     <label>TikTok / YouTube <span style="opacity:.5;text-transform:none;letter-spacing:0">(opcional)</span></label><input id="f-tt" placeholder="@ ou link">
     <label>Onde você divulga? <span style="opacity:.5;text-transform:none;letter-spacing:0">(opcional)</span></label><textarea id="f-div" rows="2" placeholder="Ex: Stories quase todo dia, público de Botafogo/Zona Sul..."></textarea>
@@ -63,14 +64,14 @@
 const PGREST="https://postgrest-517724804994.southamerica-east1.run.app";
 async function enviar(btn){
   const v=id=>document.getElementById(id).value.trim();
-  const nome=v("f-nome"), zap=v("f-zap");
+  const nome=v("f-nome"), zap=v("f-zap"), email=v("f-email");
   const msg=document.getElementById("msg");
-  if(!nome||!zap){ msg.textContent="Precisamos do seu nome e WhatsApp. 🙏"; return; }
+  if(!nome||!zap||!/^\S+@\S+\.\S+$/.test(email)){ msg.textContent="Precisamos do seu nome, WhatsApp e e-mail. 🙏"; return; }
   btn.disabled=true; btn.textContent="Enviando...";
   try{
     const r=await fetch(`${PGREST}/afiliado_candidaturas`,{
       method:"POST", headers:{"Content-Type":"application/json", Prefer:"return=minimal"},
-      body:JSON.stringify({nome, whatsapp:zap, instagram:v("f-ig")||null, tiktok:v("f-tt")||null, divulga:v("f-div")||null, status:"pendente"})});
+      body:JSON.stringify({nome, whatsapp:zap, email, instagram:v("f-ig")||null, tiktok:v("f-tt")||null, divulga:v("f-div")||null, status:"pendente"})});
     if(!r.ok) throw new Error();
     document.getElementById("form-card").innerHTML=`<div class="ok-box"><div class="big">🎉</div><h3>Recebemos, ${nome.split(" ")[0]}!</h3><p style="opacity:.7">A gente vai dar uma olhada no seu perfil e chama você no WhatsApp pra combinar tudo. Valeu por querer divulgar o Rio Sandô! 🙏</p></div>`;
   }catch(e){ btn.disabled=false; btn.textContent="Enviar candidatura"; msg.textContent="Ops, não enviou. Tenta de novo?"; }
