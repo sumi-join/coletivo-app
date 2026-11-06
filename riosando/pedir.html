@@ -1064,6 +1064,7 @@ function abrirConta(){
     sheet.innerHTML = `
       <div class="sheet-head"><div><h2 style="margin:0">${nome1?`Olá, ${esc(nome1)}`:"Sua conta"}</h2><div style="font-size:12.5px;opacity:.6;margin-top:2px">${esc(sessao?.user?.email||"")}</div></div><button class="fechar" onclick="fecharSheet()">✕</button></div>
       <div class="pts-box"><b>⭐ ${saldoPts}</b><small>pontos ${saldoPts>=100?`= ${fmt(Math.floor(saldoPts/100)*5)} de desconto — usa na sacola!`:`· faltam ${100-saldoPts} pra ganhar R$ 5`}<br>cada R$ 1 em sando vira 1 ponto quando o pedido chega</small></div>
+      ${["riosandolito@gmail.com","eduardo.sumi@gmail.com"].includes((sessao?.user?.email||"").toLowerCase())?`<a href="painel.html" style="display:block;margin:14px 0 4px;padding:14px;border-radius:12px;background:var(--vermelho);color:#fff;text-align:center;font-weight:700;text-decoration:none">🛠 Abrir o painel da equipe</a><div class="mp-note">pedidos · cupons · afiliados · cardápio — entra com a mesma senha da equipe</div>`:""}
       <label>Seu nome</label><input type="text" id="pf-nome" value="${(perfil?.nome||"").replace(/"/g,"&quot;")}">
       <label>WhatsApp</label><input type="tel" id="pf-zap" value="${(perfil?.whatsapp||cliente.zap||"").replace(/"/g,"&quot;")}">
       <label>CEP</label><input type="tel" id="pf-cep" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${(perfil?.cep||cliente.cep||"").replace(/"/g,"&quot;")}" oninput="onCep(this,'perfil')" autocomplete="postal-code">
