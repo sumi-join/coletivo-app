@@ -178,6 +178,10 @@
     .sheet.on{transform:translate(-50%,0)}
   }
 </style>
+<!-- Meta Pixel (Rio Sandô · 1634540247556085) — 09/11/2026 -->
+<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','1634540247556085');fbq('track','PageView');
+window.rsPx=function(ev,data,opt){try{fbq('track',ev,data||{},opt||{})}catch(e){}};</script>
+<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=1634540247556085&ev=PageView&noscript=1"/></noscript>
 </head>
 <body>
 
@@ -709,6 +713,7 @@ function addCtrl(id, mini){
 }
 function mudar(id,d){
   cart[id]=(cart[id]||0)+d; if(cart[id]<=0) delete cart[id];
+  if(d>0 && window.rsPx) rsPx('AddToCart',{content_ids:[id],content_type:'product',content_name:(BYID[id]&&BYID[id].nome)||id,value:Number((BYID[id]&&BYID[id].preco)||0),currency:'BRL'});
   localStorage.setItem("rs_cart",JSON.stringify(cart));
   document.querySelectorAll(`#add-${id}`).forEach(el=>{
     el.innerHTML = addCtrl(id, el.classList.contains("mini-add"));
@@ -900,6 +905,7 @@ async function aplicarCupomURL(){
   }catch(e){}
 }
 async function pagar(btn){
+  try{ const {t}=totais(); if(window.rsPx) rsPx('InitiateCheckout',{value:Math.round((Number(t)||0)*100)/100,currency:'BRL',num_items:Object.values(cart).reduce((a,b)=>a+b,0),content_ids:Object.keys(cart),content_type:'product'}); }catch(e){}
   const val = id => (document.getElementById(id)?.value||"").trim();
   const erro = document.getElementById("erro-envio");
   const nome=val("nome"), zap=val("zap"), endereco=val("endereco"), complemento=val("complemento"), obs=val("obs"), cep=val("cep");
@@ -1418,6 +1424,7 @@ function fecharNews(){
       const r = await fetch(`${RIO_API}/pedido-status`,{
         method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codigo})});
       const p = await r.json();
+      try{ const k="rs_px_"+p.codigo; if(r.ok && p.codigo && p.status!=="cancelado" && !["falhou","pendente","estornado"].includes(String(p.pagamento_status||"").toLowerCase()) && !localStorage.getItem(k) && window.rsPx){ rsPx('Purchase',{value:Number(p.total)||0,currency:'BRL',content_type:'product'},{eventID:p.codigo}); localStorage.setItem(k,"1"); } }catch(e){}
       if(atualizar._abriu && (!sheet.classList.contains("on") || !document.getElementById("status-view"))) return;
       if(!r.ok){ sheet.innerHTML=`<div id="status-view"><div class="sheet-head"><h2>Pedido #${esc(codigo)}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div><div class="vazio">Não achamos esse pedido. 🤔</div></div>`; sheet.classList.add("on"); document.getElementById("overlay").classList.add("on"); atualizar._abriu=true; return; }
       const etapas = p.modo==="retirada" ? ETAPAS.filter(e=>e[0]!=="saiu").map(e=>e[0]==="pronto"?["pronto","Prontinho 📦","Pode vir buscar em Botafogo!"]:e) : ETAPAS;
