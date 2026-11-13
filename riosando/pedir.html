@@ -905,7 +905,8 @@ async function aplicarCupomURL(){
   }catch(e){}
 }
 async function pagar(btn){
-  try{ const {t}=totais(); if(window.rsPx) rsPx('InitiateCheckout',{value:Math.round((Number(t)||0)*100)/100,currency:'BRL',num_items:Object.values(cart).reduce((a,b)=>a+b,0),content_ids:Object.keys(cart),content_type:'product'}); }catch(e){}
+  const codigo = Array.from({length:6},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
+  try{ const {t}=totais(); if(window.rsPx) rsPx('InitiateCheckout',{value:Math.round((Number(t)||0)*100)/100,currency:'BRL',num_items:Object.values(cart).reduce((a,b)=>a+b,0),content_ids:Object.keys(cart),content_type:'product'},{eventID:'ic-'+codigo}); }catch(e){}
   const val = id => (document.getElementById(id)?.value||"").trim();
   const erro = document.getElementById("erro-envio");
   const nome=val("nome"), zap=val("zap"), endereco=val("endereco"), complemento=val("complemento"), obs=val("obs"), cep=val("cep");
@@ -926,7 +927,6 @@ async function pagar(btn){
   const itens = Object.keys(cart).map(id=>({id, item:BYID[id].nome, qtd:cart[id], preco:BYID[id].preco}));
   const _btnTxt=btn.textContent;
   btn.disabled=true; btn.textContent="Enviando...";
-  const codigo = Array.from({length:6},()=>"ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
   let agendadoPara;
   if(quando==="agendar"){
     // revalida: o slot escolhido ainda existe e respeita a antecedência (pode ter vencido com a página aberta)
@@ -949,7 +949,8 @@ async function pagar(btn){
   cliente = {nome, zap, endereco, complemento, bairro, cep, obs};
   localStorage.setItem("rs_cliente", JSON.stringify(cliente));
   if(pgto==="online"){
-    const pedido = {codigo, itens, frete, frete_token:freteToken||null, desconto, cupom:cupom||null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
+    const _ck=n=>(document.cookie.match('(?:^|; )'+n+'=([^;]*)')||[])[1]||null;
+    const pedido = {codigo, fbp:_ck('_fbp'), fbc:_ck('_fbc'), url:location.href.split('#')[0], itens, frete, frete_token:freteToken||null, desconto, cupom:cupom||null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
       endereco:entrega==="entrega"?`${endereco}${complemento?", "+complemento:""} — ${bairro}`:null, obs:obs||null, agendado_para:agendadoPara};
     try{ await abrirPagamento(pedido, t+frete-desconto-descCupom); }
     catch(e){
