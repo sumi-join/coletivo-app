@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>gastro — mapa</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{--bg:#141414;--fg:#F5F0EB;--ac:#C0392B}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:Futura,'Century Gothic',sans-serif;display:flex;flex-direction:column;height:100vh}
+header{padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+h1{font-size:18px;margin:0 12px 0 0}
+button{background:none;color:var(--fg);border:1px solid #fff4;border-radius:99px;padding:6px 14px;cursor:pointer}
+button.on{background:var(--ac);border-color:var(--ac)}
+#map{flex:1}small{opacity:.6;margin-left:auto}
+</style></head><body>
+<header><h1>gastro</h1><span id="f"></span><small>DADOS FICTÍCIOS DE EXEMPLO</small></header>
+<div id="map"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+// Exemplo fictício. Em produção: vem de `scores` + `venues` (só verified=true).
+const DATA=[
+ {n:"Exemplo Bistrô",c:"restaurante",d:"Prato exemplo A",s:.92,k:1240,ll:[-22.951,-43.186]},
+ {n:"Bar Exemplo",c:"bar",d:"Chopp + bolinho",s:.88,k:610,ll:[-22.985,-43.203]},
+ {n:"Doceria Exemplo",c:"doceria",d:"Brigadeiro tradicional",s:.9,k:880,ll:[-22.971,-43.186]},
+ {n:"Café Exemplo",c:"cafe",d:"Pão na chapa",s:.85,k:430,ll:[-22.903,-43.176]}];
+const map=L.map('map').setView([-22.95,-43.19],12);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+let layer=L.layerGroup().addTo(map),cat="todos";
+function draw(){layer.clearLayers();DATA.filter(v=>cat=="todos"||v.c==cat).forEach(v=>
+ L.circleMarker(v.ll,{radius:6+v.s*8,color:"#C0392B",fillOpacity:.7}).addTo(layer)
+ .bindPopup(`<b>${v.n}</b><br>${v.d}<br>nota ${(v.s*10).toFixed(1)} · ${v.k} comentários`));}
+const f=document.getElementById('f');
+["todos","restaurante","bar","doceria","cafe"].forEach(c=>{const b=document.createElement('button');b.textContent=c;
+ b.onclick=()=>{cat=c;[...f.children].forEach(x=>x.classList.toggle('on',x===b));draw()};f.append(b);if(c=="todos")b.classList.add('on')});
+draw();
+</script></body></html>
