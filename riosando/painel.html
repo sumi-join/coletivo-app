@@ -60,6 +60,9 @@
   .imprimir,.cancelar{background:none;border:1px solid var(--preto);border-radius:10px;padding:11px 13px;font-size:13px}
   .cancelar{border-color:var(--vermelho);color:var(--vermelho)}
   .vazio{opacity:.4;font-size:13px;padding:14px 4px}
+  /* take-away (QR do portão): selo no card, mesma fila de Novos */
+  .pedido.takeaway{border-left:6px solid var(--vermelho)}
+  .selo-takeaway{display:inline-block;background:var(--vermelho);color:#fff;font-size:11px;font-weight:600;letter-spacing:.08em;padding:3px 10px;border-radius:99px;margin:0 0 8px}
   .badge{position:absolute;top:-8px;right:12px;background:var(--vermelho);color:#fff;font-size:10px;letter-spacing:.1em;padding:3px 10px;border-radius:99px}
   .topbtn{background:none;border:1px solid var(--creme);color:var(--creme);border-radius:99px;padding:7px 16px;font-size:12px;margin-left:8px}
   .afcard{background:var(--card);color:var(--preto);border-radius:14px;padding:16px;margin-bottom:12px}
@@ -409,12 +412,13 @@ async function carregarHist(){
   if(view==="historico") filtrarHist();
 }
 const ROTH={novo:"recebido",em_preparo:"em preparo",pronto:"pronto",saiu:"saiu 🛵",entregue:"entregue ✅",cancelado:"cancelado ✕"};
+function modoTxt(p){ return p.modo==="entrega"?"🛵 entrega":p.modo==="takeaway"?"🥡 take-away · balcão":"🏠 retirada"; }
 function viaEntrega(p){ if(p.modo!=="entrega") return ""; const m={lalamove:"Lalamove",uber_direct:"Uber",manual:"delivery direto (na mão)"}; return p.entrega_provedor?` · via ${m[p.entrega_provedor]||esc(p.entrega_provedor)}`:""; }
 function histCard(p){
   return `<div class="afcard">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <h3>#${esc(p.codigo)}</h3><span style="font-size:12px;opacity:.6">${new Date(p.created_at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span></div>
-    <div class="linha"><span>${esc(p.nome)} · ${p.modo==="entrega"?"🛵 "+esc(p.bairro||"entrega"):"🏠 retirada"}</span><b>${fmt(p.total)}</b></div>
+    <div class="linha"><span>${esc(p.nome)} · ${p.modo==="entrega"?"🛵 "+esc(p.bairro||"entrega"):modoTxt(p)}</span><b>${fmt(p.total)}</b></div>
     <div class="linha" style="opacity:.9">${(p.whatsapp||"").replace(/\D/g,"").length>=10?`<a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank" style="color:var(--verde)">📱 ${esc(p.whatsapp)}</a>`:`📱 ${esc(p.whatsapp||"—")}`}${p.modo==="entrega"&&p.endereco?` · 📍 ${esc(p.endereco)}`:""}</div>
     <div class="linha" style="opacity:.8">${(p.itens||[]).map(i=>`${Number(i.qtd)||"?"}× ${esc(i.item)}`).join(", ")}</div>
     <div class="linha"><span style="opacity:.7">${ROTH[p.status]||esc(p.status)}${viaEntrega(p)} · ${p.pagamento_status==="pago"?"pago · "+formaPgto(p):(p.pagamento_status==="estornado"?"estornado":"pgto "+formaPgto(p))}</span></div>
@@ -467,7 +471,7 @@ function _resumoRel(ps){
   const fat=pagos.reduce((s,p)=>s+(Number(p.total)||0),0);
   return { n:ps.length, npg:pagos.length, fat, tm:pagos.length?fat/pagos.length:0,
     cancel:ps.filter(p=>p.status==="cancelado").length,
-    ent:ps.filter(p=>p.modo==="entrega").length, ret:ps.filter(p=>p.modo==="retirada").length,
+    ent:ps.filter(p=>p.modo==="entrega").length, ret:ps.filter(p=>p.modo==="retirada").length, tk:ps.filter(p=>p.modo==="takeaway").length,
     pix:pagos.filter(p=>String(p.pagamento||"").startsWith("pix")).length,
     cartao:pagos.filter(p=>String(p.pagamento||"").startsWith("cart")).length };
 }
@@ -501,7 +505,7 @@ function renderRelatorio(){
       ${kpi("Faturamento", fmt(R.fat), `${R.npg} pedidos pagos`)}
       ${kpi("Ticket médio", fmt(R.tm), "por pedido pago")}
       ${kpi("Pedidos", R.n, `${R.cancel} cancelados`)}
-      ${kpi("Entrega × Retirada", `${R.ent} · ${R.ret}`, "por modo")}
+      ${kpi("Entrega × Retirada × Take-away", `${R.ent} · ${R.ret} · ${R.tk}`, "por modo")}
       ${kpi("Pix × Cartão", `${R.pix} · ${R.cartao}`, "pagos, por forma")}
     </div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -510,7 +514,7 @@ function renderRelatorio(){
         <td style="padding:6px 8px">#${esc(p.codigo)}</td>
         <td style="padding:6px 8px;white-space:nowrap">${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})} ${d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</td>
         <td style="padding:6px 8px">${esc(p.nome||"—")}</td>
-        <td style="padding:6px 8px">${p.modo==="entrega"?"🛵":"🏠"}</td>
+        <td style="padding:6px 8px">${p.modo==="entrega"?"🛵":p.modo==="takeaway"?"🥡":"🏠"}</td>
         <td style="padding:6px 8px;white-space:nowrap">${fmt(p.total)}</td>
         <td style="padding:6px 8px">${esc(formaPgto(p))}</td>
         <td style="padding:6px 8px">${ROTH[p.status]||esc(p.status)}</td></tr>`;}).join("")}</tbody>
@@ -534,7 +538,7 @@ function agendCard(p){
   return `<div class="afcard">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <h3>⏰ ${horaLabel(p.agendado_para)} · #${esc(p.codigo)}</h3><b>${fmt(p.total)}</b></div>
-    <div class="linha"><span>${esc(p.nome)} · ${p.modo==="entrega"?"🛵 entrega":"🏠 retirada"}</span></div>
+    <div class="linha"><span>${esc(p.nome)} · ${modoTxt(p)}</span></div>
     <div class="linha" style="opacity:.9">${(p.whatsapp||"").replace(/\D/g,"").length>=10?`<a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank" style="color:var(--verde)">📱 ${esc(p.whatsapp)}</a>`:`📱 ${esc(p.whatsapp||"—")}`}${p.modo==="entrega"&&p.endereco?` · 📍 ${esc(p.endereco)}`:""}</div>
     <div class="linha" style="opacity:.8">${(p.itens||[]).map(i=>`${Number(i.qtd)||"?"}× ${esc(i.item)}`).join(", ")}</div>
     <div class="linha"><span style="opacity:.7">${p.pagamento_status==="pago"?"✅ pago · "+formaPgto(p):"pgto "+formaPgto(p)} · ${ROTH[p.status]||esc(p.status)}</span></div>
@@ -977,15 +981,17 @@ function card(p){
   // a coluna em_espera pode ainda nao existir no banco (migracao 03) — sem ela, nada de botao quebrado
   const temEspera = ("em_espera" in p);
   const chamarEntrega = !espera && p.status==="pronto" && p.modo==="entrega" && semEntregador;
-  return `<div class="pedido ${flash&&!espera?"novo-flash":""} ${chamarEntrega?"chamar-entrega":""} ${espera?"em-espera":""}">
+  const tk = p.modo==="takeaway";
+  return `<div class="pedido ${flash&&!espera?"novo-flash":""} ${chamarEntrega?"chamar-entrega":""} ${espera?"em-espera":""} ${tk?"takeaway":""}">
     ${espera?`<span class="badge" style="background:#8a7a2a">⏸ EM ESPERA</span>`:""}
     ${flash&&!espera?`<span class="badge">NOVO</span>`:""}
     ${chamarEntrega?`<span class="badge-entrega pulsa">🛵 CHAMAR ENTREGA</span>`:""}
     ${p.agendado_para && new Date(p.agendado_para).getTime()>Date.now() ? `<span class="badge" style="background:var(--verde);right:auto;left:12px">⏰ AGENDADO ${new Date(p.agendado_para).toLocaleString("pt-BR",{weekday:"short",hour:"2-digit",minute:"2-digit"})}</span>`:""}
+    ${tk?`<div class="selo-takeaway">🥡 TAKE-AWAY · balcão</div>`:""}
     <div class="ped-head"><span class="codigo">#${esc(p.codigo)}</span>
       <span class="hora">${(d=>{const h=d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});return d.toDateString()===new Date().toDateString()?h:`<b style="color:var(--vermelho)">⚠️ ${d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</b> ${h}`;})(new Date(p.created_at))}</span></div>
     <div class="cliente">${esc(p.nome)} · ${(p.whatsapp||"").replace(/\D/g,"").length>=10?`<a href="https://wa.me/55${(p.whatsapp||"").replace(/\D/g,"")}" target="_blank">${esc(p.whatsapp)}</a>`:esc(p.whatsapp||"—")}<br>
-      ${p.modo==="entrega"?"🛵 "+esc(p.endereco||""):"🏠 Retirada"} · ${p.pagamento_status==="pago"?"✅ PAGO · "+formaPgto(p):(p.pagamento_status==="estornado"?"↩️ ESTORNADO":"pagar na entrega: "+formaPgto(p))}</div>
+      ${p.modo==="entrega"?"🛵 "+esc(p.endereco||""):tk?"🥡 Chamar <b>"+esc(p.nome)+"</b> no balcão":"🏠 Retirada"} · ${p.pagamento_status==="pago"?"✅ PAGO · "+formaPgto(p):(p.pagamento_status==="estornado"?"↩️ ESTORNADO":"pagar na entrega: "+formaPgto(p))}</div>
     <div class="itens">${(p.itens||[]).map(i=>`<b>${Number(i.qtd)||"?"}×</b> ${esc(i.item)}`).join("<br>")}</div>
     ${p.obs?`<div class="meta">📝 ${esc(p.obs)}</div>`:""}
     <div class="total">${fmt(p.total)}</div>
@@ -997,7 +1003,7 @@ function card(p){
       <button class="cancelar" onclick="mudarStatus(${p.id},'cancelado')">✕ cancelar pedido</button>
     </div>`:`
     <div class="acoes">
-      ${nx && !(p.status==="pronto" && p.modo==="entrega" && semEntregador)?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${rot}</button>`:""}
+      ${nx && !(p.status==="pronto" && p.modo==="entrega" && semEntregador)?`<button class="avancar" onclick="mudarStatus(${p.id},'${nx}')">${tk&&p.status==="pronto"?"✅ Retirado no balcão":rot}</button>`:""}
       ${p.status!=="novo"?`<button class="off" onclick="voltarStatus(${p.id})" title="desfazer">↩</button>`:""}
       <button class="imprimir" onclick="imprimir(${p.id})">🖨️</button>
       ${temEspera?`<button class="off" onclick="porEmEspera(${p.id})" title="segurar esse pedido">⏸</button>`:""}
@@ -1222,7 +1228,7 @@ function imprimir(id){
   const pago = p.pagamento_status==="pago";
   $("comanda").textContent =
 `RIO SANDÔ  ·  #${p.codigo}
-${quando}  ·  ${p.modo==="entrega"?"ENTREGA":"RETIRADA"}${ag}
+${quando}  ·  ${p.modo==="entrega"?"ENTREGA":p.modo==="takeaway"?"TAKE-AWAY · BALCAO":"RETIRADA"}${ag}
 ================================
 ${(p.itens||[]).map(i=>`${i.qtd}x ${i.item}`).join("\n")}
 ================================
@@ -1472,6 +1478,7 @@ function renderNotas(){
 }
 
 const NOVIDADES = [
+  ["19/11","Take-away no balcão 🥡","Pedido que vem da plaquinha do portão (QR) chega com o selo vermelho TAKE-AWAY · balcão, na mesma coluna de Novos. Não tem entregador nem endereço: quando ficar pronto, chama o nome do cliente no balcão e marca ✅ Retirado. Já vem pago (Pix/cartão no app)."],
   ["17/09","Nota sem taxa de entrega 🧾","A contadora confirmou: a NFC-e pode ser emitida no fim do dia (no mesmo dia da venda) e é só dos produtos — a taxa de entrega NÃO entra. A aba 📄 Notas do dia agora calcula o valor da nota sem a entrega e mostra a entrega à parte."],
   ["16/09","Notas do dia 📄 + comanda nova + iFood Sob Demanda","Nova aba 📄 Notas do dia: cada pedido pago do app com itens, desconto, taxa de entrega e o VALOR DA NOTA já calculado — lança tudo no Menew no fim do turno, sem conta de cabeça, e marca o que já emitiu. A comanda 🖨️ agora diz PAGO ONLINE (acabou o \"pagar na entrega\" errado) e destaca agendado. Pedido de entrega pronto: o 1º botão é pedir entregador no iFood Sob Demanda (copia o endereço e abre o Gestor)."],
   ["03/09","Relatório de pedidos 📊","Nova aba: filtra por período (este mês, 30 dias, tudo ou datas), mostra faturamento, ticket médio e mix (entrega/retirada, Pix/cartão), e baixa um CSV com todos os pedidos pra abrir no Excel/Sheets (ótimo pro fluxo de caixa do Duda)."],

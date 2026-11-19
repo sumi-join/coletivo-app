@@ -48,6 +48,11 @@
   .alma{font-style:italic;font-size:12.5px;opacity:.55}
   .fechado-banner{background:var(--preto);color:var(--creme);font-size:14px;line-height:1.55;
     padding:12px 16px;border-radius:12px;margin-top:12px}
+  /* take-away (QR do portão da cozinha, ?modo=takeaway) */
+  .takeaway-faixa{background:var(--vermelho);color:#fff;font-size:14px;line-height:1.5;
+    padding:12px 16px;border-radius:12px;margin-top:12px}
+  .takeaway-faixa b{font-weight:600;letter-spacing:.02em}
+  .takeaway-faixa a{color:#fff}
   .ultimo-pedido{display:inline-block;margin-top:10px;margin-left:10px;font-size:13px;color:var(--verde);
     text-decoration:underline;cursor:pointer}
   .destaque-badge{position:absolute;top:12px;left:12px;background:var(--creme);color:var(--preto);
@@ -192,6 +197,7 @@ window.rsPx=function(ev,data,opt){try{fbq('track',ev,data||{},opt||{})}catch(e){
     <div class="tagline">Katsu sando japonês · feito à mão · Botafogo, Rio <span class="alma">· todo sandô tem alma</span></div>
     <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 17h–21h30</div><button class="status conta-btn" id="menu-btn" onclick="abrirMenu()" style="background:var(--preto);color:#fff">☰ menu</button><button class="status conta-btn" onclick="abrirReserva()">🍽️ Reservar</button><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
     <span class="ultimo-pedido" id="ultimo-pedido" style="display:none"></span>
+    <div class="takeaway-faixa" id="takeaway-faixa" style="display:none"></div>
     <div class="fechado-banner" id="fechado-banner" style="display:none"></div>
     <div class="news" id="news" style="display:none"></div>
     <div class="lojinha" id="lojinha" style="display:none"></div>
@@ -285,8 +291,11 @@ let cart = lsJSON("rs_cart", {});
 if(typeof cart!=="object"||Array.isArray(cart)||!cart) cart={};
 // item que saiu do cardápio não pode derrubar a sacola de quem tem carrinho salvo
 for(const id of Object.keys(cart)){ if(!BYID[id] || !(Number(cart[id])>0)) delete cart[id]; }
-let entrega = "entrega";
-let pgto = "pix";
+// take-away: plaquinha com QR no portão da cozinha (Botafogo) → coletivo.app/riosando/pedir.html?modo=takeaway
+// pede no app, paga online, retira no balcão (mesas sem serviço). Sem endereço, sem frete. Fora desse link, nada muda.
+const TAKEAWAY = new URLSearchParams(location.search).get("modo") === "takeaway";
+let entrega = TAKEAWAY ? "takeaway" : "entrega";
+let pgto = TAKEAWAY ? "online" : "pix";
 let quando = "asap";   // "asap" (assim que possível) | "agendar"
 let slotAg = "";       // ISO do horário escolhido quando agendar
 let bairro = "";
@@ -600,7 +609,7 @@ function atualizarFrete(){
   const el = document.getElementById("frete-valor"); if(el) el.textContent = entregaLabel();
   const total = t+freteAtual()-descontoAtual()-descontoCupomAtual();
   const tv = document.getElementById("total-valor"); if(tv) tv.textContent = fmt(total);
-  const bt = document.getElementById("btn-pagar"); if(bt && !bt.disabled) bt.textContent = `${(entrega==="entrega"||pgto==="online")?"Pagar":"Enviar pedido"} · ${fmt(total)}`;
+  const bt = document.getElementById("btn-pagar"); if(bt && !bt.disabled) bt.textContent = `${(entrega!=="retirada"||pgto==="online")?"Pagar":"Enviar pedido"} · ${fmt(total)}`;
 }
 
 const fmt = v => "R$ " + v.toFixed(2).replace(".",",").replace(",00","");
@@ -733,7 +742,7 @@ function syncBar(){
   document.getElementById("cart-total").textContent=fmt(t);
   // aviso do frete grátis enquanto monta o carrinho (só pra quem vai receber em casa)
   const nud=document.getElementById("cart-nudge");
-  if(nud){ const mostra = n>0 && entrega!=="retirada";
+  if(nud){ const mostra = n>0 && entrega==="entrega";
     nud.style.display = mostra ? "block" : "none";
     if(mostra) nud.textContent = t>=FRETE_GRATIS_ACIMA ? "🎉 Frete grátis liberado!" : `🛵 Faltam ${fmt(FRETE_GRATIS_ACIMA-t)} pro frete grátis`; }
 }
@@ -770,18 +779,19 @@ function abrirSacola(){
     ${!usarPontos && !cupomInfo?`<div class="cupom-row"><input type="text" id="cupom-input" placeholder="Cupom de desconto" value="${esc(cupom)}"><button onclick="aplicarCupom()">Aplicar</button></div><div id="cupom-msg"></div>`:""}
     ${!sessao?`<div class="nudge-conta" onclick="abrirConta()">✨ Crie sua conta: <b>R$ 10 off</b> no 1º pedido acima de R$ 60 + ${Math.floor(t)} pontos com este pedido</div>`:""}
 
+    ${entrega==="takeaway"?`<div class="takeaway-faixa">🥡 <b>Take-away · retira no balcão da cozinha</b><br>Paga aqui no app e a gente chama seu nome no balcão quando ficar pronto. Sem frete.</div>`:`
     <label>Receber como</label>
     <div class="toggle">
       <button class="${entrega==="entrega"?"on":""}" onclick="setEntrega('entrega')">🛵 Entrega</button>
       <button class="${entrega==="retirada"?"on":""}" onclick="setEntrega('retirada')">🏠 Retirada em Botafogo</button>
-    </div>
+    </div>`}
     ${entrega==="retirada"?`<div class="mp-note" style="text-align:left;opacity:.8">🏠 Retirada: <a href="${MAPS_LOJA}" target="_blank" style="color:var(--verde)">${ENDERECO_LOJA}</a></div>`:""}
     ${!lojaAberta() && quando!=="agendar"?`<div class="fechado-banner">🕐 Estamos fechados agora — seu pedido entra <b>agendado pra ${rotuloAbertura()}</b>. A cozinha prepara assim que abrir.</div>`:""}
-    <label>Para quando?</label>
+    ${entrega==="takeaway"?"":`<label>Para quando?</label>
     <div class="toggle">
       <button class="${quando==="asap"?"on":""}" onclick="setQuando('asap')">⚡ Assim que possível</button>
       <button class="${quando==="agendar"?"on":""}" onclick="setQuando('agendar')">📅 Agendar</button>
-    </div>
+    </div>`}
     ${quando==="agendar"?(slotsAgendamento().length?`<select id="slot" onchange="slotAg=this.value">
       <option value="">Escolhe dia e horário…</option>
       ${slotsPorDia().map(g=>`<optgroup label="${esc(g.label)}">${g.slots.map(s=>{const v=s.i.toISOString();return `<option value="${v}"${v===slotAg?" selected":""}>${_2(s.w.getHours())}:${_2(s.w.getMinutes())}</option>`;}).join("")}</optgroup>`).join("")}
@@ -801,14 +811,17 @@ function abrirSacola(){
       </select>
       <div class="mp-note" style="text-align:left;opacity:.7;margin-top:4px">🛵 Estimativa do bairro. O frete final é cotado no seu endereço quando você digitar o número.</div>
     </div>
-    <label>Seu nome</label>
-    <input type="text" id="nome" placeholder="Como te chamamos?" value="${(cliente.nome||"").replace(/"/g,"&quot;")}">
+    <label>${entrega==="takeaway"?"Nome pra chamar no balcão":"Seu nome"}</label>
+    <input type="text" id="nome" placeholder="${entrega==="takeaway"?"Como a gente te chama quando ficar pronto?":"Como te chamamos?"}" value="${(cliente.nome||"").replace(/"/g,"&quot;")}">
     <label>WhatsApp</label>
     <input type="tel" id="zap" placeholder="(21) 9 9999-9999" value="${(cliente.zap||"").replace(/"/g,"&quot;")}" oninput="maskTel(this)">
     <label>Observações</label>
     <textarea id="obs" rows="2" placeholder="Sem repolho? Molho à parte? Conta aqui.">${(cliente.obs||"").replace(/</g,"&lt;")}</textarea>
 
-    ${entrega==="entrega"?`
+    ${entrega==="takeaway"?`
+    <label>Pagamento</label>
+    <div class="mp-note" style="text-align:left;opacity:.75">⚡ Pix ou cartão, aqui no app. Pagou, entrou na fila da cozinha.</div>`
+    :entrega==="entrega"?`
     <label>Pagamento</label>
     <div class="mp-note" style="text-align:left;opacity:.75">⚡ Pix ou cartão, aqui no app — o motoboy não passa maquininha nem recebe. Pra pagar na hora, escolha <b>retirada</b>.</div>`
     :`
@@ -819,8 +832,8 @@ function abrirSacola(){
       <button class="${pgto==="cartao"?"on":""}" onclick="setPgto('cartao')">💳 na retirada</button>
     </div>`}
 
-    <button class="pagar" id="btn-pagar" onclick="pagar(this)">${(entrega==="entrega"||pgto==="online")?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</button>
-    <div class="mp-note">${(entrega==="entrega"||pgto==="online")?"Pix ou cartão, seguro via Mercado Pago":"Você paga na hora de retirar"}</div>
+    <button class="pagar" id="btn-pagar" onclick="pagar(this)">${(entrega!=="retirada"||pgto==="online")?"Pagar":"Enviar pedido"} · ${fmt(t+freteAtual()-descontoAtual()-descontoCupomAtual())}</button>
+    <div class="mp-note">${(entrega!=="retirada"||pgto==="online")?"Pix ou cartão, seguro via Mercado Pago":"Você paga na hora de retirar"}</div>
     <div class="mp-note" id="erro-envio" style="color:var(--vermelho)"></div>`}`;
   sheet.classList.add("on");
   document.getElementById("overlay").classList.add("on");
@@ -913,7 +926,8 @@ async function pagar(btn){
   if(!nome || !zap){ erro.textContent="Precisamos do seu nome e WhatsApp. 🙏"; return; }
   const zapDig = zap.replace(/\D/g,"").replace(/^55(?=\d{11}$)/,""); // tira o 55 do país se sobrar um celular BR de 11 díg
   if(!(zapDig.length===11 && zapDig[2]==="9")){ erro.textContent="Confere seu WhatsApp: precisa ser celular brasileiro com DDD e o 9 — ex.: (21) 9 9999-9999. Sem um número BR o entregador não te acha. 🙏"; document.getElementById("zap")?.focus(); return; }
-  if(entrega==="entrega") pgto="online"; // entrega é sempre paga no app (motoboy não recebe)
+  if(entrega==="entrega"||entrega==="takeaway") pgto="online"; // entrega e take-away são sempre pagos no app
+  if(entrega==="takeaway"){ quando="asap"; slotAg=""; }
   if(entrega==="entrega" && !bairro){ erro.textContent="Escolhe o bairro da entrega. 🙏"; return; }
   if(entrega==="entrega" && !endereco){ erro.textContent="Cadê o endereço de entrega? 🙏"; return; }
   if(entrega==="entrega" && !complemento){
@@ -950,7 +964,7 @@ async function pagar(btn){
   localStorage.setItem("rs_cliente", JSON.stringify(cliente));
   if(pgto==="online"){
     const _ck=n=>(document.cookie.match('(?:^|; )'+n+'=([^;]*)')||[])[1]||null;
-    const pedido = {codigo, fbp:_ck('_fbp'), fbc:_ck('_fbc'), url:location.href.split('#')[0], itens, frete, frete_token:freteToken||null, desconto, cupom:cupom||null, bairro:bairro||null, nome, whatsapp:zap, modo:entrega,
+    const pedido = {codigo, fbp:_ck('_fbp'), fbc:_ck('_fbc'), url:location.href.split('#')[0], itens, frete, frete_token:freteToken||null, desconto, cupom:cupom||null, bairro:entrega==="takeaway"?null:(bairro||null), nome, whatsapp:zap, modo:entrega,
       endereco:entrega==="entrega"?`${endereco}${complemento?", "+complemento:""} — ${bairro}`:null, obs:obs||null, agendado_para:agendadoPara};
     try{ await abrirPagamento(pedido, t+frete-desconto-descCupom); }
     catch(e){
@@ -1230,7 +1244,7 @@ function textoPedidoZap(pedido, valor){
   const linhas = (pedido.itens||[]).map(i=>`${i.qtd}x ${i.item}`).join("\n");
   return `Oi! Tentei fechar o pedido pelo site e a tela de pagamento não carregou.\n\n`+
     `Pedido #${pedido.codigo}\n${linhas}\n\n`+
-    (pedido.modo==="entrega" ? `Entrega: ${pedido.endereco}\n` : `Retirada em Botafogo\n`)+
+    (pedido.modo==="entrega" ? `Entrega: ${pedido.endereco}\n` : pedido.modo==="takeaway" ? `Take-away · retiro no balcão da cozinha\n` : `Retirada em Botafogo\n`)+
     `Nome: ${pedido.nome}\nTotal: ${fmt(valor)}\n\nConsegue fechar por aqui?`;
 }
 // beacon técnico: só pra descobrir POR QUE o pagamento travou (nada de nome/telefone/endereço)
@@ -1390,6 +1404,11 @@ function fecharNews(){
 
 // header: status aberto/fechado + atalho pro último pedido
 (function(){
+  if(TAKEAWAY){
+    const f=document.getElementById("takeaway-faixa");
+    f.style.display="block";
+    f.innerHTML=`🥡 <b>Take-away · retira no balcão da cozinha</b><br>Pede e paga aqui, a gente chama seu nome no balcão. Sem frete.`;
+  }
   if(!lojaAberta()){
     document.getElementById("status-dot").classList.add("off");
     const b=document.getElementById("fechado-banner");
@@ -1428,7 +1447,8 @@ function fecharNews(){
       try{ const k="rs_px_"+p.codigo; if(r.ok && p.codigo && p.status!=="cancelado" && !["falhou","pendente","estornado"].includes(String(p.pagamento_status||"").toLowerCase()) && !localStorage.getItem(k) && window.rsPx){ rsPx('Purchase',{value:Number(p.total)||0,currency:'BRL',content_type:'product'},{eventID:p.codigo}); localStorage.setItem(k,"1"); } }catch(e){}
       if(atualizar._abriu && (!sheet.classList.contains("on") || !document.getElementById("status-view"))) return;
       if(!r.ok){ sheet.innerHTML=`<div id="status-view"><div class="sheet-head"><h2>Pedido #${esc(codigo)}</h2><button class="fechar" onclick="location.href=location.pathname">✕</button></div><div class="vazio">Não achamos esse pedido. 🤔</div></div>`; sheet.classList.add("on"); document.getElementById("overlay").classList.add("on"); atualizar._abriu=true; return; }
-      const etapas = p.modo==="retirada" ? ETAPAS.filter(e=>e[0]!=="saiu").map(e=>e[0]==="pronto"?["pronto","Prontinho 📦","Pode vir buscar em Botafogo!"]:e) : ETAPAS;
+      const etapas = p.modo==="takeaway" ? ETAPAS.filter(e=>e[0]!=="saiu").map(e=>e[0]==="pronto"?["pronto","Prontinho 🥡","Retira no balcão da cozinha — a gente chama seu nome!"]:e[0]==="entregue"?["entregue","Retirado ✅","Bom apetite! Arigatô 🙏"]:e)
+        : p.modo==="retirada" ? ETAPAS.filter(e=>e[0]!=="saiu").map(e=>e[0]==="pronto"?["pronto","Prontinho 📦","Pode vir buscar em Botafogo!"]:e) : ETAPAS;
       const idx = Math.max(0, etapas.findIndex(e=>e[0]===p.status));
       const cancelado = p.status==="cancelado";
       // não reconstruir o sheet se nada relevante mudou (preserva o mapa Leaflet do rastreio)
