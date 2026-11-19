@@ -32,3 +32,10 @@ Contagem bruta de comentários positivos premia só quem é grande. Usamos:
 2. Extração de entidades com Claude sobre ~200 vídeos; medir acerto contra rotulagem manual.
 3. Validar score vs. avaliação de curadores humanos.
 4. Só então testar emoção/TRIBE como feature e medir se melhora a correlação.
+
+## Coleta (piloto Rio)
+- Sprout Social só enxerga perfis conectados à conta (os da própria marca), não influenciadores de terceiros:
+  serve para métricas dos nossos canais, não para o inventário.
+- Apify: rodar os actors de posts/comentários (Instagram, TikTok) e exportar o dataset em JSON para
+  `pipeline/data/raw/` (ignorado pelo git). Depois `ingest_apify.py` normaliza e `extract.py` estrutura.
+- Ainda sem token do Apify na sessão (formulário recusado); coleta fica manual até decidir.
