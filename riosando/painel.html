@@ -656,13 +656,13 @@ let mF={nome:"",zap:"",end:"",comp:"",obs:"",bairro:"",motivo:"",influ:"",slot:"
 let mTipo="pago"; // pago | cortesia | influencer
 function abrirPedidoManual(){ view="manual"; mCart={}; mResultado=null; mModo="retirada"; mTipo="pago"; mF={nome:"",zap:"",end:"",comp:"",obs:"",bairro:"",motivo:"",influ:"",slot:""}; render(); carregarCatalogoManual(); }
 function mSetTipo(v){ mTipo=v; renderManual(); }
-// slots de agendamento pra equipe: ter–sáb 17:00–21:30, 30min, próx 7 dias
+// slots de agendamento pra equipe: ter–qui 17:00–21:30 · sex–sáb 18:00–23:00, 30min, próx 7 dias
 function mSlots(){
   const now=new Date(), out=[];
   for(let i=0;i<=7;i++){
     const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+i), dia=d.getDay();
-    if(dia<2||dia>6) continue;
-    for(let m=17*60;m<=21*60+30;m+=30){
+    const HP={2:[17*60,21*60+30],3:[17*60,21*60+30],4:[17*60,21*60+30],5:[18*60,23*60],6:[18*60,23*60]}[dia]; if(!HP) continue;
+    for(let m=HP[0];m<=HP[1];m+=30){
       const s=new Date(d.getFullYear(),d.getMonth(),d.getDate(),Math.floor(m/60),m%60,0);
       if(s.getTime()>now.getTime()) out.push(s);
     }
