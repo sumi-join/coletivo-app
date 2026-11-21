@@ -1,0 +1,26 @@
+--- main.ts	2026-11-19 12:12:48
++++ main.equipe-lista.ts	2026-11-21 20:36:33
+@@ -94,9 +94,22 @@
+     return { uid: String(payload.sub ?? ""), email: (payload.email as string) ?? null };
+   } catch { return null; }
+ }
++// equipe = allowlist fixa OU e-mail ativo na tabela `equipe` (login Google individual — 21/11/2026).
++// Cache de 60s pra não bater no banco a cada clique do painel.
++let _equipeCache: { em: number; emails: Set<string> } | null = null;
++async function emailsEquipe(): Promise<Set<string>> {
++  if (_equipeCache && Date.now() - _equipeCache.em < 60_000) return _equipeCache.emails;
++  try {
++    const l = await rows(await pg(`/equipe?ativo=eq.true&select=email`));
++    _equipeCache = { em: Date.now(), emails: new Set(l.map((x: any) => String(x.email).toLowerCase())) };
++  } catch { _equipeCache = { em: Date.now(), emails: new Set() }; }
++  return _equipeCache.emails;
++}
+ async function ehEquipe(req: Request): Promise<boolean> {
+   const u = await getUser(req);
+-  return !!u && !!u.email && EQUIPE.includes(u.email);
++  if (!u || !u.email) return false;
++  const e = u.email.toLowerCase();
++  return EQUIPE.includes(e) || (await emailsEquipe()).has(e);
+ }
+ async function provisionarCliente(user: { uid: string; nome: string | null; ref?: string | null }) {
+   // chama a função do banco: cria cliente + 100 pts de boas-vindas + código de indicação
