@@ -1,7 +1,33 @@
 --- main.ts	2026-11-19 12:12:48
-+++ main.equipe-lista.ts	2026-11-21 20:36:33
-@@ -94,9 +94,22 @@
-     return { uid: String(payload.sub ?? ""), email: (payload.email as string) ?? null };
++++ main.equipe-lista.ts	2026-11-21 20:49:56
+@@ -29,10 +29,13 @@
+   const u = (await r.json()).users?.[0];
+   if (!u) return null;
+   return { uid: u.localId as string, email: (u.email ?? null) as string | null,
++           email_verified: u.emailVerified === true,
+            nome: (u.displayName ?? null) as string | null, foto: (u.photoUrl ?? null) as string | null };
+ }
+-async function issuePgrstToken(user: { uid: string; email: string | null }) {
+-  return await new SignJWT({ role: "authenticated", sub: user.uid, email: user.email ?? undefined })
++async function issuePgrstToken(user: { uid: string; email: string | null; email_verified?: boolean }) {
++  // email_verified: o banco (eh_equipe/eh_equipe2) e o ehEquipe só aceitam e-mail da tabela `equipe` se for true
++  // — cadastro por e-mail+senha não verifica o e-mail, então sem isso qualquer um "virava" a Nanda.
++  return await new SignJWT({ role: "authenticated", sub: user.uid, email: user.email ?? undefined, email_verified: user.email_verified === true })
+     .setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("2h").sign(secretKey);
+ }
+ async function serviceToken() {
+@@ -86,17 +89,31 @@
+   } catch { return null; }
+ }
+ // verifica o crachá da ponte (Authorization: Bearer) e devolve o usuário, ou null
+-async function getUser(req: Request): Promise<{ uid: string; email: string | null } | null> {
++async function getUser(req: Request): Promise<{ uid: string; email: string | null; email_verified: boolean } | null> {
+   const tok = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+   if (!tok) return null;
+   try {
+     const { payload } = await jwtVerify(tok, secretKey, { algorithms: ["HS256"] });
+-    return { uid: String(payload.sub ?? ""), email: (payload.email as string) ?? null };
++    return { uid: String(payload.sub ?? ""), email: (payload.email as string) ?? null, email_verified: payload.email_verified === true };
    } catch { return null; }
  }
 +// equipe = allowlist fixa OU e-mail ativo na tabela `equipe` (login Google individual — 21/11/2026).
@@ -20,7 +46,8 @@
 -  return !!u && !!u.email && EQUIPE.includes(u.email);
 +  if (!u || !u.email) return false;
 +  const e = u.email.toLowerCase();
-+  return EQUIPE.includes(e) || (await emailsEquipe()).has(e);
++  // allowlist fixa antiga: como sempre foi. Tabela `equipe`: só com e-mail verificado pelo Firebase.
++  return EQUIPE.includes(e) || (u.email_verified && (await emailsEquipe()).has(e));
  }
  async function provisionarCliente(user: { uid: string; nome: string | null; ref?: string | null }) {
    // chama a função do banco: cria cliente + 100 pts de boas-vindas + código de indicação

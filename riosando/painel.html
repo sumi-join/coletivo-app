@@ -1250,6 +1250,8 @@ async function entrarGoogle(){
   const br=await _ponte(idToken);
   if(!br||!br.token){ erro.textContent="Falha ao conectar — tenta de novo."; return; }
   const ac=await fetch(`${PGREST}/rpc/meu_acesso`,{method:"POST",headers:{Authorization:`Bearer ${br.token}`,"Content-Type":"application/json"},body:"{}"}).then(r=>r.ok?r.json():null).catch(()=>null);
+  // tabela `equipe` só vale com e-mail verificado pelo Google/Firebase (senão qualquer um cadastrava o e-mail da Nanda por senha)
+  if(ac&&ac.na_lista&&!ac.verificado){ erro.textContent=`${br.email} está na equipe, mas o login não confirmou o e-mail. Entre pelo botão Google com a conta Google desse e-mail, ou avise o Eduardo.`; return; }
   if(!ac||!ac.lista){ erro.textContent=`${br.email||"Esse e-mail"} não está na lista da equipe. Peça ao Eduardo para incluir.`; return; }
   sess={token:br.token, refresh, exp:Date.now()+(3600-60)*1000, google:true, email:br.email, nome:ac.nome||br.nome||br.email, completo:!!ac.completo};
   localStorage.setItem("rs_sess",JSON.stringify(sess));

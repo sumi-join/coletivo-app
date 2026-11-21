@@ -1,15 +1,12 @@
--- ⚠️ PENDENTE — NÃO APLICADO. Precisa do ok do Eduardo (altera função EXISTENTE).
--- Efeito: quem está ATIVO na tabela `equipe` passa a ver TUDO que a equipe vê no painel
--- (pedidos, cupons, afiliados, reservas, clientes…), não só as abas de loja/cardápio.
--- Com a tabela só com riosandolito + eduardo.sumi, o comportamento é idêntico ao de hoje.
--- Par obrigatório: deploy do rio-api com o diff rio-api_equipe_lista.diff (pedido manual, entregas, lançamentos).
--- Desfazer: rodar de novo a versão antiga (abaixo, comentada).
+-- ⚠️ PENDENTE — aplicado pelo publicar_admin.sh (etapa 1). Altera função EXISTENTE (ok do Eduardo em 21/11).
+-- Efeito: quem está ATIVO na tabela `equipe` E tem e-mail VERIFICADO no Firebase passa a ver tudo que a equipe vê
+-- (pedidos, cupons, afiliados, reservas, clientes…). A allowlist fixa não exige verificação (igual a hoje).
+-- Pré-requisito: public.email_verificado() (2026-11-21_equipe_email_verificado.sql). Par: deploy do rio-api (rio-api_equipe_lista.diff).
+-- Desfazer: 09_ROLLBACK_eh_equipe_lista.sql
 create or replace function public.eh_equipe() returns boolean
   language sql stable security definer set search_path = public, auth as $$
   select coalesce(auth.email(),'') in ('riosandolito@gmail.com','eduardo.sumi@gmail.com')
-      or exists (select 1 from public.equipe e where e.email = lower(coalesce(auth.email(),'')) and e.ativo)
+      or (coalesce(auth.jwt() ->> 'email_verified', 'false') = 'true'
+          and exists (select 1 from public.equipe e where e.email = lower(coalesce(auth.email(),'')) and e.ativo))
 $$;
 notify pgrst, 'reload schema';
--- versão antiga (21/11/2026):
--- create or replace function public.eh_equipe() returns boolean language sql stable security definer
---   set search_path = public, auth as $$ select coalesce(auth.email(),'') in ('riosandolito@gmail.com','eduardo.sumi@gmail.com') $$;
