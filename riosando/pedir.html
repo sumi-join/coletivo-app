@@ -7,7 +7,7 @@
 <title>Rio Sandô — peça seu sando</title>
 <meta name="description" content="Katsu sando japonês feito à mão em Botafogo. Peça pelo app: Pix ou cartão, entrega na Zona Sul do Rio.">
 <meta property="og:title" content="Rio Sandô — katsu sando japonês 🥪⛩️">
-<meta property="og:description" content="Todo sandô tem alma. Peça pelo app: entrega na Zona Sul do Rio, ter–sáb 17h–21h30.">
+<meta property="og:description" content="Todo sandô tem alma. Peça pelo app: entrega na Zona Sul do Rio, ter–qui 17h–21h30 · sex–sáb 18h–23h.">
 <meta property="og:image" content="https://coletivo.app/riosando/img/1_frango.jpg">
 <meta property="og:url" content="https://riosando.coletivo.app/">
 <link rel="canonical" href="https://riosando.coletivo.app/">
@@ -195,7 +195,7 @@ window.rsPx=function(ev,data,opt){try{fbq('track',ev,data||{},opt||{})}catch(e){
     <div class="kana">サンド</div>
     <div class="wordmark">RI<span class="oq"></span>&nbsp;SAND<span class="osym"></span></div>
     <div class="tagline">Katsu sando japonês · feito à mão · Botafogo, Rio <span class="alma">· todo sandô tem alma</span></div>
-    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–sáb · 17h–21h30</div><button class="status conta-btn" id="menu-btn" onclick="abrirMenu()" style="background:var(--preto);color:#fff">☰ menu</button><button class="status conta-btn" onclick="abrirReserva()">🍽️ Reservar</button><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
+    <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–qui 17h–21h30 · sex–sáb 18h–23h</div><button class="status conta-btn" id="menu-btn" onclick="abrirMenu()" style="background:var(--preto);color:#fff">☰ menu</button><button class="status conta-btn" onclick="abrirReserva()">🍽️ Reservar</button><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
     <span class="ultimo-pedido" id="ultimo-pedido" style="display:none"></span>
     <div class="takeaway-faixa" id="takeaway-faixa" style="display:none"></div>
     <div class="fechado-banner" id="fechado-banner" style="display:none"></div>
@@ -430,20 +430,24 @@ let cupom = "", cupomInfo = null; // cupom de afiliado no checkout
   const cup = q.get("cupom"); if(cup) localStorage.setItem("rs_cupom_url", cup.toUpperCase().trim());
 })();
 
-// horário: ter(2)–sáb(6), 17h–21h30 — fora disso o pedido entra agendado
+// horário por dia (minutos de parede SP) — fora disso o pedido entra agendado
+// ter–qui 17h–21h30 · sex–sáb 18h–23h (teste de horário pedido pela Fê, 20/11/2026)
+const HORARIO={2:[17*60,21*60+30],3:[17*60,21*60+30],4:[17*60,21*60+30],5:[18*60,23*60],6:[18*60,23*60]};
 // SEMPRE no relógio da cozinha (America/Sao_Paulo, fixo -03), nunca no fuso do aparelho do cliente
 function spWall(){ return new Date(new Date().toLocaleString("en-US",{timeZone:"America/Sao_Paulo"})); }
 function spInstant(y,mo,d,hh,mm){ return new Date(`${y}-${_2(mo)}-${_2(d)}T${_2(hh)}:${_2(mm)}:00-03:00`); }
 function lojaAberta(){
   const w=spWall(), dia=w.getDay(), m=w.getHours()*60+w.getMinutes();
-  return dia>=2 && dia<=6 && m>=17*60 && m<=21*60+30;
+  const h=HORARIO[dia]; return !!h && m>=h[0] && m<=h[1];
 }
 function proximaAbertura(){
   const w=spWall();
   for(let i=0;i<8;i++){
-    const c=new Date(w.getFullYear(),w.getMonth(),w.getDate()+i,17,0,0); // parede SP
-    if(c.getDay()>=2 && c.getDay()<=6 && c.getTime()>w.getTime())
-      return { wall:c, instant: spInstant(c.getFullYear(),c.getMonth()+1,c.getDate(),17,0) };
+    const d0=new Date(w.getFullYear(),w.getMonth(),w.getDate()+i), h=HORARIO[d0.getDay()];
+    if(!h) continue;
+    const c=new Date(d0.getFullYear(),d0.getMonth(),d0.getDate(),Math.floor(h[0]/60),h[0]%60,0); // parede SP
+    if(c.getTime()>w.getTime())
+      return { wall:c, instant: spInstant(c.getFullYear(),c.getMonth()+1,c.getDate(),c.getHours(),c.getMinutes()) };
   }
   return { wall:w, instant:new Date() };
 }
@@ -462,17 +466,17 @@ function rotuloAbertura(){
   const p=proximaAbertura().wall, hoje=spWall();
   const nome = p.toDateString()===hoje.toDateString() ? "hoje" :
     p.toDateString()===new Date(hoje.getTime()+86400000).toDateString() ? "amanhã" : DIAS[p.getDay()];
-  return `${nome} às 17h`;
+  return `${nome} às ${p.getHours()}h`;
 }
 const _2 = n => String(n).padStart(2,"0");
-// slots de agendamento: ter–sáb, 17:00–21:30 de 30 em 30 (relógio SP), ≥60min de antecedência, até 7 dias
+// slots de agendamento: dentro do HORARIO de cada dia, de 30 em 30 (relógio SP), ≥60min de antecedência, até 7 dias
 // cada slot = { w: hora de parede SP (pra mostrar), i: instante real (pra gravar) }
 function slotsAgendamento(){
   const w0=spWall(), min=Date.now()+60*60000, out=[];
   for(let i=0;i<=7;i++){
     const d=new Date(w0.getFullYear(),w0.getMonth(),w0.getDate()+i), dia=d.getDay();
-    if(dia<2||dia>6) continue;
-    for(let m=17*60;m<=21*60+30;m+=30){
+    const h=HORARIO[dia]; if(!h) continue;
+    for(let m=h[0];m<=h[1];m+=30){
       const wall=new Date(d.getFullYear(),d.getMonth(),d.getDate(),Math.floor(m/60),m%60,0);
       const inst=spInstant(wall.getFullYear(),wall.getMonth()+1,wall.getDate(),wall.getHours(),wall.getMinutes());
       if(inst.getTime()>=min) out.push({w:wall,i:inst});
