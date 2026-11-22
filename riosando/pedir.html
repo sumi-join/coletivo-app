@@ -48,6 +48,9 @@
   .alma{font-style:italic;font-size:12.5px;opacity:.55}
   .fechado-banner{background:var(--preto);color:var(--creme);font-size:14px;line-height:1.55;
     padding:12px 16px;border-radius:12px;margin-top:12px}
+  /* aviso do topo, editável no painel 🏪 Loja (texto puro, sem HTML) */
+  .aviso-loja{background:var(--vermelho);color:#fff;font-size:14px;line-height:1.5;font-weight:500;
+    padding:12px 16px;border-radius:12px;margin-top:12px}
   /* take-away (QR do portão da cozinha, ?modo=takeaway) */
   .takeaway-faixa{background:var(--vermelho);color:#fff;font-size:14px;line-height:1.5;
     padding:12px 16px;border-radius:12px;margin-top:12px}
@@ -198,6 +201,7 @@ window.rsPx=function(ev,data,opt){try{fbq('track',ev,data||{},opt||{})}catch(e){
     <div class="status" id="status-pill"><span class="dot" id="status-dot"></span> ter–qui 17h–21h30 · sex–sáb 18h–23h</div><button class="status conta-btn" id="menu-btn" onclick="abrirMenu()" style="background:var(--preto);color:#fff">☰ menu</button><button class="status conta-btn" onclick="abrirReserva()">🍽️ Reservar</button><button class="status conta-btn" id="conta-chip" onclick="abrirConta()">👤 entrar</button>
     <span class="ultimo-pedido" id="ultimo-pedido" style="display:none"></span>
     <div class="takeaway-faixa" id="takeaway-faixa" style="display:none"></div>
+    <div class="aviso-loja" id="aviso-loja" style="display:none"></div>
     <div class="fechado-banner" id="fechado-banner" style="display:none"></div>
     <div class="news" id="news" style="display:none"></div>
     <div class="lojinha" id="lojinha" style="display:none"></div>
@@ -431,20 +435,54 @@ let cupom = "", cupomInfo = null; // cupom de afiliado no checkout
 })();
 
 // horário por dia (minutos de parede SP) — fora disso o pedido entra agendado
-// ter–qui 17h–21h30 · sex–sáb 18h–23h (teste de horário pedido pela Fê, 20/11/2026)
+// FONTE: tabela loja_horario (painel ⏰ Horário, 21/11/2026). Isto aqui é só o RESERVA se o banco não responder:
+// ter–qui 17h–21h30 · sex–sáb 18h–23h (pedido da Fê, 20/11/2026)
 const HORARIO={2:[17*60,21*60+30],3:[17*60,21*60+30],4:[17*60,21*60+30],5:[18*60,23*60],6:[18*60,23*60]};
+// datas fechadas (tabela loja_fechada) — reserva com as 4 já decididas; pausa e aviso (tabela loja_estado)
+let FECHADAS={"2026-12-24":"Véspera de Natal","2026-12-25":"Natal","2026-12-31":"Véspera de Ano-Novo","2027-01-01":"Ano-Novo"};
+let PAUSA=null, AVISO="";
+async function carregarLoja(){
+  const pega = t => fetch(`${PGREST}/${t}`,{signal:AbortSignal.timeout?AbortSignal.timeout(5000):undefined}).then(r=>r.ok?r.json():Promise.reject(r.status));
+  const [h,f,e] = await Promise.allSettled([pega("loja_horario?select=dia,aberto,abre_min,fecha_min"), pega("loja_fechada?select=data,motivo"), pega("loja_estado?select=pausada,pausa_motivo,aviso_ativo,aviso_texto&id=eq.1")]);
+  if(h.status==="fulfilled" && Array.isArray(h.value) && h.value.length===7){
+    for(const k of Object.keys(HORARIO)) delete HORARIO[k];
+    h.value.forEach(x=>{ if(x.aberto && x.abre_min!=null && x.fecha_min>x.abre_min) HORARIO[x.dia]=[x.abre_min,x.fecha_min]; });
+  }
+  if(f.status==="fulfilled" && Array.isArray(f.value)){ FECHADAS={}; f.value.forEach(x=>FECHADAS[x.data]=x.motivo||"fechado"); }
+  if(e.status==="fulfilled" && Array.isArray(e.value) && e.value[0]){
+    const x=e.value[0]; PAUSA = x.pausada ? {motivo:(x.pausa_motivo||"").trim()} : null;
+    AVISO = x.aviso_ativo ? String(x.aviso_texto||"").trim() : "";
+  }
+}
+// "ter–qui 17h–21h30 · sex–sáb 18h–23h" montado do HORARIO (o que está no ar)
+function textoHorario(){
+  const ab=["dom","seg","ter","qua","qui","sex","sáb"], hh=m=>`${Math.floor(m/60)}h${m%60?_2(m%60):""}`, g=[];
+  for(let d=0; d<7; d++){ const h=HORARIO[d]; if(!h) continue; const k=h.join("-"), u=g[g.length-1];
+    if(u && u.k===k && u.fim===d-1){ u.fim=d; } else g.push({k,ini:d,fim:d,h}); }
+  return g.map(x=>`${ab[x.ini]}${x.fim>x.ini?"–"+ab[x.fim]:""} ${hh(x.h[0])}–${hh(x.h[1])}`).join(" · ");
+}
 // SEMPRE no relógio da cozinha (America/Sao_Paulo, fixo -03), nunca no fuso do aparelho do cliente
 function spWall(){ return new Date(new Date().toLocaleString("en-US",{timeZone:"America/Sao_Paulo"})); }
 function spInstant(y,mo,d,hh,mm){ return new Date(`${y}-${_2(mo)}-${_2(d)}T${_2(hh)}:${_2(mm)}:00-03:00`); }
+const chaveDia = w => `${w.getFullYear()}-${_2(w.getMonth()+1)}-${_2(w.getDate())}`;
+// dia em que NÃO se abre: data fechada, ou hoje com a loja pausada (pausa vale até reabrirem no painel)
+function diaFechado(w){ const k=chaveDia(w); return Object.prototype.hasOwnProperty.call(FECHADAS,k) || (!!PAUSA && k===chaveDia(spWall())); }
 function lojaAberta(){
   const w=spWall(), dia=w.getDay(), m=w.getHours()*60+w.getMinutes();
+  if(diaFechado(w)) return false;
   const h=HORARIO[dia]; return !!h && m>=h[0] && m<=h[1];
+}
+// por que está fechado agora (pra frase do banner)
+function motivoFechado(){
+  if(PAUSA) return `Pausamos os pedidos agora${PAUSA.motivo?` (${esc(PAUSA.motivo)})`:""}`;
+  const k=chaveDia(spWall()); if(Object.prototype.hasOwnProperty.call(FECHADAS,k)) return `Hoje não abrimos (${esc(FECHADAS[k])})`;
+  return "Estamos fechados agora";
 }
 function proximaAbertura(){
   const w=spWall();
-  for(let i=0;i<8;i++){
+  for(let i=0;i<15;i++){
     const d0=new Date(w.getFullYear(),w.getMonth(),w.getDate()+i), h=HORARIO[d0.getDay()];
-    if(!h) continue;
+    if(!h || diaFechado(d0)) continue;
     const c=new Date(d0.getFullYear(),d0.getMonth(),d0.getDate(),Math.floor(h[0]/60),h[0]%60,0); // parede SP
     if(c.getTime()>w.getTime())
       return { wall:c, instant: spInstant(c.getFullYear(),c.getMonth()+1,c.getDate(),c.getHours(),c.getMinutes()) };
@@ -465,7 +503,7 @@ function maskTel(el){ el.value=fmtTelBR(el.value); }
 function rotuloAbertura(){
   const p=proximaAbertura().wall, hoje=spWall();
   const nome = p.toDateString()===hoje.toDateString() ? "hoje" :
-    p.toDateString()===new Date(hoje.getTime()+86400000).toDateString() ? "amanhã" : DIAS[p.getDay()];
+    p.toDateString()===new Date(hoje.getTime()+86400000).toDateString() ? "amanhã" : `${DIAS[p.getDay()]} ${String(p.getDate()).padStart(2,"0")}/${String(p.getMonth()+1).padStart(2,"0")}`;
   return `${nome} às ${p.getHours()}h`;
 }
 const _2 = n => String(n).padStart(2,"0");
@@ -475,7 +513,7 @@ function slotsAgendamento(){
   const w0=spWall(), min=Date.now()+60*60000, out=[];
   for(let i=0;i<=7;i++){
     const d=new Date(w0.getFullYear(),w0.getMonth(),w0.getDate()+i), dia=d.getDay();
-    const h=HORARIO[dia]; if(!h) continue;
+    const h=HORARIO[dia]; if(!h || diaFechado(d)) continue;
     for(let m=h[0];m<=h[1];m+=30){
       const wall=new Date(d.getFullYear(),d.getMonth(),d.getDate(),Math.floor(m/60),m%60,0);
       const inst=spInstant(wall.getFullYear(),wall.getMonth()+1,wall.getDate(),wall.getHours(),wall.getMinutes());
@@ -790,7 +828,7 @@ function abrirSacola(){
       <button class="${entrega==="retirada"?"on":""}" onclick="setEntrega('retirada')">🏠 Retirada em Botafogo</button>
     </div>`}
     ${entrega==="retirada"?`<div class="mp-note" style="text-align:left;opacity:.8">🏠 Retirada: <a href="${MAPS_LOJA}" target="_blank" style="color:var(--verde)">${ENDERECO_LOJA}</a></div>`:""}
-    ${!lojaAberta() && quando!=="agendar"?`<div class="fechado-banner">🕐 Estamos fechados agora — seu pedido entra <b>agendado pra ${rotuloAbertura()}</b>. A cozinha prepara assim que abrir.</div>`:""}
+    ${!lojaAberta() && quando!=="agendar"?`<div class="fechado-banner">🕐 ${motivoFechado()} — seu pedido entra <b>agendado pra ${rotuloAbertura()}</b>. A cozinha prepara assim que abrir.</div>`:""}
     ${entrega==="takeaway"?"":`<label>Para quando?</label>
     <div class="toggle">
       <button class="${quando==="asap"?"on":""}" onclick="setQuando('asap')">⚡ Assim que possível</button>
@@ -958,9 +996,10 @@ async function pagar(btn){
     }
     agendadoPara = slotAg;
   } else {
+    await carregarLoja().catch(()=>{});   // pausa/data fechada podem ter mudado com a página aberta
     agendadoPara = lojaAberta() ? null : proximaAbertura().instant.toISOString();
     if(agendadoPara){
-      const ok = confirm(`⚠️ A COZINHA ESTÁ FECHADA AGORA.\n\nSeu pedido NÃO sai hoje — ele fica AGENDADO pra ${rotuloAbertura()}, e a cozinha começa a preparar assim que abrir.\n\nQuer agendar mesmo assim?`);
+      const ok = confirm(`⚠️ ${PAUSA?"PAUSAMOS OS PEDIDOS AGORA":"A COZINHA ESTÁ FECHADA AGORA"}.\n\nSeu pedido NÃO sai hoje — ele fica AGENDADO pra ${rotuloAbertura()}, e a cozinha começa a preparar assim que abrir.\n\nQuer agendar mesmo assim?`);
       if(!ok){ btn.disabled=false; btn.textContent=_btnTxt; erro.textContent=""; return; }
     }
   }
@@ -1406,6 +1445,16 @@ function fecharNews(){
     + NOVIDADES.itens.map(i=>`<div style="margin-top:7px">${i}</div>`).join("");
 })();
 
+// header: horário, aberto/fechado, pausa e aviso da loja (vêm do painel; reescritos a cada minuto)
+function atualizarStatusLoja(){
+  const pill=document.getElementById("status-pill");
+  if(pill) pill.innerHTML=`<span class="dot${lojaAberta()?"":" off"}" id="status-dot"></span> ${textoHorario()}`;
+  const b=document.getElementById("fechado-banner");
+  if(b){ if(lojaAberta()){ b.style.display="none"; }
+    else { b.style.display="block"; b.innerHTML=`🕐 ${motivoFechado()} — mas pode pedir: entra <b>agendado pra ${rotuloAbertura()}</b>.`; } }
+  const a=document.getElementById("aviso-loja");
+  if(a){ a.style.display=AVISO?"block":"none"; a.textContent=AVISO; }
+}
 // header: status aberto/fechado + atalho pro último pedido
 (function(){
   if(TAKEAWAY){
@@ -1413,12 +1462,9 @@ function fecharNews(){
     f.style.display="block";
     f.innerHTML=`🥡 <b>Take-away · retira no balcão da cozinha</b><br>Pede e paga aqui, a gente chama seu nome no balcão. Sem frete.`;
   }
-  if(!lojaAberta()){
-    document.getElementById("status-dot").classList.add("off");
-    const b=document.getElementById("fechado-banner");
-    b.style.display="block";
-    b.innerHTML=`🕐 Fechados agora — mas pode pedir: entra <b>agendado pra ${rotuloAbertura()}</b>.`;
-  }
+  atualizarStatusLoja();
+  carregarLoja().then(()=>{ atualizarStatusLoja(); try{ render(); }catch(e){} }).catch(()=>{});
+  setInterval(()=>carregarLoja().then(atualizarStatusLoja).catch(()=>{}), 60000);  // pausa aparece em até 1 min pra quem já está com o app aberto
   const u=JSON.parse(localStorage.getItem("rs_ultimo")||"null");
   if(u && Date.now()-u.quando < 24*3600*1000 && !new URLSearchParams(location.search).has("pedido")){
     const el=document.getElementById("ultimo-pedido");

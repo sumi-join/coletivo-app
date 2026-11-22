@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Rio Sandô — cozinha</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
   :root{--preto:#1A1A1A;--creme:#F5F0EB;--vermelho:#C0392B;--verde:#2D5A27;--card:#FDFBF8;--linha:rgba(26,26,26,.12)}
   *{margin:0;padding:0;box-sizing:border-box}
@@ -94,6 +96,22 @@
   .cotcard.melhor .chamar{background:var(--verde)}
   .cot-off{background:var(--card);color:var(--preto);border:1px dashed var(--linha);border-radius:12px;padding:12px;opacity:.6;font-size:11.5px}
   .cot-ifood{display:block;text-align:center;background:#EA1D2C;color:#fff;border-radius:10px;padding:11px;font-size:13px;text-decoration:none;margin-top:8px;font-weight:500}
+  /* ⏰ Horário · 🏪 Loja (21/11/2026) */
+  .pausa-bar{background:var(--vermelho);color:#fff;border-radius:14px;padding:14px 16px;margin:0 0 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:15px}
+  .pausa-bar b{letter-spacing:.06em}
+  .pausa-bar button{margin-left:auto;background:#fff;color:var(--vermelho);border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600}
+  .lembrete{background:#FFF4D6;color:var(--preto);border-left:5px solid #E0A800;border-radius:0 12px 12px 0;padding:12px 14px;font-size:14px;line-height:1.5;margin:0 0 16px}
+  .acesso-parcial{background:rgba(245,240,235,.08);border:1px dashed rgba(245,240,235,.4);border-radius:12px;padding:10px 14px;font-size:13px;margin:0 0 14px;line-height:1.5}
+  .hrow{display:grid;grid-template-columns:110px 120px 1fr 1fr;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--linha)}
+  .hrow input[type=time]{font-family:inherit;font-size:15px;padding:8px;border:1px solid var(--preto);border-radius:8px;background:#fff;width:100%}
+  .hrow input:disabled{opacity:.35}
+  .carimbo{font-size:12px;opacity:.6;margin-top:6px}
+  .logtab{width:100%;border-collapse:collapse;font-size:13px}
+  .logtab td{padding:7px 4px;border-top:1px solid var(--linha);vertical-align:top}
+  .bigbtn{width:100%;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:600;letter-spacing:.03em;margin-top:12px}
+  .login .google{background:#fff;color:var(--preto);border:1px solid var(--preto);margin-top:10px}
+  .login .ou{text-align:center;font-size:11px;letter-spacing:.15em;opacity:.5;margin-top:16px}
+  @media (max-width:600px){ .hrow{grid-template-columns:1fr 1fr} }
   @media screen{ #comanda{display:none} }
   @media print{
     body *{display:none}
@@ -141,7 +159,10 @@ function render(){
       <h2>Rio Sandô · Cozinha</h2>
       <label>E-mail</label><input id="email" type="email" value="riosandolito@gmail.com">
       <label>Senha</label><input id="senha" type="password">
-      <button onclick="entrar()">Entrar</button><div class="erro" id="lerro"></div></div>`;
+      <button onclick="entrar()">Entrar</button>
+      <div class="ou">— OU, COM SEU PRÓPRIO E-MAIL —</div>
+      <button class="google" onclick="entrarGoogle()">Entrar com Google</button>
+      <div class="erro" id="lerro"></div></div>`;
     return;
   }
   if(view==="afiliados"){ renderAfiliados(); return; }
@@ -157,8 +178,10 @@ function render(){
   if(view==="lanc"){ renderLanc(); return; }
   if(view==="relatorio"){ renderRelatorio(); return; }
   if(view==="notas"){ renderNotas(); return; }
+  if(view==="horario"){ renderHorario(); return; }
+  if(view==="loja"){ renderLoja(); return; }
   app.innerHTML=`<header>
-      <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho</div></div>
+      <div><h1>RIO SAND<span>Ô</span> · COZINHA</h1><div class="sub">pedidos de hoje · atualiza sozinho${sess.google?` · ${esc(sess.nome||sess.email)}`:""}</div></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">
         <button class="topbtn" onclick="abrirPedidoManual()">➕ Pedido</button>
         <button class="topbtn" onclick="abrirNotas()">📄 Notas do dia</button>
@@ -168,6 +191,8 @@ function render(){
         <button class="topbtn" onclick="abrirAfiliados()">🤝 Afiliados</button>
         <button class="topbtn" onclick="abrirCupons()">🎟️ Cupons</button>
         <button class="topbtn" onclick="abrirCardapio()">🍱 Cardápio</button>
+        <button class="topbtn" onclick="abrirHorario()">⏰ Horário</button>
+        <button class="topbtn" onclick="abrirLoja()" style="${lojaEstado&&lojaEstado.pausada?'background:var(--vermelho);border-color:var(--vermelho)':''}">🏪 Loja${lojaEstado&&lojaEstado.pausada?' · PAUSADA':''}</button>
         <button class="topbtn" onclick="abrirAgendados()">⏰ Agendados</button>
         <button class="topbtn" onclick="abrirEspera()">⏸ Em espera<span id="esp-badge" style="display:none;background:#8a7a2a;color:#fff;border-radius:9px;padding:0 6px;margin-left:5px;font-size:11px"></span></button>
         <button class="topbtn" onclick="abrirReservas()">🍽️ Reservas</button>
@@ -176,6 +201,8 @@ function render(){
         <button class="topbtn" onclick="abrirLancamentos()">🧾 Lançamentos</button>
         <button class="sair" onclick="sair()">Sair</button></div>
     </header>
+    ${barraPausa()}
+    ${sess.google&&!sess.completo?`<div class="acesso-parcial">Você entrou com o seu Google (${esc(sess.email)}). Por enquanto este login mexe em <b>Horário, Loja e Cardápio</b>; os pedidos aparecem aqui quando o Eduardo liberar o acesso completo. Para operar pedidos agora, use o login da cozinha.</div>`:""}
     <div class="cols">${COLS.map(([st,titulo])=>{
       const list=pedidos.filter(p=>p.status===st && !p.em_espera);
       return `<div class="col"><h2>${titulo} (${list.length})</h2>
@@ -194,7 +221,8 @@ let prods=[], prodMsg="";
 const GRUPO = id => id.startsWith("v_")?"Vinhos":/^m\d/.test(id)?"Molhos":["slaw","rabanete","picles"].includes(id)?"Conservas":["agua","agua_gas","coca","coca_zero","guarana","guarana_zero","corona","matte"].includes(id)?"Bebidas":["shokupan"].includes(id)?"Da padaria":["matchado"].includes(id)?"Sobremesa":"Sandôs";
 function abrirCardapio(){ view="cardapio"; prodMsg=""; render(); carregarCardapio(); }
 async function carregarCardapio(){
-  const r=await api("produtos?select=id,nome,preco,ativo&order=nome");
+  let r=await api("produtos?select=id,nome,preco,ativo,atualizado_em,atualizado_por,atualizado_nome&order=nome");
+  if(r&&!r.ok) r=await api("produtos?select=id,nome,preco,ativo&order=nome");   // antes da migração 21/11
   if(r&&r.ok){ prods=await r.json(); if(view==="cardapio") renderCardapio(); }
 }
 function renderCardapio(){
@@ -206,26 +234,204 @@ function renderCardapio(){
     </header>
     <div style="max-width:760px;margin:0 auto;padding:12px 16px 40px">
     <p style="font-size:13px;opacity:.75;margin:0 0 12px">Desligar tira o item do app na hora (o cliente não vê nem consegue pedir). Vale só para o app direto — no iFood e no Menew é separado.</p>
-    <div id="prod-msg" style="font-size:13px;color:var(--vermelho);min-height:18px">${prodMsg}</div>
+    <div class="lembrete">💲 <b>Preço do app = preço do iFood.</b> Mudou o preço aqui? Mude também no iFood (Portal do Parceiro) no mesmo dia. O benefício do app é ponto, boas-vindas e cupom — nunca preço menor.</div>
+    <div id="prod-msg" style="font-size:14px;min-height:18px;margin-bottom:8px">${prodMsg}</div>
     ${!prods.length?`<div class="vazio">carregando…</div>`:ordem.map(g=>{const l=prods.filter(p=>GRUPO(p.id)===g); if(!l.length) return "";
       return `<h3 style="margin:18px 0 8px;font-size:15px">${g}</h3>`+l.map(p=>`<div class="afcard" style="display:flex;align-items:center;gap:10px;${p.ativo?'':'opacity:.55'}">
-        <div style="flex:1;min-width:0"><div style="font-weight:600">${esc(p.nome)}</div><div style="font-size:12px;opacity:.7">${p.ativo?'🟢 no ar':'⚪ fora do cardápio'}</div></div>
+        <div style="flex:1;min-width:0"><div style="font-weight:600">${esc(p.nome)}</div><div style="font-size:12px;opacity:.7">${p.ativo?'🟢 no ar':'⚪ fora do cardápio'}${p.atualizado_em?` · mudou ${esc(p.atualizado_nome||p.atualizado_por||"")} ${dHora(p.atualizado_em)}`:""}</div></div>
         <input type="number" step="0.1" min="0" value="${Number(p.preco)}" id="pr-${p.id}" style="width:86px" onchange="precoProd('${p.id}',this)">
         <button onclick="togglePro('${p.id}',${!p.ativo},this)" style="min-width:96px">${p.ativo?'Tirar':'Voltar'}</button></div>`).join("")}).join("")}
     </div>`;
 }
 async function togglePro(id,ativo,btn){
   btn.disabled=true;
-  const r=await api(`produtos?id=eq.${encodeURIComponent(id)}`,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({ativo})});
-  prodMsg = r&&r.ok ? "" : "Não deu para salvar (sem permissão ou sem conexão). Avise o Eduardo.";
+  const p=prods.find(x=>x.id===id), quem=quemMexe(); if(!quem){ btn.disabled=false; return; }
+  const body={ativo}; if(p&&"atualizado_nome" in p) body.atualizado_nome=quem;
+  const r=await api(`produtos?id=eq.${encodeURIComponent(id)}`,{method:"PATCH",headers:{Prefer:"return=minimal","x-quem":quem},body:JSON.stringify(body)});
+  prodMsg = r&&r.ok ? "" : `<span style="color:var(--vermelho)">Não deu para salvar (sem permissão ou sem conexão). Avise o Eduardo.</span>`;
   await carregarCardapio(); renderCardapio();
 }
 async function precoProd(id,inp){
   const v=Number(inp.value); if(!(v>0)){ prodMsg="Preço inválido."; return renderCardapio(); }
-  const p=prods.find(x=>x.id===id); if(!confirm(`Mudar ${p.nome} de ${fmt(p.preco)} para ${fmt(v)}?`)){ inp.value=p.preco; return; }
-  const r=await api(`produtos?id=eq.${encodeURIComponent(id)}`,{method:"PATCH",headers:{Prefer:"return=minimal"},body:JSON.stringify({preco:v})});
-  prodMsg = r&&r.ok ? "" : "Não deu para salvar o preço. Avise o Eduardo.";
+  const p=prods.find(x=>x.id===id); if(!confirm(`Mudar ${p.nome} de ${fmt(p.preco)} para ${fmt(v)}?\n\n⚠️ Preço do app = preço do iFood. Mude lá também (Portal do Parceiro iFood).`)){ inp.value=p.preco; return; }
+  const quem=quemMexe(); if(!quem){ inp.value=p.preco; return; }
+  const body={preco:v}; if("atualizado_nome" in p) body.atualizado_nome=quem;
+  const r=await api(`produtos?id=eq.${encodeURIComponent(id)}`,{method:"PATCH",headers:{Prefer:"return=minimal","x-quem":quem},body:JSON.stringify(body)});
+  prodMsg = r&&r.ok ? `<div class="lembrete" style="margin:0">✅ ${esc(p.nome)} agora custa <b>${fmt(v)}</b> no app. <b>Falta o iFood:</b> mude lá para ${fmt(v)} também.</div>` : `<span style="color:var(--vermelho)">Não deu para salvar o preço. Avise o Eduardo.</span>`;
   await carregarCardapio(); renderCardapio();
+}
+
+// ── ⏰ Horário · 🏪 Loja (21/11/2026) — tabelas loja_horario, loja_fechada, loja_estado, equipe, admin_log ──
+// Quem mudou: o e-mail vem do login (carimbo no banco, não dá pra forjar); o nome vem do Google ou do "seu nome" do tablet.
+const HP_RESERVA={2:[17*60,21*60+30],3:[17*60,21*60+30],4:[17*60,21*60+30],5:[18*60,23*60],6:[18*60,23*60]};
+let lojaHorario=null, lojaFechadas=null, lojaEstado=null, lojaEquipe=[], lojaLog=[], lojaMsg="";
+const DIAS_PT=["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+const minHM = m => m==null?"":`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+const hmMin = s => { const [h,m]=String(s||"").split(":").map(Number); return isFinite(h)&&isFinite(m)?h*60+m:null; };
+const dHora = iso => { try{ return new Date(iso).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); }catch(e){ return ""; } };
+const dataBR = d => { const [y,m,dd]=String(d).split("-"); return `${dd}/${m}/${y}`; };
+const chaveDiaLocal = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+function quemMexe(){ return sess&&sess.google ? (sess.nome||sess.email) : quemEscreve(); }
+function horarioDia(dia){
+  if(Array.isArray(lojaHorario)&&lojaHorario.length===7){ const h=lojaHorario.find(x=>x.dia===dia); return h&&h.aberto&&h.abre_min!=null?[h.abre_min,h.fecha_min]:null; }
+  return HP_RESERVA[dia]||null;
+}
+function diaFechadoPainel(d){
+  const k=chaveDiaLocal(d);
+  if(Array.isArray(lojaFechadas)&&lojaFechadas.some(x=>x.data===k)) return true;
+  return !!(lojaEstado&&lojaEstado.pausada) && k===chaveDiaLocal(new Date());
+}
+async function carregarEstadoLoja(){
+  const r=await api("loja_estado?id=eq.1&select=*"); if(!r||!r.ok) return;
+  const [e]=await r.json(); const mudou=JSON.stringify(e)!==JSON.stringify(lojaEstado); lojaEstado=e||null;
+  if(mudou && view==="board") render();
+}
+async function carregarLojaTudo(){
+  const [h,f,e,q,l]=await Promise.all([api("loja_horario?select=*&order=dia"),api("loja_fechada?select=*&order=data"),api("loja_estado?id=eq.1&select=*"),api("equipe?select=*&order=criado_em"),api("admin_log?select=em,tabela,operacao,chave,antes,depois,por_email,por_nome&order=em.desc&limit=25")]);
+  if(h&&h.ok) lojaHorario=await h.json(); if(f&&f.ok) lojaFechadas=await f.json();
+  if(e&&e.ok){ const [x]=await e.json(); lojaEstado=x||null; }
+  if(q&&q.ok) lojaEquipe=await q.json(); if(l&&l.ok) lojaLog=await l.json();
+  if(view==="horario") renderHorario(); if(view==="loja") renderLoja();
+}
+async function patchLoja(path, body, okMsg){
+  const quem=quemMexe(); if(!quem) return false;
+  const r=await api(path,{method:"PATCH",headers:{Prefer:"return=representation","x-quem":quem},body:JSON.stringify({...body, atualizado_nome:quem})});
+  const ok=r&&r.ok&&(await r.json()).length>0;
+  lojaMsg = ok ? `✅ ${okMsg}` : `<span style="color:var(--vermelho)">Não deu para salvar (sem permissão ou sem conexão). Avise o Eduardo.</span>`;
+  await carregarLojaTudo(); return ok;
+}
+function barraPausa(){
+  if(!lojaEstado||!lojaEstado.pausada) return "";
+  return `<div class="pausa-bar"><span>⏸ <b>LOJA PAUSADA</b> — o app mostra fechado e pedido novo vira agendado pra próxima abertura.${lojaEstado.pausa_motivo?` Motivo: ${esc(lojaEstado.pausa_motivo)}.`:""} <span style="opacity:.85">(${esc(lojaEstado.atualizado_nome||lojaEstado.atualizado_por||"")}, ${dHora(lojaEstado.pausada_em||lojaEstado.atualizado_em)})</span></span>
+    <button onclick="reabrirLoja()">▶ Reabrir agora</button></div>`;
+}
+function cabecalho(titulo, sub){
+  return `<header><div><h1>RIO SAND<span>Ô</span> · ${titulo}</h1><div class="sub">${sub}</div></div>
+    <div><button class="topbtn" onclick="voltarBoard()">← Pedidos</button><button class="sair" onclick="sair()">Sair</button></div></header>`;
+}
+// ⏰ Horário: semana + datas fechadas
+function abrirHorario(){ view="horario"; lojaMsg=""; render(); carregarLojaTudo(); }
+function renderHorario(){
+  const h=lojaHorario, f=lojaFechadas;
+  const ultimo = Array.isArray(h)&&h.length ? h.reduce((a,b)=>new Date(b.atualizado_em)>new Date(a.atualizado_em)?b:a) : null;
+  $("app").innerHTML=cabecalho("HORÁRIO","quando o app aceita pedido para agora · fora disso vira agendado")+`
+  <div style="max-width:760px;margin:0 auto;padding:4px 0 40px">
+    <div class="lembrete">📌 <b>Mudou aqui? Mude também no iFood e no Google.</b> Este horário vale só para o app direto (coletivo.app/riosando). iFood: Portal do Parceiro → Horários. Google: Perfil da empresa → Horário de funcionamento.</div>
+    <div style="font-size:14px;min-height:18px;margin-bottom:8px">${lojaMsg}</div>
+    <div class="afform">
+      <h3 style="margin:0 0 4px">Horário da semana</h3>
+      <div style="font-size:13px;opacity:.7">Desmarque "abre" para fechar o dia inteiro. Fecha no máximo 23:59.</div>
+      ${!Array.isArray(h)?`<div class="vazio">carregando…</div>`:h.length!==7?`<div class="vazio">Tabela de horário ainda não existe no banco — avise o Eduardo.</div>`:h.map(x=>`<div class="hrow">
+        <b>${DIAS_PT[x.dia]}</b>
+        <label style="display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;margin:0;opacity:1"><input type="checkbox" id="h-ab-${x.dia}" ${x.aberto?"checked":""} style="width:auto" onchange="$('h-a-${x.dia}').disabled=$('h-f-${x.dia}').disabled=!this.checked"> abre</label>
+        <div><label style="margin:0 0 2px">abre às</label><input type="time" id="h-a-${x.dia}" value="${minHM(x.abre_min??1020)}" ${x.aberto?"":"disabled"}></div>
+        <div><label style="margin:0 0 2px">para de aceitar às</label><input type="time" id="h-f-${x.dia}" value="${minHM(x.fecha_min==null?1290:Math.min(x.fecha_min,1439))}" ${x.aberto?"":"disabled"}></div>
+      </div>`).join("")}
+      ${Array.isArray(h)&&h.length===7?`<button onclick="salvarHorario(this)">Salvar horário</button>
+      <div class="carimbo">Última mudança: ${esc(ultimo.atualizado_nome||ultimo.atualizado_por||"—")} · ${dHora(ultimo.atualizado_em)}</div>`:""}
+    </div>
+    <div class="afform">
+      <h3 style="margin:0 0 4px">Datas fechadas</h3>
+      <div style="font-size:13px;opacity:.7">Feriado, evento, folga. Nesses dias o app não abre: pedido vira agendado pra próxima abertura e o agendamento pula a data.</div>
+      <div class="grid" style="margin-top:6px"><div><label>Data</label><input type="date" id="fx-data" min="${chaveDiaLocal(new Date())}"></div>
+        <div><label>Motivo (o cliente vê)</label><input id="fx-mot" maxlength="60" placeholder="Natal"></div></div>
+      <button onclick="addFechada(this)">Fechar nesta data</button>
+      <div style="margin-top:14px">${!Array.isArray(f)?"":!f.length?`<div class="vazio">nenhuma data fechada</div>`:f.map(x=>`<div class="linha" style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--linha);padding:8px 0;font-size:14px">
+        <span><b>${dataBR(x.data)}</b> · ${esc(x.motivo||"")} <span class="carimbo" style="display:inline">· ${esc(x.atualizado_nome||x.atualizado_por||"")}</span></span>
+        <button class="off" style="width:auto;margin:0 0 0 10px;padding:8px 14px;font-size:12px;white-space:nowrap" onclick="tirarFechada('${esc(x.data)}')">reabrir esta data</button></div>`).join("")}</div>
+    </div>
+  </div>`;
+}
+async function salvarHorario(btn){
+  const mud=[];
+  for(const x of lojaHorario){
+    const aberto=$(`h-ab-${x.dia}`).checked, a=hmMin($(`h-a-${x.dia}`).value), f=hmMin($(`h-f-${x.dia}`).value);
+    if(aberto&&(a==null||f==null||f<=a)){ lojaMsg=`<span style="color:var(--vermelho)">${DIAS_PT[x.dia]}: o fim tem que ser depois do início.</span>`; return renderHorario(); }
+    const novo={aberto, abre_min:aberto?a:null, fecha_min:aberto?f:null};
+    if(novo.aberto!==x.aberto||novo.abre_min!==x.abre_min||novo.fecha_min!==x.fecha_min) mud.push([x.dia,novo]);
+  }
+  if(!mud.length){ lojaMsg="Nada mudou."; return renderHorario(); }
+  const txt=mud.map(([d,n])=>`${DIAS_PT[d]}: ${n.aberto?minHM(n.abre_min)+"–"+minHM(n.fecha_min):"FECHADO"}`).join("\n");
+  if(!confirm(`Mudar o horário do app?\n\n${txt}\n\nVale na hora para todo cliente. Depois mude também no iFood e no Google.`)) return;
+  const quem=quemMexe(); if(!quem) return; btn.disabled=true;
+  let ok=true;
+  for(const [d,n] of mud){ const r=await api(`loja_horario?dia=eq.${d}`,{method:"PATCH",headers:{Prefer:"return=minimal","x-quem":quem},body:JSON.stringify({...n,atualizado_nome:quem})}); ok=ok&&r&&r.ok; }
+  lojaMsg = ok?`✅ Horário salvo. <b>Agora mude no iFood e no Google.</b>`:`<span style="color:var(--vermelho)">Parte não salvou — confira e avise o Eduardo.</span>`;
+  carregarLojaTudo();
+}
+async function addFechada(btn){
+  const data=$("fx-data").value, motivo=($("fx-mot").value||"").trim();
+  if(!data){ lojaMsg=`<span style="color:var(--vermelho)">Escolha a data.</span>`; return renderHorario(); }
+  const quem=quemMexe(); if(!quem) return; btn.disabled=true;
+  const r=await api("loja_fechada",{method:"POST",headers:{Prefer:"return=minimal","x-quem":quem},body:JSON.stringify({data,motivo:motivo||null,atualizado_nome:quem})});
+  lojaMsg = r&&r.ok?`✅ ${dataBR(data)} fechado no app. Feche também no iFood (Portal → Horários especiais).`:r&&r.status===409?"Essa data já está fechada.":`<span style="color:var(--vermelho)">Não deu para salvar. Avise o Eduardo.</span>`;
+  carregarLojaTudo();
+}
+async function tirarFechada(data){
+  if(!confirm(`Abrir normalmente em ${dataBR(data)}?`)) return;
+  const quem=quemMexe(); if(!quem) return;
+  const r=await api(`loja_fechada?data=eq.${data}`,{method:"DELETE",headers:{"x-quem":quem}});
+  lojaMsg = r&&r.ok?`✅ ${dataBR(data)} volta a seguir o horário da semana.`:`<span style="color:var(--vermelho)">Não deu para reabrir a data.</span>`;
+  carregarLojaTudo();
+}
+// 🏪 Loja: pausa + aviso no topo do app + quem é equipe + quem mudou o quê
+function abrirLoja(){ view="loja"; lojaMsg=""; render(); carregarLojaTudo(); }
+function renderLoja(){
+  const e=lojaEstado;
+  const nomeTab={loja_horario:"Horário",loja_fechada:"Data fechada",loja_estado:"Loja",produtos:"Cardápio"};
+  const resumo=x=>{ const a=x.antes||{}, d=x.depois||{};
+    if(x.tabela==="loja_estado"){ if(a.pausada!==d.pausada) return d.pausada?`pausou${d.pausa_motivo?` (${esc(d.pausa_motivo)})`:""}`:"reabriu"; if(a.aviso_ativo!==d.aviso_ativo||a.aviso_texto!==d.aviso_texto) return d.aviso_ativo?`aviso: “${esc(d.aviso_texto||"")}”`:"desligou o aviso"; return "editou"; }
+    if(x.tabela==="loja_horario") return `${DIAS_PT[d.dia]}: ${d.aberto?minHM(d.abre_min)+"–"+minHM(d.fecha_min):"fechado"}`;
+    if(x.tabela==="loja_fechada") return x.operacao==="DELETE"?`reabriu ${dataBR(a.data)}`:`fechou ${dataBR(d.data)}${d.motivo?` (${esc(d.motivo)})`:""}`;
+    if(x.tabela==="produtos") return a.preco!==d.preco?`${esc(d.nome)}: ${fmt(a.preco)} → ${fmt(d.preco)}`:`${esc(d.nome)}: ${d.ativo?"voltou":"saiu do cardápio"}`;
+    return x.operacao; };
+  $("app").innerHTML=cabecalho("LOJA","pausa, aviso do app e quem mexeu")+`
+  <div style="max-width:760px;margin:0 auto;padding:4px 0 40px">
+    <div style="font-size:14px;min-height:18px;margin-bottom:8px">${lojaMsg}</div>
+    ${!e?`<div class="vazio">carregando…</div>`:`
+    <div class="afform" style="${e.pausada?'border:3px solid var(--vermelho)':''}">
+      <h3 style="margin:0 0 4px">${e.pausada?"⏸ A loja está PAUSADA":"🟢 A loja segue o horário"}</h3>
+      <div style="font-size:13px;opacity:.75;line-height:1.5">${e.pausada?`Desde ${dHora(e.pausada_em||e.atualizado_em)}, por ${esc(e.atualizado_nome||e.atualizado_por||"")}. O app mostra fechado; quem pedir agora fica agendado pra próxima abertura (não hoje). Fica assim até alguém reabrir.`:"Use quando a cozinha não dá conta (fila, falta de insumo, problema na entrega). O app fecha na hora — clientes com o app aberto veem em até 1 minuto — e fica fechado até você reabrir aqui."}</div>
+      ${e.pausada?`<button class="bigbtn" style="background:var(--verde);color:#fff" onclick="reabrirLoja()">▶ Reabrir a loja agora</button>`:`
+      <label>Motivo (opcional — o cliente vê)</label><input id="pz-mot" maxlength="140" placeholder="ex.: cozinha lotada, voltamos já">
+      <button class="bigbtn" style="background:var(--vermelho);color:#fff" onclick="pausarLoja()">⏸ Pausar a loja agora</button>`}
+      <div class="carimbo">Lembre: pausar aqui NÃO pausa o iFood (lá é no Gestor de Pedidos).</div>
+    </div>
+    <div class="afform">
+      <h3 style="margin:0 0 4px">Aviso no topo do app</h3>
+      <div style="font-size:13px;opacity:.75">Frase curta que aparece em vermelho no topo do app. Ex.: "Hoje o katsu de porco acabou cedo".</div>
+      <label>Texto (até 160 letras)</label><input id="av-txt" maxlength="160" value="${esc(e.aviso_texto||"")}" oninput="$('av-cont').textContent=this.value.length+'/160'">
+      <div class="carimbo" id="av-cont">${(e.aviso_texto||"").length}/160</div>
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:14px;margin-top:10px"><input type="checkbox" id="av-on" ${e.aviso_ativo?"checked":""} style="width:auto"> Mostrar no app</label>
+      <button onclick="salvarAviso()">Salvar aviso</button>
+      <div class="carimbo">Hoje: ${e.aviso_ativo&&e.aviso_texto?`no ar — “${esc(e.aviso_texto)}”`:"sem aviso no app"}</div>
+    </div>`}
+    <div class="afform">
+      <h3 style="margin:0 0 4px">Quem mudou o quê</h3>
+      <div style="font-size:13px;opacity:.75">Últimas 25 mudanças em horário, datas, loja e cardápio.</div>
+      ${!lojaLog.length?`<div class="vazio">nada ainda</div>`:`<table class="logtab">${lojaLog.map(x=>`<tr><td style="white-space:nowrap;opacity:.7">${dHora(x.em)}</td><td><b>${esc(x.por_nome||x.por_email||"")}</b></td><td>${nomeTab[x.tabela]||esc(x.tabela)} · ${resumo(x)}</td></tr>`).join("")}</table>`}
+    </div>
+    <div class="afform">
+      <h3 style="margin:0 0 4px">Quem é equipe (login com o próprio Google)</h3>
+      <div style="font-size:13px;opacity:.75">Para incluir alguém, peça ao Eduardo (ele inclui o e-mail Google da pessoa).</div>
+      ${lojaEquipe.map(x=>`<div class="linha" style="display:flex;justify-content:space-between;border-top:1px solid var(--linha);padding:7px 0;font-size:14px;${x.ativo?"":"opacity:.5"}"><span><b>${esc(x.nome)}</b> · ${esc(x.email)}</span><span style="opacity:.6">${esc(x.papel)}${x.ativo?"":" · inativo"}</span></div>`).join("")}
+    </div>
+  </div>`;
+}
+async function pausarLoja(){
+  const motivo=($("pz-mot").value||"").trim();
+  if(!confirm(`Pausar a loja AGORA?\n\nO app mostra fechado na hora e todo pedido novo vira agendado pra próxima abertura. Fica pausada até alguém reabrir.\n\nO iFood NÃO pausa sozinho — pause lá também.`)) return;
+  if(await patchLoja("loja_estado?id=eq.1",{pausada:true,pausa_motivo:motivo||null,pausada_em:new Date().toISOString()},"Loja pausada. Pause também no iFood.")) {}
+}
+async function reabrirLoja(){
+  if(!confirm("Reabrir a loja agora? O app volta a seguir o horário normal.")) return;
+  await patchLoja("loja_estado?id=eq.1",{pausada:false,pausa_motivo:null,pausada_em:null},"Loja reaberta — o app volta a seguir o horário.");
+  if(view==="board") render();
+}
+async function salvarAviso(){
+  const txt=($("av-txt").value||"").trim(), on=$("av-on").checked;
+  if(on&&!txt){ lojaMsg=`<span style="color:var(--vermelho)">Escreva o aviso antes de ligar.</span>`; return renderLoja(); }
+  await patchLoja("loja_estado?id=eq.1",{aviso_texto:txt||null,aviso_ativo:on},on?"Aviso no ar no app.":"Aviso desligado.");
 }
 
 // ── 🎟️ Cupons de promoção ──
@@ -656,12 +862,12 @@ let mF={nome:"",zap:"",end:"",comp:"",obs:"",bairro:"",motivo:"",influ:"",slot:"
 let mTipo="pago"; // pago | cortesia | influencer
 function abrirPedidoManual(){ view="manual"; mCart={}; mResultado=null; mModo="retirada"; mTipo="pago"; mF={nome:"",zap:"",end:"",comp:"",obs:"",bairro:"",motivo:"",influ:"",slot:""}; render(); carregarCatalogoManual(); }
 function mSetTipo(v){ mTipo=v; renderManual(); }
-// slots de agendamento pra equipe: ter–qui 17:00–21:30 · sex–sáb 18:00–23:00, 30min, próx 7 dias
+// slots de agendamento pra equipe: horário da aba ⏰ Horário (banco), pula datas fechadas e hoje se pausada, 30min, próx 7 dias
 function mSlots(){
   const now=new Date(), out=[];
   for(let i=0;i<=7;i++){
     const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()+i), dia=d.getDay();
-    const HP={2:[17*60,21*60+30],3:[17*60,21*60+30],4:[17*60,21*60+30],5:[18*60,23*60],6:[18*60,23*60]}[dia]; if(!HP) continue;
+    const HP=horarioDia(dia); if(!HP || diaFechadoPainel(d)) continue;
     for(let m=HP[0];m<=HP[1];m+=30){
       const s=new Date(d.getFullYear(),d.getMonth(),d.getDate(),Math.floor(m/60),m%60,0);
       if(s.getTime()>now.getTime()) out.push(s);
@@ -1030,6 +1236,27 @@ async function _ponte(idToken){
   const r = await fetch(`${RIO_API}/auth/token`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({firebase_token:idToken})});
   return r.ok ? await r.json() : null;
 }
+// (b) login individual com Google: só entra quem está ATIVO na tabela `equipe` (21/11/2026)
+async function entrarGoogle(){
+  pedirPermissaoAviso();
+  const erro=$("lerro"); erro.textContent="";
+  if(typeof firebase==="undefined"){ erro.textContent="Google indisponível agora — use o login da cozinha."; return; }
+  if(!firebase.apps?.length) firebase.initializeApp({apiKey:FB_KEY, authDomain:"rio-sando.firebaseapp.com", projectId:"rio-sando"});
+  const prov=new firebase.auth.GoogleAuthProvider(); prov.setCustomParameters({prompt:"select_account"});
+  let res; try{ res=await firebase.auth().signInWithPopup(prov); }
+  catch(e){ if(!/popup-closed|cancelled-popup/.test(e?.code||"")) erro.textContent="Não deu para entrar com Google — tenta de novo."; return; }
+  const idToken=await res.user.getIdToken(), refresh=res.user.refreshToken;
+  try{ await firebase.auth().signOut(); }catch(e){}
+  const br=await _ponte(idToken);
+  if(!br||!br.token){ erro.textContent="Falha ao conectar — tenta de novo."; return; }
+  const ac=await fetch(`${PGREST}/rpc/meu_acesso`,{method:"POST",headers:{Authorization:`Bearer ${br.token}`,"Content-Type":"application/json"},body:"{}"}).then(r=>r.ok?r.json():null).catch(()=>null);
+  // tabela `equipe` só vale com e-mail verificado pelo Google/Firebase (senão qualquer um cadastrava o e-mail da Nanda por senha)
+  if(ac&&ac.na_lista&&!ac.verificado){ erro.textContent=`${br.email} está na equipe, mas o login não confirmou o e-mail. Entre pelo botão Google com a conta Google desse e-mail, ou avise o Eduardo.`; return; }
+  if(!ac||!ac.lista){ erro.textContent=`${br.email||"Esse e-mail"} não está na lista da equipe. Peça ao Eduardo para incluir.`; return; }
+  sess={token:br.token, refresh, exp:Date.now()+(3600-60)*1000, google:true, email:br.email, nome:ac.nome||br.nome||br.email, completo:!!ac.completo};
+  localStorage.setItem("rs_sess",JSON.stringify(sess));
+  iniciar();
+}
 async function entrar(){
   pedirPermissaoAviso();
   const fr = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FB_KEY}`,{
@@ -1051,7 +1278,7 @@ async function renovar(){
   if(!r.ok){ sair(); return false; }
   const br = await _ponte(d.id_token);
   if(!br||!br.token){ sair(); return false; }
-  sess={token:br.token, refresh:d.refresh_token, exp:Date.now()+(Number(d.expires_in)-60)*1000};
+  sess={...sess, token:br.token, refresh:d.refresh_token, exp:Date.now()+(Number(d.expires_in)-60)*1000};
   localStorage.setItem("rs_sess",JSON.stringify(sess));
   return true;
 }
@@ -1062,6 +1289,7 @@ async function api(path, opts={}){
       "Content-Type":"application/json", ...(opts.headers||{})}});
 }
 async function carregar(){
+  carregarEstadoLoja();
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const amanha = new Date(hoje.getTime()+864e5);
   // TODO pedido ativo (pago e não finalizado) aparece, não importa a idade — pedido antigo esquecido não pode sumir (caso Sophia 26/08)
@@ -1565,7 +1793,7 @@ function bip(){
     });
   }catch(e){}
 }
-function iniciar(){ render(); carregar(); clearInterval(timer); timer=setInterval(carregar,10000); }
+function iniciar(){ render(); carregar(); carregarLojaTudo(); clearInterval(timer); timer=setInterval(carregar,10000); }
 function sair(){ sess=null; localStorage.removeItem("rs_sess"); clearInterval(timer); render(); }
 sess ? iniciar() : render();
 </script>
